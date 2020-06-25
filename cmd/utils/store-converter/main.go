@@ -249,5 +249,17 @@ func convertStore(old servermanager.Store, new servermanager.Store) error {
 		return err
 	}
 
+	realpenalty, err := old.LoadRealPenaltyOptions()
+
+	if err != nil {
+		return err
+	}
+
+	err = new.UpsertRealPenaltyOptions(realpenalty)
+
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
