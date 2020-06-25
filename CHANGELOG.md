@@ -1,3 +1,26 @@
+v1.7.6
+------
+
+Added:
+
+* Added a "combine results" button to the results index page, allowing you to manually combine any results (you should probably only combine results of the same type and track, but there is no hard restriction in place)
+* Added functionality that aims to persist results information for sessions that do not complete fully. This works by sending a "Next Session" message to the acServer to tell it to write out results files for the current session. This feature is disabled by default - look for the `persist_mid_session_results` option in the config.example.yml included with this release.
+* Server Logs and Audit Logs now display using the full width of the browser window.
+* Added the user group to the body class. This should allow you to customise the CSS for different user groups.
+* Race Details popup now displays the time of day calculated from the sun angle (if Sol is disabled)
+
+Fixed:
+
+* Fixes an issue where the car name would be incorrectly set in Race Control for drivers who have swapped cars.
+* Fixes an issue where kicked drivers could become linked to the $#@@!$kicked GUID that AC assigns to kicked drivers in results files. This issue could affect ACSR, penalties, page renders and more.
+* Fixes an issue in Time Attack events where drivers connecting in different slots in multiple sessions would result in broken results files. We strongly recommend using locked entry lists in conjunction with Time Attack events.
+* Fixes an issue where Wind settings were not written out correctly to the server configuration file, resulting in 0 wind speed/direction. Please note that you will need to re-edit any races to add wind settings to them.
+* The race details popup now shows details about a second race (if configured).
+* Fixes pitbox numbers being incorrect when initially setting up an event.
+* Improved handling of results files with non-standard names.
+
+---
+
 v1.7.5
 ------
 
@@ -11,7 +34,7 @@ Added:
   - Driver Swap result files show which lap was completed by which driver (using the AutoFill Entrant list where possible to put names in)
   - Driver Swaps require compatible tracks. A compatible track has the timing line before or after all of the pitboxes. 
     You can follow this guide (written by @mike855 - thanks!) to modify a track to be compatible: https://github.com/JustaPenguin/assetto-server-manager/wiki/Driver-swap-track-editing
-* Premium users can now specify a spectator car slot in Championships and Race Weekends. The spectator car will be added to the back of the grid and excluded from all results files.
+* Premium users can now specify a spectator car slot in Championships and Race Weekends. The spectator car will be added to the back of the grid and excluded from Championship Points and Race Weekend grid decisions.
 * A landing intro for hosted servers that points users in the right direction.
 * You can now broadcast a 3-2-1-GO countdown to all drivers from the Live Timings Admin Panel.
 * You can now duplicate Championships using the dropdown next to "Edit" in the Championship list.
@@ -25,6 +48,7 @@ Added:
 * Added a popup to Custom Races, Championships and Race Weekends that drivers can use to view details of the event.
 * You can now activate a timed scanner for new Scheduled Events that you have created/imported manually. Experimental, and only intended for advanced users.
 * Added a new option in config.yml (`use_car_name_cache`). When enabled, this loads the name for all cars into memory and uses them where possible in web pages. This improves the accuracy of car names (e.g. "Mercedes 190 EVO2" becomes "Mercedes-Benz 190E EVO II") 
+* Real Penalty Tool integration! You can now use Server Manager to configure [Real Penalty Tool](https://www.racedepartment.com/downloads/real-penalty-tool.29591/). Much like the sTracker and KissMyRank integration, the ports and forwarding for this plugin will be automatically configured.
 
 Fixed:
 

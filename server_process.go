@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"net"
@@ -64,6 +65,8 @@ type AssettoServerProcess struct {
 	udpPluginLocalPort int
 	forwardingAddress  string
 	forwardListenPort  int
+
+	sessionStartedChan chan struct{}
 }
 
 func NewAssettoServerProcess(callbackFunc udp.CallbackFunc, store Store, contentManagerWrapper *ContentManagerWrapper) *AssettoServerProcess {
@@ -76,6 +79,7 @@ func NewAssettoServerProcess(callbackFunc udp.CallbackFunc, store Store, content
 		callbackFunc:          callbackFunc,
 		store:                 store,
 		contentManagerWrapper: contentManagerWrapper,
+		sessionStartedChan:    make(chan struct{}),
 	}
 
 	go sp.loop()
@@ -86,6 +90,15 @@ func NewAssettoServerProcess(callbackFunc udp.CallbackFunc, store Store, content
 func (sp *AssettoServerProcess) UDPCallback(message udp.Message) {
 	panicCapture(func() {
 		sp.callbackFunc(message)
+
+		if config.Server.PersistMidSessionResults && message.Event() == udp.EventNewSession {
+			// on new session, push down the sessionStartedChan so that if server stop is waiting to hear about
+			// a new session (so results files have been persisted correctly), it can then stop the server.
+			select {
+			case sp.sessionStartedChan <- struct{}{}:
+			default:
+			}
+		}
 	})
 }
 
@@ -125,6 +138,28 @@ var ErrServerProcessTimeout = errors.New("servermanager: server process did not 
 func (sp *AssettoServerProcess) Stop() error {
 	if !sp.IsRunning() {
 		return nil
+	}
+
+	if config.Server.PersistMidSessionResults {
+		nextSessionTimeout := time.After(time.Second * 2)
+
+		go func() {
+			logrus.Info("Attempting to advance to next session to force acServer to persist results file")
+
+			if err := sp.SendUDPMessage(&udp.NextSession{}); err != nil {
+				logrus.WithError(err).Errorf("Tried to send NextSession message to ensure results persistence, but an error occurred")
+			}
+		}()
+
+		select {
+		case <-sp.sessionStartedChan:
+			logrus.Info("Session advanced, shutting down server")
+		case <-nextSessionTimeout:
+			logrus.Info("Session timeout reached, shutting down server")
+		case err := <-sp.stopped:
+			logrus.Info("Server stopped of its own accord - likely was the last session in a non loop mode race")
+			return err
+		}
 	}
 
 	timeout := time.After(time.Second * 10)
@@ -264,7 +299,7 @@ func (sp *AssettoServerProcess) startRaceEvent(raceEvent RaceEvent) error {
 
 	if serverOptions.EnableContentManagerWrapper == 1 && serverOptions.ContentManagerWrapperPort > 0 {
 		go panicCapture(func() {
-			err := sp.contentManagerWrapper.Start(serverOptions.ContentManagerWrapperPort, sp.raceEvent)
+			err := sp.contentManagerWrapper.Start(serverOptions.ContentManagerWrapperPort, sp.raceEvent, sp)
 
 			if err != nil {
 				logrus.WithError(err).Error("Could not start Content Manager wrapper server")
@@ -281,6 +316,9 @@ func (sp *AssettoServerProcess) startRaceEvent(raceEvent RaceEvent) error {
 	kissMyRankOptions, err := sp.store.LoadKissMyRankOptions()
 	kissMyRankEnabled := err == nil && kissMyRankOptions.EnableKissMyRank && IsKissMyRankInstalled()
 
+	realPenaltyOptions, err := sp.store.LoadRealPenaltyOptions()
+	realPenaltyEnabled := err == nil && realPenaltyOptions.RealPenaltyAppConfig.General.EnableRealPenalty && IsRealPenaltyInstalled()
+
 	udpPluginPortsSetup := sp.forwardListenPort >= 0 && sp.forwardingAddress != "" || strings.Contains(sp.forwardingAddress, ":")
 
 	if (strackerEnabled || kissMyRankEnabled) && !udpPluginPortsSetup {
@@ -293,8 +331,8 @@ func (sp *AssettoServerProcess) startRaceEvent(raceEvent RaceEvent) error {
 		strackerOptions.ACPlugin.SendPort = sp.forwardListenPort
 		strackerOptions.ACPlugin.ReceivePort = formValueAsInt(strings.Split(sp.forwardingAddress, ":")[1])
 
-		if kissMyRankEnabled {
-			// kissmyrank uses stracker's forwarding to chain the plugins. make sure that it is set up.
+		if kissMyRankEnabled || realPenaltyEnabled {
+			// kissmyrank and real penalty use stracker's forwarding to chain the plugins. make sure that it is set up.
 			if strackerOptions.ACPlugin.ProxyPluginLocalPort <= 0 {
 				strackerOptions.ACPlugin.ProxyPluginLocalPort, err = FreeUDPPort()
 
@@ -331,6 +369,81 @@ func (sp *AssettoServerProcess) startRaceEvent(raceEvent RaceEvent) error {
 		logrus.Infof("Started sTracker. Listening for pTracker connections on port %d", strackerOptions.InstanceConfiguration.ListeningPort)
 	}
 
+	if realPenaltyEnabled && realPenaltyOptions != nil && udpPluginPortsSetup {
+		if err := fixRealPenaltyExecutablePermissions(); err != nil {
+			return err
+		}
+
+		var (
+			port     int
+			response string
+		)
+
+		if !strackerEnabled {
+			// connect to the forwarding address
+			port, err = strconv.Atoi(strings.Split(sp.forwardingAddress, ":")[1])
+
+			if err != nil {
+				return err
+			}
+
+			response = fmt.Sprintf("127.0.0.1:%d", sp.forwardListenPort)
+		} else {
+			logrus.Infof("sTracker and Real Penalty both enabled. Using plugin forwarding method: [Server Manager] <-> [sTracker] <-> [Real Penalty]")
+
+			// connect to stracker's proxy port
+			port = strackerOptions.ACPlugin.ProxyPluginPort
+			response = fmt.Sprintf("127.0.0.1:%d", strackerOptions.ACPlugin.ProxyPluginLocalPort)
+		}
+
+		if kissMyRankEnabled {
+			// proxy from real penalty to kmr
+			freeUDPPort, err := FreeUDPPort()
+
+			if err != nil {
+				return err
+			}
+
+			realPenaltyOptions.RealPenaltyAppConfig.PluginsRelay.UDPPort = strconv.Itoa(freeUDPPort)
+
+			pluginPort, err := FreeUDPPort()
+
+			if err != nil {
+				return err
+			}
+
+			realPenaltyOptions.RealPenaltyAppConfig.PluginsRelay.OtherUDPPlugin = fmt.Sprintf("127.0.0.1:%d", pluginPort)
+		}
+
+		realPenaltyOptions.RealPenaltyAppConfig.General.UDPPort = port
+		realPenaltyOptions.RealPenaltyAppConfig.General.UDPResponse = response
+		realPenaltyOptions.RealPenaltyAppConfig.General.ACServerPath = ServerInstallPath
+		realPenaltyOptions.RealPenaltyAppConfig.General.ACCFGFile = filepath.Join(ServerInstallPath, "cfg", "server_cfg.ini")
+		realPenaltyOptions.RealPenaltyAppConfig.General.ACTracksFolder = filepath.Join(ServerInstallPath, "content", "tracks")
+		realPenaltyOptions.RealPenaltyAppConfig.General.ACWeatherFolder = filepath.Join(ServerInstallPath, "content", "weather")
+		realPenaltyOptions.RealPenaltyAppConfig.General.AppFile = filepath.Join(RealPenaltyFolderPath(), "files", "app")
+		realPenaltyOptions.RealPenaltyAppConfig.General.ImagesFile = filepath.Join(RealPenaltyFolderPath(), "files", "images")
+		realPenaltyOptions.RealPenaltyAppConfig.General.SoundsFile = filepath.Join(RealPenaltyFolderPath(), "files", "sounds")
+		realPenaltyOptions.RealPenaltyAppConfig.General.TracksFolder = filepath.Join(RealPenaltyFolderPath(), "tracks")
+
+		if err := realPenaltyOptions.Write(); err != nil {
+			return err
+		}
+
+		err = sp.startPlugin(wd, &CommandPlugin{
+			Executable: RealPenaltyExecutablePath(),
+			Arguments: []string{
+				"--print_on",
+			},
+		})
+
+		if err != nil {
+			return err
+		}
+
+		logrus.Infof("Started Real Penalty")
+	}
+
 	if kissMyRankEnabled && kissMyRankOptions != nil && udpPluginPortsSetup {
 		if err := fixKissMyRankExecutablePermissions(); err != nil {
 			return err
@@ -350,13 +463,19 @@ func (sp *AssettoServerProcess) startRaceEvent(raceEvent RaceEvent) error {
 			kissMyRankOptions.MaxPlayers = len(entryList)
 		}
 
-		if strackerEnabled {
+		if realPenaltyEnabled && realPenaltyOptions != nil {
+			// realPenalty is enabled, use its relay port
+			logrus.Infof("Real Penalty and KissMyRank both enabled. Using plugin forwarding method: [Previous Plugin/Server Manager] <-> [Real Penalty] <-> [KissMyRank]")
+
+			kissMyRankOptions.ACServerPluginLocalPort = formValueAsInt(realPenaltyOptions.RealPenaltyAppConfig.PluginsRelay.UDPPort)
+			kissMyRankOptions.ACServerPluginAddressPort = formValueAsInt(strings.Split(realPenaltyOptions.RealPenaltyAppConfig.PluginsRelay.OtherUDPPlugin, ":")[1])
+		} else if strackerEnabled {
 			// stracker is enabled, use its forwarding port
 			logrus.Infof("sTracker and KissMyRank both enabled. Using plugin forwarding method: [Server Manager] <-> [sTracker] <-> [KissMyRank]")
 			kissMyRankOptions.ACServerPluginLocalPort = strackerOptions.ACPlugin.ProxyPluginLocalPort
 			kissMyRankOptions.ACServerPluginAddressPort = strackerOptions.ACPlugin.ProxyPluginPort
 		} else {
-			// stracker is disabled, use our forwarding port
+			// stracker and real penalty are disabled, use our forwarding port
 			kissMyRankOptions.ACServerPluginLocalPort = sp.forwardListenPort
 			kissMyRankOptions.ACServerPluginAddressPort = formValueAsInt(strings.Split(sp.forwardingAddress, ":")[1])
 		}
@@ -674,7 +793,7 @@ func (lb *logBuffer) String() string {
 	lb.mutex.Lock()
 	defer lb.mutex.Unlock()
 
-	return lb.buf.String()
+	return strings.Replace(lb.buf.String(), "\n\n", "\n", -1)
 }
 
 func FreeUDPPort() (int, error) {

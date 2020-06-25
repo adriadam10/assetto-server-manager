@@ -64,6 +64,7 @@ func Router(
 	strackerHandler *StrackerHandler,
 	healthCheck *HealthCheck,
 	kissMyRankHandler *KissMyRankHandler,
+	realPenaltyHandler *RealPenaltyHandler,
 ) http.Handler {
 	r := chi.NewRouter()
 
@@ -199,6 +200,7 @@ func Router(
 		r.Post("/car/{name}/skin", carsHandler.uploadSkin)
 		r.Post("/track/{name}/metadata", tracksHandler.saveMetadata)
 		r.Post("/results/upload", resultsHandler.uploadHandler)
+		r.HandleFunc("/results/combine", resultsHandler.combineResults)
 
 		// races
 		r.Get("/quick", quickRaceHandler.create)
@@ -340,6 +342,7 @@ func Router(
 
 		r.HandleFunc("/stracker/options", strackerHandler.options)
 		r.HandleFunc("/kissmyrank/options", kissMyRankHandler.options)
+		r.HandleFunc("/realpenalty/options", realPenaltyHandler.options)
 	})
 
 	FileServer(r, "/static", fs, false)
@@ -368,7 +371,7 @@ const maxAge30Days = 2592000
 func AssetCacheHeaders(next http.Handler, useRevalidation bool) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if useRevalidation {
-			w.Header().Add("Cache-Control", fmt.Sprintf("public, must-revalidate"))
+			w.Header().Add("Cache-Control", "public, must-revalidate")
 			etag.Handler(next, false).ServeHTTP(w, r)
 		} else {
 			w.Header().Add("Cache-Control", fmt.Sprintf("public, max-age=%d", maxAge30Days))

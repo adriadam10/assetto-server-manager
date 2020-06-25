@@ -42,6 +42,104 @@ type SessionResults struct {
 
 var ErrSessionCarNotFound = errors.New("servermanager: session car not found")
 
+// Clear Kicked GUIDs removes any instances of the kicked guid from the results
+func (s *SessionResults) ClearKickedGUIDs() {
+	// remove any instances of kickedGUID in result
+	for _, result := range s.Result {
+		if result.DriverGUID == kickedGUID {
+			for _, car := range s.Cars {
+				if car.CarID == result.CarID {
+					// check if guid isn't kickedGUID, if not try using guidsList
+					if car.Driver.GUID != kickedGUID {
+						result.DriverGUID = car.Driver.GUID
+					} else {
+						if len(car.Driver.GuidsList) >= 1 {
+							result.DriverGUID = car.Driver.GuidsList[0]
+							car.Driver.GUID = car.Driver.GuidsList[0]
+						}
+					}
+				}
+			}
+		}
+	}
+
+	// remove any instances of kickedGUID in cars
+	for _, car := range s.Cars {
+		if car.Driver.GUID == kickedGUID {
+			for _, result := range s.Result {
+				if car.CarID == result.CarID {
+					// check if guid isn't kickedGUID, if not try using guidsList
+					if result.DriverGUID != kickedGUID {
+						car.Driver.GUID = result.DriverGUID
+					} else {
+						if len(car.Driver.GuidsList) >= 1 {
+							result.DriverGUID = car.Driver.GuidsList[0]
+							car.Driver.GUID = car.Driver.GuidsList[0]
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
+// NormaliseCarIDs fixes any instances where CarID may have changed in some laps
+func (s *SessionResults) NormaliseCarIDs() {
+	var carIDsNeedNormalising bool
+
+resultCarIDCheck:
+	for _, result := range s.Result {
+		for _, car := range s.Cars {
+			if car.Driver.GUID == result.DriverGUID && car.Model == result.CarModel && car.CarID != result.CarID {
+				carIDsNeedNormalising = true
+				break resultCarIDCheck
+			}
+		}
+
+		for _, lap := range s.Laps {
+			if lap.DriverGUID == result.DriverGUID && lap.CarModel == result.CarModel && lap.CarID != result.CarID {
+				carIDsNeedNormalising = true
+				break resultCarIDCheck
+			}
+		}
+	}
+
+	if !carIDsNeedNormalising {
+		return
+	}
+
+	logrus.Infof("CarIDs in event results do not match, attempting automatic fix.")
+
+	for i, result := range s.Result {
+		result.CarID = i
+	}
+
+	for _, result := range s.Result {
+		for _, car := range s.Cars {
+			if car.Driver.GUID == result.DriverGUID && car.Model == result.CarModel {
+				car.CarID = result.CarID
+			}
+		}
+
+		// events might get mixed up, not a lot we can do
+		for _, event := range s.Events {
+			if event.Driver.GUID == result.DriverGUID {
+				event.CarID = result.CarID
+			}
+
+			if event.OtherDriver.GUID == result.DriverGUID {
+				event.OtherCarID = result.CarID
+			}
+		}
+
+		for _, lap := range s.Laps {
+			if lap.DriverGUID == result.DriverGUID && lap.CarModel == result.CarModel {
+				lap.CarID = result.CarID
+			}
+		}
+	}
+}
+
 func (s *SessionResults) FindCarByGUIDAndModel(guid, model string) (*SessionCar, error) {
 	carID := s.FindCarIDForGUIDAndModel(guid, model)
 
@@ -452,6 +550,11 @@ func (s *SessionResults) IsDriversFastestSector(guid, model string, sector, time
 	}
 
 	return fastest
+}
+
+func (s *SessionResults) UpdateDate(date time.Time) {
+	s.Date = date
+	s.SessionFile = fmt.Sprintf("%d_%d_%d_%d_%d_%s.json", date.Year(), date.Month(), date.Day(), date.Hour(), date.Minute(), s.Type.OriginalString())
 }
 
 func (s *SessionResults) FallBackSort() {
@@ -1082,7 +1185,8 @@ func listResults(page int) ([]SessionResults, []int, error) {
 		result, err := LoadResult(resultFile.Name())
 
 		if err != nil {
-			return nil, nil, err
+			logrus.WithError(err).Errorf("Could not load results file: %s", resultFile.Name())
+			continue
 		}
 
 		results = append(results, *result)
@@ -1112,7 +1216,8 @@ func ListAllResults() ([]SessionResults, error) {
 		result, err := LoadResult(resultFile.Name(), LoadResultWithoutPluginFire)
 
 		if err != nil {
-			return nil, err
+			logrus.WithError(err).Errorf("Could not load results file: %s", resultFile.Name())
+			continue
 		}
 
 		results = append(results, *result)
@@ -1162,11 +1267,20 @@ func LoadResult(fileName string, opts ...LoadResultOpts) (*SessionResults, error
 
 	date, err := GetResultDate(fileName)
 
-	if err != nil {
-		return nil, err
+	if err == nil {
+		result.Date = date
+	} else {
+		logrus.WithError(err).Errorf("Could not parse results date from filename: %s. Using mod time.", fileName)
+
+		f, err := os.Stat(filepath.Join(resultsPath, fileName))
+
+		if err != nil {
+			return nil, err
+		}
+
+		result.Date = f.ModTime()
 	}
 
-	result.Date = date
 	result.SessionFile = strings.Trim(fileName, ".json")
 
 	var validResults []*SessionResult
@@ -1281,6 +1395,72 @@ func (rh *ResultsHandler) uploadHandler(w http.ResponseWriter, r *http.Request) 
 	http.Redirect(w, r, r.Referer(), http.StatusFound)
 }
 
+type combineResultsTemplateVars struct {
+	BaseTemplateVars
+
+	Results []SessionResults
+}
+
+const combinedSuffix = "-combined"
+
+func (rh *ResultsHandler) combineResults(w http.ResponseWriter, r *http.Request) {
+	if r.Method == http.MethodPost {
+		if err := r.ParseForm(); err != nil {
+			logrus.WithError(err).Error("Combine Results: Couldn't parse form")
+			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+			return
+		}
+
+		combineResultsSessionFiles := r.Form["CombineResults"]
+
+		var resultsToCombine []*SessionResults
+
+		for _, resultSessionFile := range combineResultsSessionFiles {
+			result, err := LoadResult(resultSessionFile + ".json")
+
+			if err != nil {
+				logrus.WithError(err).Error("Combine Results: Couldn't load result")
+				http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+				return
+			}
+
+			resultsToCombine = append(resultsToCombine, result)
+		}
+
+		combinedResult := combineResults(resultsToCombine)
+
+		combinedResult.FallBackSort()
+		combinedResult.UpdateDate(time.Now())
+
+		if !strings.HasSuffix(combinedResult.SessionFile, combinedSuffix) {
+			combinedResult.SessionFile = combinedResult.SessionFile + combinedSuffix
+		}
+
+		err := saveResults(combinedResult.SessionFile+".json", combinedResult)
+
+		if err != nil {
+			logrus.WithError(err).Error("Combine Results: Couldn't save result")
+			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+			return
+		}
+
+		http.Redirect(w, r, "/results", http.StatusFound)
+		return
+	}
+
+	results, err := ListAllResults()
+
+	if err != nil {
+		logrus.WithError(err).Error("Combine Results: Couldn't list results")
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		return
+	}
+
+	rh.viewRenderer.MustLoadTemplate(w, r, "results/combine.html", &combineResultsTemplateVars{
+		Results: results,
+	})
+}
+
 const uploadFileSizeLimit = 5e6
 
 func (rh *ResultsHandler) upload(r *http.Request) (bool, error) {
@@ -1369,6 +1549,9 @@ func (rh *ResultsHandler) view(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		logrus.WithError(err).Errorf("couldn't load autofill entrant list")
 	}
+
+	result.ClearKickedGUIDs()
+	result.NormaliseCarIDs()
 
 	rh.viewRenderer.MustLoadTemplate(w, r, "results/result.html", &resultsViewTemplateVars{
 		BaseTemplateVars: BaseTemplateVars{

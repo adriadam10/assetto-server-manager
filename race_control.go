@@ -532,7 +532,7 @@ func (rc *RaceControl) OnEndSession(sessionFile udp.EndSession) error {
 	return nil
 }
 
-const timeAttackSuffix string = "-time-attack"
+const timeAttackSuffix = "-time-attack"
 
 func (rc *RaceControl) addFileToTimeAttackEvent(file string) error {
 	logrus.Info("Time Attack event completed, combining with any previous results")
@@ -561,8 +561,9 @@ func (rc *RaceControl) addFileToTimeAttackEvent(file string) error {
 
 	results = combineResults(resultsArray)
 
-	// use fallbacksort to build result and sort
 	results.FallBackSort()
+	results.ClearKickedGUIDs()
+	results.NormaliseCarIDs()
 
 	if !strings.HasSuffix(results.SessionFile, timeAttackSuffix) {
 		results.SessionFile = results.SessionFile + timeAttackSuffix
@@ -606,7 +607,7 @@ func (rc *RaceControl) OnClientConnect(client udp.SessionCarInfo) error {
 	driver.CarInfo = client
 
 	if _, ok := driver.Cars[driver.CarInfo.CarModel]; !ok {
-		driver.Cars[driver.CarInfo.CarModel] = &RaceControlCarLapInfo{}
+		driver.Cars[driver.CarInfo.CarModel] = NewRaceControlCarLapInfo(driver.CarInfo.CarModel)
 	}
 
 	driver.ConnectedTime = time.Now()
@@ -733,7 +734,7 @@ func (rc *RaceControl) handleDriverSwap(ticker *time.Ticker, config CurrentRaceC
 				}
 			} else {
 				if totalTime.Seconds() >= completeTime.Seconds() {
-					sendChat, err := udp.NewSendChat(currentDriver.CarInfo.CarID, fmt.Sprintf("You are clear to leave the pits, go go go!"))
+					sendChat, err := udp.NewSendChat(currentDriver.CarInfo.CarID, "You are clear to leave the pits, go go go!")
 
 					if err == nil {
 						err := rc.process.SendUDPMessage(sendChat)

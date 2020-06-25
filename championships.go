@@ -768,6 +768,8 @@ func (c *Championship) AddEntrantFromSession(potentialEntrant PotentialChampions
 	return false, nil, classForCar, nil
 }
 
+const kickedGUID = "$#@@!$kicked"
+
 // EnhanceResults takes a set of SessionResults and attaches Championship information to them.
 func (c *Championship) EnhanceResults(results *SessionResults) {
 	if results == nil {
@@ -785,6 +787,8 @@ func (c *Championship) EnhanceResults(results *SessionResults) {
 			class.AttachEntrantToResult(entrant, results)
 		}
 	}
+
+	results.ClearKickedGUIDs()
 }
 
 func NewChampionshipStanding(car *SessionCar) *ChampionshipStanding {
@@ -804,11 +808,7 @@ type ChampionshipStanding struct {
 }
 
 func (cs *ChampionshipStanding) AddEventForTeam(team string) {
-	if _, ok := cs.Teams[team]; ok {
-		cs.Teams[team]++
-	} else {
-		cs.Teams[team] = 1
-	}
+	cs.Teams[team]++
 }
 
 func (cs *ChampionshipStanding) TeamSummary() string {
@@ -1163,7 +1163,7 @@ func (c *ChampionshipClass) StandingsForEntrantAtEvent(championship *Championshi
 	noFinishReason := "DNS"
 
 	for i, standing := range c.StandingsForEvent(championship, event) {
-		if standing.Car.Model == entrant.Car.Model && standing.Car.GetGUID() == entrant.Car.GetGUID() {
+		if standing.Car.GetGUID() == entrant.Car.GetGUID() {
 
 			switch {
 			case standing.Points == 0.0:

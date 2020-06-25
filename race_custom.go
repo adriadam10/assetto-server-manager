@@ -12,7 +12,6 @@ import (
 )
 
 type CustomRace struct {
-	ScheduledEvents map[ServerID]*ScheduledEventBase
 	ScheduledEventBase
 
 	Name                            string
@@ -35,6 +34,8 @@ type CustomRace struct {
 
 	RaceConfig CurrentRaceConfig
 	EntryList  EntryList
+
+	ScheduledEvents map[ServerID]*ScheduledEventBase
 }
 
 func (cr *CustomRace) GetRaceConfig() CurrentRaceConfig {
@@ -271,7 +272,7 @@ func (crh *CustomRaceHandler) submit(w http.ResponseWriter, r *http.Request) {
 	err := crh.raceManager.SetupCustomRace(r)
 
 	if err != nil {
-		logrus.WithError(err).Errorf("couldn't apply quick race")
+		logrus.WithError(err).Errorf("couldn't apply custom race")
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
