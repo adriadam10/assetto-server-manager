@@ -483,26 +483,26 @@ func (cmw *ContentManagerWrapper) buildContentManagerDetails(guid string) (*Cont
 	sessionInfo.Country = []string{geoInfo.CountryName, geoInfo.CountryCode}
 
 	var description string
-	var championshipID uuid.UUID
+	/*	var championshipID uuid.UUID
 
-	if champ, ok := cmw.event.(*ActiveChampionship); ok {
-		championshipID = champ.ChampionshipID
-	}
-
-	if raceWeekend, ok := cmw.event.(*ActiveRaceWeekend); ok {
-		championshipID = raceWeekend.ChampionshipID
-	}
-
-	if championshipID != uuid.Nil {
-		championship, err := cmw.store.LoadChampionship(championshipID.String())
-
-		if err == nil {
-			description = championship.GetPlayerSummary(guid) + "\n\n"
-		} else {
-			logrus.WithError(err).Warn("can't load championship info")
+		if champ, ok := cmw.event.(*ActiveChampionship); ok {
+			championshipID = champ.ChampionshipID
 		}
-	}
 
+		if raceWeekend, ok := cmw.event.(*ActiveRaceWeekend); ok {
+			championshipID = raceWeekend.ChampionshipID
+		}
+
+		if championshipID != uuid.Nil {
+			championship, err := cmw.store.LoadChampionship(championshipID.String())
+
+			if err == nil {
+				description = championship.GetPlayerSummary(guid) + "\n\n"
+			} else {
+				logrus.WithError(err).Warn("can't load championship info")
+			}
+		}
+	*/
 	description += cmw.description
 
 	// @TODO ContentManagerWrapperContentRequiresPassword from config_ini.go

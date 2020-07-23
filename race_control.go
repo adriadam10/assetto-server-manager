@@ -937,53 +937,54 @@ func (rc *RaceControl) OnClientLoaded(loadedCar udp.ClientLoaded) error {
 	if err != nil {
 		return err
 	}
+	/*
+		serverConfig, err := rc.store.LoadServerOptions()
 
-	serverConfig, err := rc.store.LoadServerOptions()
-
-	if err != nil {
-		return err
-	}
-
-	solWarning := ""
-	liveLink := ""
-
-	if rc.process.Event().GetRaceConfig().IsSol == 1 {
-		solWarning = "This server is running Sol. For the best experience please install Sol, and remember the other drivers may be driving in night conditions."
-	}
-
-	if config != nil && config.HTTP.BaseURL != "" {
-		liveLink = fmt.Sprintf("You can view live timings for this event at %s", config.HTTP.BaseURL+"/live-timing")
-	}
-
-	wrapped := strings.Split(wordwrap.WrapString(
-		fmt.Sprintf(
-			"Hi, %s! Welcome to the %s server! %s %s Make this race count! %s\n",
-			driver.CarInfo.DriverName,
-			serverConfig.GetName(),
-			serverConfig.ServerJoinMessage,
-			solWarning,
-			liveLink,
-		),
-		60,
-	), "\n")
-
-	for _, msg := range wrapped {
-		welcomeMessage, err := udp.NewSendChat(driver.CarInfo.CarID, msg)
-
-		if err == nil {
-			err := rc.process.SendUDPMessage(welcomeMessage)
-
-			if err != nil {
-				logrus.WithError(err).Errorf("Unable to send welcome message to: %s", driver.CarInfo.DriverName)
-			}
-		} else {
-			logrus.WithError(err).Errorf("Unable to build welcome message to: %s", driver.CarInfo.DriverName)
+		if err != nil {
+			return err
 		}
-	}
 
-	if err := rc.sendChampionshipPlayerSummaryMessage(driver); err != nil {
-		logrus.WithError(err).Errorf("Couldn't send championship welcome message to driver: %s", driver.CarInfo.DriverName)
-	}
+		solWarning := ""
+		liveLink := ""
+
+		if rc.process.Event().GetRaceConfig().IsSol == 1 {
+			solWarning = "This server is running Sol. For the best experience please install Sol, and remember the other drivers may be driving in night conditions."
+		}
+
+		if config != nil && config.HTTP.BaseURL != "" {
+			liveLink = fmt.Sprintf("You can view live timings for this event at %s", config.HTTP.BaseURL+"/live-timing")
+		}
+
+		wrapped := strings.Split(wordwrap.WrapString(
+			fmt.Sprintf(
+				"Hi, %s! Welcome to the %s server! %s %s Make this race count! %s\n",
+				driver.CarInfo.DriverName,
+				serverConfig.GetName(),
+				serverConfig.ServerJoinMessage,
+				solWarning,
+				liveLink,
+			),
+			60,
+		), "\n")
+
+		for _, msg := range wrapped {
+			welcomeMessage, err := udp.NewSendChat(driver.CarInfo.CarID, msg)
+
+			if err == nil {
+				err := rc.process.SendUDPMessage(welcomeMessage)
+
+				if err != nil {
+					logrus.WithError(err).Errorf("Unable to send welcome message to: %s", driver.CarInfo.DriverName)
+				}
+			} else {
+				logrus.WithError(err).Errorf("Unable to build welcome message to: %s", driver.CarInfo.DriverName)
+			}
+		}
+
+		if err := rc.sendChampionshipPlayerSummaryMessage(driver); err != nil {
+			logrus.WithError(err).Errorf("Couldn't send championship welcome message to driver: %s", driver.CarInfo.DriverName)
+		}
+	*/
 
 	logrus.Debugf("Driver: %s (%s) loaded", driver.CarInfo.DriverName, driver.CarInfo.DriverGUID)
 
@@ -994,6 +995,7 @@ func (rc *RaceControl) OnClientLoaded(loadedCar udp.ClientLoaded) error {
 	return err
 }
 
+/*
 func (rc *RaceControl) sendChampionshipPlayerSummaryMessage(driver *RaceControlDriver) error {
 	var championshipID uuid.UUID
 
@@ -1054,7 +1056,7 @@ func (rc *RaceControl) sendChampionshipPlayerSummaryMessage(driver *RaceControlD
 
 	return nil
 }
-
+*/
 // OnLapCompleted occurs every time a driver crosses the line. Lap information is collected for the driver
 // and best lap time and top speed are calculated. OnLapCompleted also remembers the car the lap was completed in
 // a PreviousCars map on the driver. This is so that lap times between different cars can be compared.
