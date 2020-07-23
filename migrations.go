@@ -211,7 +211,7 @@ func enhanceOldChampionshipResultFiles(rs Store) error {
 	for _, c := range championships {
 		for _, event := range c.Events {
 			for _, session := range event.Sessions {
-				c.EnhanceResults(session.Results)
+				c.EnhanceResults(session.Results, event)
 			}
 		}
 

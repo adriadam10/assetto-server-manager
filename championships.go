@@ -819,7 +819,7 @@ func (c *Championship) AddEntrantFromSession(potentialEntrant PotentialChampions
 const kickedGUID = "$#@@!$kicked"
 
 // EnhanceResults takes a set of SessionResults and attaches Championship information to them.
-func (c *Championship) EnhanceResults(results *SessionResults) {
+func (c *Championship) EnhanceResults(results *SessionResults, event *ChampionshipEvent) {
 	if results == nil {
 		return
 	}
@@ -829,10 +829,23 @@ func (c *Championship) EnhanceResults(results *SessionResults) {
 	c.AttachClassIDToResults(results)
 	results.NormaliseDriverSwapGUIDs()
 
-	// update names / teams to the values we know to be correct due to championship setup
-	for _, class := range c.Classes {
-		for _, entrant := range class.Entrants {
-			class.AttachEntrantToResult(entrant, results)
+	if event != nil {
+		// update names / teams to the values we know to be correct due to championship setup
+		for _, class := range c.Classes {
+			for _, entrant := range class.Entrants {
+				for _, eventEntrant := range event.EntryList {
+					if entrant.InternalUUID == entrant.InternalUUID {
+						class.AttachEntrantToResult(eventEntrant, results)
+					}
+				}
+			}
+		}
+	} else {
+		// update names / teams to the values we know to be correct due to championship setup
+		for _, class := range c.Classes {
+			for _, entrant := range class.Entrants {
+				class.AttachEntrantToResult(entrant, results)
+			}
 		}
 	}
 
@@ -1438,7 +1451,7 @@ func (cr *ChampionshipEvent) CombineEntryLists(championship *Championship) Entry
 
 	for _, entrant := range entryList {
 		for _, eventEntrant := range cr.EntryList {
-			if entrant.InternalUUID != uuid.Nil && entrant.InternalUUID == eventEntrant.InternalUUID && entrant.Model == eventEntrant.Model {
+			if entrant.InternalUUID != uuid.Nil && entrant.InternalUUID == eventEntrant.InternalUUID {
 				entrant.OverwriteProperties(eventEntrant)
 
 				break

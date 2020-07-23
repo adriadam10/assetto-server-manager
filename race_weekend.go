@@ -476,7 +476,7 @@ func (rw *RaceWeekend) EnhanceResults(results *SessionResults) {
 
 	if rw.HasLinkedChampionship() {
 		// linked championships determine class IDs etc for drivers.
-		rw.Championship.EnhanceResults(results)
+		rw.Championship.EnhanceResults(results, nil)
 	}
 }
 

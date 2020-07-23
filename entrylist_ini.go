@@ -250,6 +250,10 @@ func (e Entrant) ID() string {
 }
 
 func (e *Entrant) OverwriteProperties(other *Entrant) {
+	e.Name = other.Name
+	e.GUID = other.GUID
+	e.Team = other.Team
+	e.Model = other.Model
 	e.FixedSetup = other.FixedSetup
 	e.Restrictor = other.Restrictor
 	e.SpectatorMode = other.SpectatorMode

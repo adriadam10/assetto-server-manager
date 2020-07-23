@@ -656,9 +656,21 @@ func (cm *ChampionshipManager) StartPracticeEvent(championshipID string, eventID
 func (cm *ChampionshipManager) FinalEventConfigurationFiles(championship *Championship, event *ChampionshipEvent, isPreChampionshipPracticeEvent bool) (CurrentRaceConfig, EntryList) {
 	raceSetup := event.RaceSetup
 
-	raceSetup.Cars = strings.Join(championship.ValidCarIDs(), ";")
-
 	entryList := event.CombineEntryLists(championship)
+
+	carIDs := make(map[string]bool)
+
+	for _, entrant := range entryList {
+		carIDs[entrant.Model] = true
+	}
+
+	var outputCars []string
+
+	for carID := range carIDs {
+		outputCars = append(outputCars, carID)
+	}
+
+	raceSetup.Cars = strings.Join(outputCars, ";")
 
 	if championship.HasSpectatorCar() {
 		entryList.AddInPitBox(&championship.SpectatorCar, maxEntryListSize+1)
@@ -1154,7 +1166,7 @@ func (cm *ChampionshipManager) handleSessionChanges(message udp.Message, champio
 		}
 
 		// Update the old results json file with more championship information, required for applying penalties properly
-		championship.EnhanceResults(results)
+		championship.EnhanceResults(results, championship.Events[currentEventIndex])
 		err = saveResults(filename, results)
 
 		if err != nil {
@@ -1467,7 +1479,7 @@ func (cm *ChampionshipManager) ImportEvent(championshipID string, eventID string
 			}
 		}
 
-		championship.EnhanceResults(results)
+		championship.EnhanceResults(results, event)
 
 		if err := saveResults(sessionFile+".json", results); err != nil {
 			return err
