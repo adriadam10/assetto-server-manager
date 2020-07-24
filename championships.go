@@ -1181,7 +1181,7 @@ func (c *ChampionshipClass) Standings(championship *Championship, inEvents []*Ch
 			return out[i].Car.Driver.Name < out[j].Car.Driver.Name
 		}
 
-		return out[i].Points > out[j].Points
+		return out[i].Points < out[j].Points
 	})
 
 	return out
@@ -1329,7 +1329,7 @@ func (c *ChampionshipClass) TeamStandings(championship *Championship, inEvents [
 	})
 
 	sort.Slice(out, func(i, j int) bool {
-		return out[i].Points > out[j].Points
+		return out[i].Points < out[j].Points
 	})
 
 	return out
