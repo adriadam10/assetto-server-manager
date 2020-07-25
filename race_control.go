@@ -882,7 +882,7 @@ func (rc *RaceControl) handleDriverSwap(ticker *time.Ticker, config CurrentRaceC
 
 				// send countdown messages
 				if firstPositionUpdate {
-					sendChat, err := udp.NewSendChat(currentDriver.CarInfo.CarID, fmt.Sprintf("Free to leave pits in %s", countdown.String()))
+					sendChat, err := udp.NewSendChat(currentDriver.CarInfo.CarID, fmt.Sprintf("WAIT IN PITBOX FOR %s", countdown.String()))
 
 					if err == nil {
 						err := rc.process.SendUDPMessage(sendChat)
