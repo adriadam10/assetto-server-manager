@@ -120,6 +120,7 @@ func (rc *RaceControl) UDPCallback(message udp.Message) {
 		sendUpdatedRaceControlStatus = true
 	case udp.CarUpdate:
 		err = rc.OnCarUpdate(m)
+		sendUpdatedRaceControlStatus = true // @TODO make this better
 	case udp.SessionCarInfo:
 		if m.Event() == udp.EventNewConnection {
 			err = rc.OnClientConnect(m)
@@ -280,7 +281,9 @@ func (rc *RaceControl) handleCarUpdate(update udp.CarUpdate) error {
 
 	driver.LastSeen = time.Now()
 	driver.LastPos = update.Pos
+	driver.TrackPositionData = update
 
+	rc.ConnectedDrivers.sort()
 	_, err = rc.broadcaster.Send(update)
 
 	return err
@@ -1203,7 +1206,7 @@ func (rc *RaceControl) SortDrivers(driverGroup RaceControlDriverGroup, driverA, 
 	if rc.SessionInfo.Type == udp.SessionTypeRace {
 		if driverGroup == ConnectedDrivers {
 			if driverACar.NumLaps == driverBCar.NumLaps {
-				return driverACar.TotalLapTime < driverBCar.TotalLapTime
+				return driverA.TrackPositionData.NormalisedSplinePos > driverB.TrackPositionData.NormalisedSplinePos
 			}
 
 			return driverACar.NumLaps > driverBCar.NumLaps

@@ -30,8 +30,9 @@ func NewRaceControlCarLapInfo(carModel string) *RaceControlCarLapInfo {
 }
 
 type RaceControlDriver struct {
-	CarInfo      udp.SessionCarInfo `json:"CarInfo"`
-	TotalNumLaps int                `json:"TotalNumLaps"`
+	CarInfo           udp.SessionCarInfo `json:"CarInfo"`
+	TrackPositionData udp.CarUpdate      `json:"-"`
+	TotalNumLaps      int                `json:"TotalNumLaps"`
 
 	ConnectedTime time.Time `json:"ConnectedTime" ts:"date"`
 	LoadedTime    time.Time `json:"LoadedTime" ts:"date"`
