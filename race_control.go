@@ -1,4 +1,4 @@
-package servermanager
+package acsm
 
 import (
 	"context"
@@ -14,7 +14,7 @@ import (
 	"github.com/sirupsen/logrus"
 	lua "github.com/yuin/gopher-lua"
 
-	"github.com/JustaPenguin/assetto-server-manager/pkg/udp"
+	"justapengu.in/acsm/pkg/udp"
 )
 
 type RaceControl struct {

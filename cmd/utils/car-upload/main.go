@@ -14,7 +14,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	servermanager "github.com/JustaPenguin/assetto-server-manager"
+	"justapengu.in/acsm"
 
 	"golang.org/x/net/publicsuffix"
 )
@@ -37,7 +37,7 @@ func init() {
 }
 
 func main() {
-	var files []servermanager.ContentFile
+	var files []acsm.ContentFile
 
 	err := filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
@@ -71,7 +71,7 @@ func main() {
 			return err
 		}
 
-		files = append(files, servermanager.ContentFile{
+		files = append(files, acsm.ContentFile{
 			Name:     info.Name(),
 			FilePath: rel,
 			Data:     base64.StdEncoding.EncodeToString(data),
@@ -87,7 +87,7 @@ func main() {
 
 			log.Printf("Successfully uploaded %d files", len(files))
 
-			files = []servermanager.ContentFile{}
+			files = []acsm.ContentFile{}
 		}
 
 		return nil
@@ -107,11 +107,11 @@ func main() {
 
 		log.Printf("Successfully uploaded %d files", len(files))
 
-		files = []servermanager.ContentFile{}
+		files = []acsm.ContentFile{}
 	}
 }
 
-func uploadCars(files []servermanager.ContentFile) error {
+func uploadCars(files []acsm.ContentFile) error {
 	jar, err := cookiejar.New(&cookiejar.Options{PublicSuffixList: publicsuffix.List})
 	if err != nil {
 		return err

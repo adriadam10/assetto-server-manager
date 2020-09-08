@@ -1,9 +1,9 @@
-package servermanager
+package acsm
 
 import (
 	"net/http"
 
-	"github.com/JustaPenguin/assetto-server-manager/pkg/udp"
+	"justapengu.in/acsm/pkg/udp"
 )
 
 type Resolver struct {

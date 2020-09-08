@@ -1,4 +1,4 @@
-package servermanager
+package acsm
 
 import (
 	"fmt"

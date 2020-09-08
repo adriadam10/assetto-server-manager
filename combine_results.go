@@ -1,4 +1,4 @@
-package servermanager
+package acsm
 
 func combineResults(results []*SessionResults) *SessionResults {
 	output := &SessionResults{}

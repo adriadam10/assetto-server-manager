@@ -1,4 +1,4 @@
-package servermanager
+package acsm
 
 import (
 	"bytes"
@@ -17,7 +17,7 @@ import (
 	"text/template"
 	"time"
 
-	"github.com/JustaPenguin/assetto-server-manager/pkg/udp"
+	"justapengu.in/acsm/pkg/udp"
 
 	"github.com/google/uuid"
 	"github.com/jaytaylor/html2text"

@@ -2,7 +2,7 @@ FROM golang:1.15 AS build
 
 ARG SM_VERSION
 ENV DEBIAN_FRONTEND noninteractive
-ENV BUILD_DIR ${GOPATH}/src/github.com/JustaPenguin/assetto-server-manager
+ENV BUILD_DIR ${GOPATH}/src/justapengu.in/acsm
 ENV GO111MODULE on
 
 RUN curl -sL https://deb.nodesource.com/setup_12.x | bash -

@@ -8,7 +8,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/JustaPenguin/assetto-server-manager/pkg/udp"
+	"justapengu.in/acsm/pkg/udp"
 
 	"github.com/etcd-io/bbolt"
 	"github.com/sirupsen/logrus"

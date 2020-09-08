@@ -1,4 +1,4 @@
-package servermanager
+package acsm
 
 import (
 	"bytes"
@@ -10,7 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/JustaPenguin/assetto-server-manager/pkg/acd"
+	"justapengu.in/acsm/pkg/acd"
 
 	"github.com/cj123/ini"
 	"github.com/sirupsen/logrus"

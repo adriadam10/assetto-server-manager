@@ -1,6 +1,6 @@
 //+build !windows
 
-package servermanager
+package acsm
 
 import (
 	"context"

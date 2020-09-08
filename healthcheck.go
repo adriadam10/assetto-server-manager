@@ -1,4 +1,4 @@
-package servermanager
+package acsm
 
 import (
 	"encoding/json"
@@ -9,7 +9,7 @@ import (
 	"runtime"
 	"time"
 
-	"github.com/JustaPenguin/assetto-server-manager/pkg/udp"
+	"justapengu.in/acsm/pkg/udp"
 )
 
 var LaunchTime = time.Now()

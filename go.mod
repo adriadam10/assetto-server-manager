@@ -1,4 +1,4 @@
-module github.com/JustaPenguin/assetto-server-manager
+module justapengu.in/acsm
 
 require (
 	4d63.com/embedfiles v1.0.0 // indirect
@@ -80,9 +80,9 @@ require (
 	golang.org/x/net v0.0.0-20200904194848-62affa334b73
 	golang.org/x/sync v0.0.0-20200625203802-6e8e738ad208
 	golang.org/x/text v0.3.2
-	golang.org/x/tools v0.0.0-20200904140424-93eecc3576be // indirect
+	golang.org/x/tools v0.0.0-20200904185747-39188db58858 // indirect
 	gopkg.in/ini.v1 v1.42.0 // indirect
 	gopkg.in/yaml.v2 v2.2.7
 )
 
-go 1.13
+go 1.15
