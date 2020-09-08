@@ -1,4 +1,4 @@
-package servermanager
+package acsm
 
 import (
 	"context"
@@ -6,7 +6,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/JustaPenguin/assetto-server-manager/pkg/udp"
+	"justapengu.in/acsm/pkg/udp"
 
 	"github.com/sirupsen/logrus"
 )

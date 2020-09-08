@@ -1,4 +1,4 @@
-package servermanager
+package acsm
 
 import (
 	"errors"
@@ -13,8 +13,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/JustaPenguin/assetto-server-manager/pkg/udp"
-	"github.com/JustaPenguin/assetto-server-manager/pkg/when"
+	"justapengu.in/acsm/pkg/udp"
+	"justapengu.in/acsm/pkg/when"
 
 	"4d63.com/tz"
 	"github.com/etcd-io/bbolt"

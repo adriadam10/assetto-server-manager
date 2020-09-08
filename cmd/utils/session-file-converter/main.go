@@ -7,9 +7,10 @@ import (
 	"os"
 	"strings"
 
-	"github.com/JustaPenguin/assetto-server-manager/pkg/udp/replay"
 	"github.com/etcd-io/bbolt"
 	"github.com/google/uuid"
+
+	"justapengu.in/acsm/pkg/udp/replay"
 )
 
 var filename string

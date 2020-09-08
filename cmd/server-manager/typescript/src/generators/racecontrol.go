@@ -9,8 +9,8 @@ import (
 	"log"
 	"os"
 
-	servermanager "github.com/JustaPenguin/assetto-server-manager"
 	"github.com/OneOfOne/struct2ts"
+	"justapengu.in/acsm"
 )
 
 func main() {
@@ -52,7 +52,7 @@ func runStruct2TS(w io.Writer) error {
 		ES6: false,
 	})
 
-	s.Add(servermanager.RaceControl{})
+	s.Add(acsm.RaceControl{})
 
 	io.WriteString(w, "// this file was automatically generated, DO NOT EDIT\n")
 	return s.RenderTo(w)

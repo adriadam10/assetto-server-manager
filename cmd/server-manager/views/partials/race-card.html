@@ -5,7 +5,7 @@
     <div class="race-info">
         <strong>
             {{ with $trackInfo }}
-                {{- /*gotype: github.com/JustaPenguin/assetto-server-manager.TrackInfo*/ -}}
+                {{- /*gotype: justapengu.in/acsm.TrackInfo*/ -}}
                 {{ .Name }}
             {{ else }}
                 {{ prettify .RaceConfig.Track false }} {{ with .RaceConfig.TrackLayout }}({{ prettify . true }}){{ end }}

@@ -1,4 +1,4 @@
-package servermanager
+package acsm
 
 type Store interface {
 	// Custom Races

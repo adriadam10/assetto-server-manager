@@ -1,4 +1,4 @@
-package servermanager
+package acsm
 
 // ConfigIniDefault is the default server config (ish) as supplied via the assetto corsa server.
 func ConfigIniDefault() ServerConfig {

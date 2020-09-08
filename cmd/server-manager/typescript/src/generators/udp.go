@@ -9,8 +9,9 @@ import (
 	"log"
 	"os"
 
-	"github.com/JustaPenguin/assetto-server-manager/pkg/udp"
 	"github.com/OneOfOne/struct2ts"
+
+	"justapengu.in/acsm/pkg/udp"
 )
 
 func main() {

@@ -1,4 +1,4 @@
-package servermanager
+package acsm
 
 // defaultSkinsLayout, as defined by https://github.com/Pringlez/ACServerManager
 var defaultSkinsLayout = []string{
