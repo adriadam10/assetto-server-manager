@@ -1,0 +1,143 @@
+server_config:
+  name: Testing openAcServer New
+  password: password
+  admin_password: admin admin
+  udp_port: 9630
+  tcp_port: 9630
+  http_port: 8089
+  register_to_lobby: false
+  client_send_interval_hz: 18
+  send_buffer_size: 0
+  receive_buffer_size: 0
+  kick_quorum: 85
+  voting_quorum: 80
+  vote_duration: 20
+  block_list_mode: 1
+  number_of_threads: 4
+  udp_plugin_address: 127.0.0.1:4444
+  udp_plugin_local_port: 8888
+  welcome_message_file: motd.txt
+
+race_config:
+  cars:
+    - ks_ferrari_f2004
+  track: ks_red_bull_ring
+  track_layout: layout_national
+
+  legal_tyres:
+    - H
+    - M
+    - S
+
+  fuel_rate: 100
+  damage_multiplier: 50
+  tyre_wear_rate: 100
+  allowed_tyres_out: 3
+  abs_allowed: 1
+  traction_control_allowed: 1
+  stability_control_allowed: false
+  auto_clutch_allowed: false
+  tyre_blankets_allowed: true
+  force_virtual_mirror: true
+
+  race_pit_window_start: 0
+  race_pit_window_end: 0
+  race_extra_lap: false
+  race_over_time: 180
+  race_gas_penalty_disabled: true
+  start_rule: 0
+  reversed_grid_race_positions: 0
+
+  qualify_max_wait_percentage: 200
+  max_ballast_kilograms: 50
+  max_contacts_per_kilometer: 0
+  result_screen_time: 90
+  loop_mode: true
+
+  pickup_mode_enabled: true
+  locked_entry_list: false
+  max_clients: 16
+  sleep_time: 1
+
+  sun_angle: 48
+  wind_base_speed_min: 3
+  wind_base_speed_max: 15
+  wind_base_direction: 30
+  wind_variation_direction: 15
+  time_of_day_multiplier: 1
+
+  dynamic_track:
+    session_start: 100
+    randomness: 0
+    session_transfer: 100
+    lap_gain: 10
+
+  sessions:
+    - session_type: 1
+      name: Practice
+      time: 2
+      is_open: 1
+      wait_time: 0
+
+    - session_type: 2
+      name: Qualify
+      time: 2
+      is_open: 1
+      wait_time: 0
+
+    - session_type: 3
+      name: Race
+      time: 2
+      laps: 0
+      is_open: 1
+      wait_time: 60
+
+  weather:
+    - graphics: 3_clear
+      base_temperature_ambient: 26
+      base_temperature_road: 11
+      variation_ambient: 1
+      variation_road: 1
+      wind_speed: 20
+      wind_direction: 30
+
+entry_list:
+  - car_id: 0
+    name: A Driver
+    team: Some Team
+    guid: ""
+    model: ks_ferrari_f2004
+    skin: red
+    ballast: 0
+    restrictor: 0
+    fixed_setup: ""
+
+  - car_id: 1
+    name: B Person
+    team: Some Team
+    guid: ""
+    model: ks_ferrari_f2004
+    skin: red
+    ballast: 0
+    restrictor: 0
+    fixed_setup: ""
+
+  - car_id: 2
+    name: C Person
+    team: Some Team
+    guid: ""
+    model: ks_ferrari_f2004
+    skin: red
+    ballast: 0
+    restrictor: 0
+    fixed_setup: ""
+
+  - car_id: 3
+    name: D Person
+    team: Some Team
+    guid: ""
+    model: ks_ferrari_f2004
+    skin: red
+    ballast: 0
+    restrictor: 0
+    fixed_setup: ""
