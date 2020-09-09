@@ -7,9 +7,10 @@ import (
 )
 
 type Server struct {
-	state  *ServerState
-	lobby  *Lobby
-	plugin Plugin
+	state         *ServerState
+	lobby         *Lobby
+	plugin        Plugin
+	baseDirectory string
 
 	sessionManager      *SessionManager
 	adminCommandManager *AdminCommandManager
@@ -27,7 +28,7 @@ type Server struct {
 	stopped chan error
 }
 
-func NewServer(serverConfig *ServerConfig, raceConfig *RaceConfig, entryList EntryList, checksums []CustomChecksumFile, logger Logger, plugin Plugin) (*Server, error) {
+func NewServer(ctx context.Context, baseDirectory string, serverConfig *ServerConfig, raceConfig *EventConfig, entryList EntryList, checksums []CustomChecksumFile, logger Logger, plugin Plugin) (*Server, error) {
 	if plugin == nil {
 		plugin = nilPlugin{}
 	}
@@ -41,7 +42,7 @@ func NewServer(serverConfig *ServerConfig, raceConfig *RaceConfig, entryList Ent
 		raceConfig.PickupModeEnabled = false
 	}
 
-	state, err := NewServerState(serverConfig, raceConfig, entryList, checksums, plugin, logger)
+	state, err := NewServerState(baseDirectory, serverConfig, raceConfig, entryList, checksums, plugin, logger)
 
 	if err != nil {
 		return nil, err
@@ -49,19 +50,20 @@ func NewServer(serverConfig *ServerConfig, raceConfig *RaceConfig, entryList Ent
 
 	lobby := NewLobby(state, logger)
 
-	ctx, cfn := context.WithCancel(context.Background())
+	ctx, cfn := context.WithCancel(ctx)
 
 	server := &Server{
-		state:   state,
-		lobby:   lobby,
-		plugin:  plugin,
-		stopped: make(chan error, 1),
-		ctx:     ctx,
-		cfn:     cfn,
-		logger:  logger,
+		state:         state,
+		lobby:         lobby,
+		plugin:        plugin,
+		stopped:       make(chan error, 1),
+		ctx:           ctx,
+		cfn:           cfn,
+		logger:        logger,
+		baseDirectory: baseDirectory,
 	}
 
-	server.sessionManager = NewSessionManager(state, lobby, plugin, logger, server.Stop)
+	server.sessionManager = NewSessionManager(state, lobby, plugin, logger, server.Stop, baseDirectory)
 	server.adminCommandManager = NewAdminCommandManager(state, server.sessionManager, logger)
 	server.entryListManager = NewEntryListManager(state, logger)
 
@@ -185,14 +187,6 @@ func (s *Server) loop() {
 				if car.IsConnected() && car.Connection.HasSentFirstUpdate {
 					if car.HasUpdateToBroadcast {
 						s.state.BroadcastCarUpdate(car)
-
-						go func(carCopy *Car) {
-							err := s.plugin.OnCarUpdate(*carCopy)
-
-							if err != nil {
-								s.logger.WithError(err).Error("On car update plugin returned an error")
-							}
-						}(car)
 
 						car.HasUpdateToBroadcast = false
 					}

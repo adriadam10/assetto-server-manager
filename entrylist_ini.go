@@ -11,6 +11,8 @@ import (
 	"github.com/cj123/ini"
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
+
+	"justapengu.in/acsm/internal/acServer"
 )
 
 const (
@@ -23,6 +25,30 @@ const (
 )
 
 type EntryList map[string]*Entrant
+
+func (e EntryList) ToACServerConfig() acServer.EntryList {
+	var entryList acServer.EntryList
+
+	for carID, entrant := range e.AsSlice() {
+		entryList = append(entryList, &acServer.Car{
+			Driver: acServer.Driver{
+				Name: entrant.Name,
+				Team: entrant.Team,
+				GUID: entrant.GUID,
+			},
+			Drivers:       nil, // @TODO driver swap support
+			CarID:         acServer.CarID(carID),
+			Model:         entrant.Model,
+			Skin:          entrant.Skin,
+			Ballast:       float32(entrant.Ballast),
+			Restrictor:    float32(entrant.Restrictor),
+			FixedSetup:    entrant.FixedSetup,
+			SpectatorMode: uint8(entrant.SpectatorMode),
+		})
+	}
+
+	return entryList
+}
 
 // Write the EntryList to the server location
 func (e EntryList) Write() error {

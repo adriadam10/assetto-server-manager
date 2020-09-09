@@ -241,7 +241,7 @@ func readLegacyConfigs() (*TempConfig, error) {
 		WelcomeMessageFile:        sc.WelcomeMessage,
 	}
 
-	eventConfig := &acServer.RaceConfig{
+	eventConfig := &acServer.EventConfig{
 		Cars:                      strings.Split(sc.Cars, ";"),
 		Track:                     sc.Track,
 		TrackLayout:               sc.TrackLayout,

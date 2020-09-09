@@ -71,15 +71,17 @@ type SessionManager struct {
 	nextWeatherUpdate   int64
 	currentWeatherIndex int
 	weatherProgression  bool
+	baseDirectory       string
 }
 
-func NewSessionManager(state *ServerState, lobby *Lobby, plugin Plugin, logger Logger, serverStopFn func() error) *SessionManager {
+func NewSessionManager(state *ServerState, lobby *Lobby, plugin Plugin, logger Logger, serverStopFn func() error, baseDirectory string) *SessionManager {
 	return &SessionManager{
-		state:        state,
-		lobby:        lobby,
-		serverStopFn: serverStopFn,
-		plugin:       plugin,
-		logger:       logger,
+		state:         state,
+		lobby:         lobby,
+		serverStopFn:  serverStopFn,
+		plugin:        plugin,
+		logger:        logger,
+		baseDirectory: baseDirectory,
 	}
 }
 
@@ -97,7 +99,7 @@ func (sm *SessionManager) NextSession(force bool) {
 			}
 
 			results := sm.state.GenerateResults()
-			err := saveResults(results)
+			err := saveResults(sm.baseDirectory, results)
 
 			if err != nil {
 				sm.logger.WithError(err).Error("Could not save results file!")

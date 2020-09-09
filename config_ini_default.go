@@ -1,7 +1,7 @@
 package acsm
 
-// ConfigIniDefault is the default server config (ish) as supplied via the assetto corsa server.
-func ConfigIniDefault() ServerConfig {
+// ConfigDefault is the default server config (ish) as supplied via the assetto corsa server.
+func ConfigDefault() ServerConfig {
 	return ServerConfig{
 		GlobalServerConfig: GlobalServerConfig{
 			Name:                              "Assetto Corsa Server",

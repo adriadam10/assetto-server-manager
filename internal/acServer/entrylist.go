@@ -61,7 +61,7 @@ func (em *EntryListManager) ConnectCar(conn net.Conn, driver Driver, requestedMo
 				continue
 			}
 
-			if car.HasGUID(driver.GUID) && car.Model == requestedModel {
+			if car.HasGUID(driver.GUID) {
 				car.SwapDrivers(driver)
 				car.IsAdmin = isAdmin
 				car.Connection = NewConnection(conn)

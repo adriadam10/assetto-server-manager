@@ -149,8 +149,8 @@ func (ss *ServerState) GenerateResults() *SessionResults {
 }
 
 // saveResults saves the results to the disk.
-func saveResults(results *SessionResults) error {
-	path := filepath.Join("results", results.SessionFile)
+func saveResults(basePath string, results *SessionResults) error {
+	path := filepath.Join(basePath, "results", results.SessionFile)
 
 	logrus.Infof("Saving session results for '%s' to: %s", results.Type, results.SessionFile)
 

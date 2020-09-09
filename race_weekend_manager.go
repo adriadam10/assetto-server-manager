@@ -333,7 +333,7 @@ func (rwm *RaceWeekendManager) BuildRaceWeekendSessionOpts(r *http.Request) (*Ra
 
 			opts.RaceWeekendHasAtLeastOneSession = true
 		} else {
-			current := ConfigIniDefault().CurrentRaceConfig
+			current := ConfigDefault().CurrentRaceConfig
 			delete(current.Sessions, SessionTypeBooking)
 			delete(current.Sessions, SessionTypeQualifying)
 			delete(current.Sessions, SessionTypeRace)

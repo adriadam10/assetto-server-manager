@@ -171,12 +171,6 @@ func (rm *RaceManager) applyConfigAndStart(event RaceEvent) error {
 		GlobalServerConfig: *serverOpts,
 	}
 
-	forwardingAddress := config.GlobalServerConfig.UDPPluginAddress
-	forwardListenPort := config.GlobalServerConfig.UDPPluginLocalPort
-
-	config.GlobalServerConfig.UDPPluginAddress = config.GlobalServerConfig.FreeUDPPluginAddress
-	config.GlobalServerConfig.UDPPluginLocalPort = config.GlobalServerConfig.FreeUDPPluginLocalPort
-
 	if MaxClientsOverride > 0 {
 		config.CurrentRaceConfig.MaxClients = MaxClientsOverride
 
@@ -270,7 +264,7 @@ func (rm *RaceManager) applyConfigAndStart(event RaceEvent) error {
 	rm.currentRace = &config
 	rm.currentEntryList = entryList
 
-	err = rm.process.Start(event, config.GlobalServerConfig.UDPPluginAddress, config.GlobalServerConfig.UDPPluginLocalPort, forwardingAddress, forwardListenPort)
+	err = rm.process.Start(event)
 
 	if err != nil {
 		return err
@@ -350,7 +344,7 @@ func (rm *RaceManager) SetupQuickRace(r *http.Request) error {
 	}
 
 	// load default config values
-	quickRace := ConfigIniDefault().CurrentRaceConfig
+	quickRace := ConfigDefault().CurrentRaceConfig
 
 	cars := r.Form["Cars"]
 
@@ -802,7 +796,7 @@ func (rm *RaceManager) SetupCustomRace(r *http.Request) error {
 		return err
 	}
 
-	completeConfig := ConfigIniDefault()
+	completeConfig := ConfigDefault()
 	completeConfig.CurrentRaceConfig = *raceConfig
 
 	overridePassword := r.FormValue("OverridePassword") == "1"
@@ -993,7 +987,7 @@ func (rm *RaceManager) BuildRaceOpts(r *http.Request) (*RaceTemplateVars, error)
 		return nil, err
 	}
 
-	race := ConfigIniDefault()
+	race := ConfigDefault()
 
 	templateID := r.URL.Query().Get("from")
 
@@ -1486,32 +1480,7 @@ func (rm *RaceManager) SaveServerOptions(newServerOpts *GlobalServerConfig) erro
 }
 
 func (rm *RaceManager) LoadServerOptions() (*GlobalServerConfig, error) {
-	serverOpts, err := rm.store.LoadServerOptions()
-
-	if err != nil {
-		return nil, err
-	}
-
-	udpListenPort, udpSendPort := 0, 0
-
-	for udpListenPort == udpSendPort {
-		udpListenPort, err = FreeUDPPort()
-
-		if err != nil {
-			return nil, err
-		}
-
-		udpSendPort, err = FreeUDPPort()
-
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	serverOpts.FreeUDPPluginAddress = fmt.Sprintf("127.0.0.1:%d", udpSendPort)
-	serverOpts.FreeUDPPluginLocalPort = udpListenPort
-
-	return serverOpts, nil
+	return rm.store.LoadServerOptions()
 }
 
 func (rm *RaceManager) LoopRaces() {

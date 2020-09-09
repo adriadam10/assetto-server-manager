@@ -1,3 +1,15 @@
+v2.0.0
+------
+
+
+
+Removed:
+
+* Support for starting plugins using the old 'run_on_start' method in config.yml has been removed.
+  Please use the 'plugins' directive (detailed in config.yml) instead.
+
+---
+
 v1.7.8
 ------
 
