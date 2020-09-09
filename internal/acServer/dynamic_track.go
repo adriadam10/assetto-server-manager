@@ -30,7 +30,7 @@ func (d *DynamicTrack) Init(logger Logger) {
 func (d *DynamicTrack) OnLapCompleted() {
 	d.numLapsBeforeGain++
 
-	if d.numLapsBeforeGain == d.LapGain {
+	if d.numLapsBeforeGain == d.LapGain && d.CurrentGrip < 1.0 {
 		d.CurrentGrip += 0.01
 
 		d.logger.Debugf("Dynamic Track: %d/%d laps completed to add 1%% grip, grip is now: %.3f", d.numLapsBeforeGain, d.LapGain, d.CurrentGrip)

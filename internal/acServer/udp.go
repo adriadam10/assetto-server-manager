@@ -73,12 +73,10 @@ func (u *UDP) Listen() (net.PacketConn, error) {
 				}
 			}
 
-			go func() {
-				if err := u.handleConnection(addr, buf[:n]); err != nil {
-					u.logger.WithError(err).Error("could not handle udp connection")
-					return
-				}
-			}()
+			if err := u.handleConnection(addr, buf[:n]); err != nil {
+				u.logger.WithError(err).Error("could not handle udp connection")
+				return
+			} // @TODO this was in a goroutine. does it need to be?
 		}
 	}()
 

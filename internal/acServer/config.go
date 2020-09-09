@@ -38,7 +38,7 @@ const (
 	StartRuleDriveThroughPenalty StartRule = 2
 )
 
-type RaceConfig struct {
+type EventConfig struct {
 	Cars                      []string `json:"cars" yaml:"cars"`
 	Track                     string   `json:"track" yaml:"track"`
 	TrackLayout               string   `json:"track_layout" yaml:"track_layout"`
@@ -84,7 +84,7 @@ type RaceConfig struct {
 	Weather  []*WeatherConfig `json:"weather" yaml:"weather"`
 }
 
-func (c RaceConfig) Tyres() map[string]bool {
+func (c EventConfig) Tyres() map[string]bool {
 	tyres := make(map[string]bool)
 
 	for _, tyre := range c.LegalTyres {
@@ -94,7 +94,7 @@ func (c RaceConfig) Tyres() map[string]bool {
 	return tyres
 }
 
-func (c RaceConfig) LobbyTrackName() string {
+func (c EventConfig) LobbyTrackName() string {
 	track := c.Track
 
 	if c.TrackLayout != "" {
@@ -104,7 +104,7 @@ func (c RaceConfig) LobbyTrackName() string {
 	return track
 }
 
-func (c RaceConfig) SessionTypes() []int {
+func (c EventConfig) SessionTypes() []int {
 	var types []int
 
 	for _, session := range c.Sessions {
@@ -114,7 +114,7 @@ func (c RaceConfig) SessionTypes() []int {
 	return types
 }
 
-func (c RaceConfig) SessionDurations() []int {
+func (c EventConfig) SessionDurations() []int {
 	var durations []int
 
 	for _, session := range c.Sessions {
@@ -128,7 +128,7 @@ func (c RaceConfig) SessionDurations() []int {
 	return durations
 }
 
-func (c RaceConfig) HasSession(t SessionType) bool {
+func (c EventConfig) HasSession(t SessionType) bool {
 	for _, sess := range c.Sessions {
 		if sess.SessionType == t {
 			return true
@@ -139,7 +139,7 @@ func (c RaceConfig) HasSession(t SessionType) bool {
 }
 
 // InGameSessions reports all sessions except SessionTypeBooking.
-func (c RaceConfig) InGameSessions() []*SessionConfig {
+func (c EventConfig) InGameSessions() []*SessionConfig {
 	var out []*SessionConfig
 
 	for _, session := range c.Sessions {
@@ -151,7 +151,7 @@ func (c RaceConfig) InGameSessions() []*SessionConfig {
 	return out
 }
 
-func (c RaceConfig) RaceHasLaps() bool {
+func (c EventConfig) RaceHasLaps() bool {
 	for _, session := range c.Sessions {
 		if session.SessionType == SessionTypeRace && session.Laps > 0 {
 			return true
@@ -161,13 +161,13 @@ func (c RaceConfig) RaceHasLaps() bool {
 	return false
 }
 
-func (c RaceConfig) HasMandatoryPit() bool {
+func (c EventConfig) HasMandatoryPit() bool {
 	return c.RacePitWindowStart != 0 && c.RacePitWindowEnd > c.RacePitWindowStart
 }
 
 type Sessions []*SessionConfig
 
-func (c RaceConfig) HasMultipleRaces() bool {
+func (c EventConfig) HasMultipleRaces() bool {
 	return c.ReversedGridRacePositions != 0
 }
 

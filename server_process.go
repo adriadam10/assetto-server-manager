@@ -17,6 +17,8 @@ import (
 	"sync"
 	"time"
 
+	"justapengu.in/acsm/internal/acServer"
+	"justapengu.in/acsm/internal/acServer/plugins"
 	"justapengu.in/acsm/pkg/udp"
 
 	"github.com/sirupsen/logrus"
@@ -25,7 +27,7 @@ import (
 const MaxLogSizeBytes = 1e6
 
 type ServerProcess interface {
-	Start(event RaceEvent, udpPluginAddress string, udpPluginLocalPort int, forwardingAddress string, forwardListenPort int) error
+	Start(event RaceEvent) error
 	Stop() error
 	Restart() error
 	IsRunning() bool
@@ -45,6 +47,7 @@ type AssettoServerProcess struct {
 	startMutex            sync.Mutex
 	started, stopped, run chan error
 	notifyDoneChs         []chan struct{}
+	server                *acServer.Server
 
 	ctx context.Context
 	cfn context.CancelFunc
@@ -52,19 +55,13 @@ type AssettoServerProcess struct {
 	logBuffer *logBuffer
 
 	raceEvent      RaceEvent
-	cmd            *exec.Cmd
 	mutex          sync.Mutex
 	extraProcesses []*exec.Cmd
 
-	logFile, errorLogFile io.WriteCloser
+	logFile io.WriteCloser
 
 	// udp
-	callbackFunc       udp.CallbackFunc
-	udpServerConn      *udp.AssettoServerUDP
-	udpPluginAddress   string
-	udpPluginLocalPort int
-	forwardingAddress  string
-	forwardListenPort  int
+	callbackFunc udp.CallbackFunc
 
 	sessionStartedChan chan struct{}
 }
@@ -102,16 +99,9 @@ func (sp *AssettoServerProcess) UDPCallback(message udp.Message) {
 	})
 }
 
-func (sp *AssettoServerProcess) Start(event RaceEvent, udpPluginAddress string, udpPluginLocalPort int, forwardingAddress string, forwardListenPort int) error {
+func (sp *AssettoServerProcess) Start(event RaceEvent) error {
 	sp.startMutex.Lock()
 	defer sp.startMutex.Unlock()
-
-	sp.mutex.Lock()
-	sp.udpPluginAddress = udpPluginAddress
-	sp.udpPluginLocalPort = udpPluginLocalPort
-	sp.forwardingAddress = forwardingAddress
-	sp.forwardListenPort = forwardListenPort
-	sp.mutex.Unlock()
 
 	if sp.IsRunning() {
 		if err := sp.Stop(); err != nil {
@@ -176,8 +166,8 @@ func (sp *AssettoServerProcess) Stop() error {
 		}
 	}()
 
-	if err := kill(sp.cmd.Process); err != nil {
-		logrus.WithError(err).Error("Could not forcibly kill command")
+	if err := sp.server.Stop(); err != nil {
+		logrus.WithError(err).Error("Could not forcibly kill server")
 	}
 
 	sp.cfn()
@@ -188,13 +178,9 @@ func (sp *AssettoServerProcess) Stop() error {
 func (sp *AssettoServerProcess) Restart() error {
 	sp.mutex.Lock()
 	raceEvent := sp.raceEvent
-	udpPluginAddress := sp.udpPluginAddress
-	udpLocalPluginPort := sp.udpPluginLocalPort
-	forwardingAddress := sp.forwardingAddress
-	forwardListenPort := sp.forwardListenPort
 	sp.mutex.Unlock()
 
-	return sp.Start(raceEvent, udpPluginAddress, udpLocalPluginPort, forwardingAddress, forwardListenPort)
+	return sp.Start(raceEvent)
 }
 
 func (sp *AssettoServerProcess) loop() {
@@ -220,13 +206,6 @@ func (sp *AssettoServerProcess) startRaceEvent(raceEvent RaceEvent) error {
 	defer sp.mutex.Unlock()
 
 	logrus.Infof("Starting Server Process with event: %s", describeRaceEvent(raceEvent))
-	var executablePath string
-
-	if filepath.IsAbs(config.Steam.ExecutablePath) {
-		executablePath = config.Steam.ExecutablePath
-	} else {
-		executablePath = filepath.Join(ServerInstallPath, config.Steam.ExecutablePath)
-	}
 
 	serverOptions, err := sp.store.LoadServerOptions()
 
@@ -234,12 +213,7 @@ func (sp *AssettoServerProcess) startRaceEvent(raceEvent RaceEvent) error {
 		return err
 	}
 
-	sp.ctx, sp.cfn = context.WithCancel(context.Background())
-	sp.cmd = buildCommand(sp.ctx, executablePath)
-	sp.cmd.Dir = ServerInstallPath
-
 	var logOutput io.Writer
-	var errorOutput io.Writer
 
 	if serverOptions.LogACServerOutputToFile {
 		logDirectory := filepath.Join(ServerInstallPath, "logs", "session")
@@ -265,24 +239,9 @@ func (sp *AssettoServerProcess) startRaceEvent(raceEvent RaceEvent) error {
 			return err
 		}
 
-		sp.errorLogFile, err = os.Create(filepath.Join(errorDirectory, "error_"+timestamp+".log"))
-
-		if err != nil {
-			return err
-		}
-
 		logOutput = io.MultiWriter(sp.logBuffer, sp.logFile)
-		errorOutput = io.MultiWriter(sp.logBuffer, sp.errorLogFile)
 	} else {
 		logOutput = sp.logBuffer
-		errorOutput = sp.logBuffer
-	}
-
-	sp.cmd.Stdout = logOutput
-	sp.cmd.Stderr = errorOutput
-
-	if err := sp.startUDPListener(); err != nil {
-		return err
 	}
 
 	wd, err := os.Getwd()
@@ -293,10 +252,41 @@ func (sp *AssettoServerProcess) startRaceEvent(raceEvent RaceEvent) error {
 
 	sp.raceEvent = raceEvent
 
+	sp.ctx, sp.cfn = context.WithCancel(context.Background())
+
+	logger := logrus.New()
+	logger.SetOutput(logOutput)
+	logger.SetLevel(logrus.GetLevel())
+	logger.SetFormatter(&logrus.TextFormatter{FullTimestamp: true})
+
+	udpPluginPortsSetup := serverOptions.UDPPluginLocalPort >= 0 && serverOptions.UDPPluginAddress != "" || strings.Contains(serverOptions.UDPPluginAddress, ":")
+
+	var plugin acServer.Plugin
+
+	if udpPluginPortsSetup {
+		plugin, err = plugins.NewUDPPlugin(serverOptions.UDPPluginLocalPort, serverOptions.UDPPluginAddress)
+
+		if err != nil {
+			return err
+		}
+	}
+
+	sp.server, err = acServer.NewServer(
+		sp.ctx,
+		ServerInstallPath,
+		serverOptions.ToACServerConfig(),
+		raceEvent.GetRaceConfig().ToACConfig(),
+		raceEvent.GetEntryList().ToACServerConfig(),
+		nil, // @TODO checksums
+		logger,
+		plugin,
+	)
+
 	go func() {
-		sp.run <- sp.cmd.Run()
+		sp.run <- sp.server.Run()
 	}()
 
+	// @TODO embed content manager into the same HTTP server?
 	if serverOptions.EnableContentManagerWrapper == 1 && serverOptions.ContentManagerWrapperPort > 0 {
 		go panicCapture(func() {
 			err := sp.contentManagerWrapper.Start(serverOptions.ContentManagerWrapperPort, sp.raceEvent, sp)
@@ -319,8 +309,6 @@ func (sp *AssettoServerProcess) startRaceEvent(raceEvent RaceEvent) error {
 	realPenaltyOptions, err := sp.store.LoadRealPenaltyOptions()
 	realPenaltyEnabled := err == nil && realPenaltyOptions.RealPenaltyAppConfig.General.EnableRealPenalty && IsRealPenaltyInstalled()
 
-	udpPluginPortsSetup := sp.forwardListenPort >= 0 && sp.forwardingAddress != "" || strings.Contains(sp.forwardingAddress, ":")
-
 	if (strackerEnabled || kissMyRankEnabled) && !udpPluginPortsSetup {
 		logrus.WithError(ErrPluginConfigurationRequiresUDPPortSetup).Error("Please check your server configuration")
 	}
@@ -328,8 +316,8 @@ func (sp *AssettoServerProcess) startRaceEvent(raceEvent RaceEvent) error {
 	if strackerEnabled && strackerOptions != nil && udpPluginPortsSetup {
 		strackerOptions.InstanceConfiguration.ACServerConfigIni = filepath.Join(ServerInstallPath, "cfg", serverConfigIniPath)
 		strackerOptions.InstanceConfiguration.ACServerWorkingDir = ServerInstallPath
-		strackerOptions.ACPlugin.SendPort = sp.forwardListenPort
-		strackerOptions.ACPlugin.ReceivePort = formValueAsInt(strings.Split(sp.forwardingAddress, ":")[1])
+		strackerOptions.ACPlugin.SendPort = serverOptions.UDPPluginLocalPort
+		strackerOptions.ACPlugin.ReceivePort = formValueAsInt(strings.Split(serverOptions.UDPPluginAddress, ":")[1])
 
 		if kissMyRankEnabled || realPenaltyEnabled {
 			// kissmyrank and real penalty use stracker's forwarding to chain the plugins. make sure that it is set up.
@@ -381,13 +369,13 @@ func (sp *AssettoServerProcess) startRaceEvent(raceEvent RaceEvent) error {
 
 		if !strackerEnabled {
 			// connect to the forwarding address
-			port, err = strconv.Atoi(strings.Split(sp.forwardingAddress, ":")[1])
+			port, err = strconv.Atoi(strings.Split(serverOptions.UDPPluginAddress, ":")[1])
 
 			if err != nil {
 				return err
 			}
 
-			response = fmt.Sprintf("127.0.0.1:%d", sp.forwardListenPort)
+			response = fmt.Sprintf("127.0.0.1:%d", serverOptions.UDPPluginLocalPort)
 		} else {
 			logrus.Infof("sTracker and Real Penalty both enabled. Using plugin forwarding method: [Server Manager] <-> [sTracker] <-> [Real Penalty]")
 
@@ -476,8 +464,8 @@ func (sp *AssettoServerProcess) startRaceEvent(raceEvent RaceEvent) error {
 			kissMyRankOptions.ACServerPluginAddressPort = strackerOptions.ACPlugin.ProxyPluginPort
 		} else {
 			// stracker and real penalty are disabled, use our forwarding port
-			kissMyRankOptions.ACServerPluginLocalPort = sp.forwardListenPort
-			kissMyRankOptions.ACServerPluginAddressPort = formValueAsInt(strings.Split(sp.forwardingAddress, ":")[1])
+			kissMyRankOptions.ACServerPluginLocalPort = serverOptions.UDPPluginLocalPort
+			kissMyRankOptions.ACServerPluginAddressPort = formValueAsInt(strings.Split(serverOptions.UDPPluginAddress, ":")[1])
 		}
 
 		if err := kissMyRankOptions.Write(); err != nil {
@@ -500,18 +488,6 @@ func (sp *AssettoServerProcess) startRaceEvent(raceEvent RaceEvent) error {
 
 		if err != nil {
 			logrus.WithError(err).Errorf("Could not run extra command: %s", plugin.String())
-		}
-	}
-
-	if len(config.Server.RunOnStart) > 0 {
-		logrus.Warnf("Use of run_on_start in config.yml is deprecated. Please use 'plugins' instead")
-
-		for _, command := range config.Server.RunOnStart {
-			err = sp.startChildProcess(wd, command)
-
-			if err != nil {
-				logrus.WithError(err).Errorf("Could not run extra command: %s", command)
-			}
 		}
 	}
 
@@ -548,13 +524,8 @@ func (sp *AssettoServerProcess) deleteOldLogFiles(numFilesToKeep int) error {
 	}
 
 	logDirectory := filepath.Join(ServerInstallPath, "logs", "session")
-	errorDirectory := filepath.Join(ServerInstallPath, "logs", "error")
 
 	if err := tidyFunc(logDirectory); err != nil {
-		return err
-	}
-
-	if err := tidyFunc(errorDirectory); err != nil {
 		return err
 	}
 
@@ -567,10 +538,6 @@ func (sp *AssettoServerProcess) onStop() error {
 	logrus.Debugf("Server stopped. Stopping UDP listener and child processes.")
 
 	sp.raceEvent = nil
-
-	if err := sp.stopUDPListener(); err != nil {
-		return err
-	}
 
 	sp.stopChildProcesses()
 
@@ -587,14 +554,6 @@ func (sp *AssettoServerProcess) onStop() error {
 		}
 
 		sp.logFile = nil
-	}
-
-	if sp.errorLogFile != nil {
-		if err := sp.errorLogFile.Close(); err != nil {
-			return err
-		}
-
-		sp.errorLogFile = nil
 	}
 
 	return nil
@@ -618,14 +577,7 @@ func (sp *AssettoServerProcess) Event() RaceEvent {
 var ErrNoOpenUDPConnection = errors.New("servermanager: no open UDP connection found")
 
 func (sp *AssettoServerProcess) SendUDPMessage(message udp.Message) error {
-	sp.mutex.Lock()
-	defer sp.mutex.Unlock()
-
-	if sp.udpServerConn == nil {
-		return ErrNoOpenUDPConnection
-	}
-
-	return sp.udpServerConn.SendMessage(message)
+	return nil // @TODO plugin
 }
 
 func (sp *AssettoServerProcess) NotifyDone(ch chan struct{}) {
@@ -669,53 +621,6 @@ func (sp *AssettoServerProcess) startPlugin(wd string, plugin *CommandPlugin) er
 	return nil
 }
 
-// Deprecated: use startPlugin instead
-func (sp *AssettoServerProcess) startChildProcess(wd string, command string) error {
-	// BUG(cj): splitting commands on spaces breaks child processes that have a space in their path name
-	parts := strings.Split(command, " ")
-
-	if len(parts) == 0 {
-		return nil
-	}
-
-	commandFullPath, err := filepath.Abs(parts[0])
-
-	if err != nil {
-		return err
-	}
-
-	var cmd *exec.Cmd
-	ctx := context.Background()
-
-	if len(parts) > 1 {
-		cmd = buildCommand(ctx, commandFullPath, parts[1:]...)
-	} else {
-		cmd = buildCommand(ctx, commandFullPath)
-	}
-
-	pluginDir, err := filepath.Abs(filepath.Dir(commandFullPath))
-
-	if err != nil {
-		logrus.WithError(err).Warnf("Could not determine plugin directory. Setting working dir to: %s", wd)
-		pluginDir = wd
-	}
-
-	cmd.Stdout = pluginsOutput
-	cmd.Stderr = pluginsOutput
-
-	cmd.Dir = pluginDir
-
-	err = cmd.Start()
-
-	if err != nil {
-		return err
-	}
-
-	sp.extraProcesses = append(sp.extraProcesses, cmd)
-
-	return nil
-}
-
 func (sp *AssettoServerProcess) stopChildProcesses() {
 	sp.contentManagerWrapper.Stop()
 
@@ -731,34 +636,6 @@ func (sp *AssettoServerProcess) stopChildProcesses() {
 	}
 
 	sp.extraProcesses = make([]*exec.Cmd, 0)
-}
-
-func (sp *AssettoServerProcess) startUDPListener() error {
-	var err error
-
-	host, portStr, err := net.SplitHostPort(sp.udpPluginAddress)
-
-	if err != nil {
-		return err
-	}
-
-	port, err := strconv.ParseInt(portStr, 10, 0)
-
-	if err != nil {
-		return err
-	}
-
-	sp.udpServerConn, err = udp.NewServerClient(host, int(port), sp.udpPluginLocalPort, true, sp.forwardingAddress, sp.forwardListenPort, sp.UDPCallback)
-
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (sp *AssettoServerProcess) stopUDPListener() error {
-	return sp.udpServerConn.Close()
 }
 
 func newLogBuffer(maxSize int) *logBuffer {

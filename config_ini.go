@@ -12,6 +12,8 @@ import (
 	"github.com/cj123/formulate"
 	"github.com/cj123/ini"
 	"github.com/sirupsen/logrus"
+
+	"justapengu.in/acsm/internal/acServer"
 )
 
 func init() {
@@ -53,6 +55,21 @@ func (s SessionType) String() string {
 	default:
 		return strings.Title(strings.ToLower(string(s)))
 	}
+}
+
+func (s SessionType) ACServerType() acServer.SessionType {
+	switch s {
+	case SessionTypeBooking:
+		return acServer.SessionTypeBooking
+	case SessionTypePractice:
+		return acServer.SessionTypePractice
+	case SessionTypeQualifying:
+		return acServer.SessionTypeQualifying
+	case SessionTypeRace:
+		return acServer.SessionTypeRace
+	}
+
+	return acServer.SessionTypePractice
 }
 
 var AvailableSessions = []SessionType{
@@ -177,9 +194,6 @@ type GlobalServerConfig struct {
 
 	SleepTime int `ini:"SLEEP_TIME" help:"The use of this setting is not fully known. Leave the value as 1 unless you really know what you're doing. (Values other than 1 cause excessive CPU usage)"`
 
-	FreeUDPPluginLocalPort int    `ini:"-" show:"-"`
-	FreeUDPPluginAddress   string `ini:"-" show:"-"`
-
 	// ACSR
 	AssettoCorsaSkillRating FormHeading `ini:"-" json:"-" show:"premium"`
 	EnableACSR              bool        `ini:"-" show:"premium" help:"Enable ACSR integration. <a href='https://acsr.assettocorsaservers.com'>You can read more about ACSR here</a>."`
@@ -239,7 +253,31 @@ func (gsc GlobalServerConfig) GetName() string {
 	return gsc.Name
 }
 
-type FactoryAssist int
+func (gsc GlobalServerConfig) ToACServerConfig() *acServer.ServerConfig {
+	return &acServer.ServerConfig{
+		Name:                      gsc.Name,
+		Password:                  gsc.Password,
+		AdminPassword:             gsc.AdminPassword,
+		UDPPort:                   uint16(gsc.UDPPort),
+		TCPPort:                   uint16(gsc.TCPPort),
+		HTTPPort:                  uint16(gsc.HTTPPort),
+		RegisterToLobby:           gsc.RegisterToLobby == 1,
+		ClientSendIntervalInHertz: uint8(gsc.ClientSendIntervalInHertz),
+		SendBufferSize:            gsc.SendBufferSize,
+		ReceiveBufferSize:         gsc.ReceiveBufferSize,
+		KickQuorum:                gsc.KickQuorum,
+		VotingQuorum:              gsc.VotingQuorum,
+		VoteDuration:              gsc.VoteDuration,
+		BlockListMode:             acServer.BlockListMode(gsc.BlacklistMode),
+		NumberOfThreads:           gsc.NumberOfThreads,
+		SleepTime:                 gsc.SleepTime,
+		UDPPluginAddress:          gsc.UDPPluginAddress,
+		UDPPluginLocalPort:        gsc.UDPPluginLocalPort,
+		WelcomeMessageFile:        MOTDFilename,
+	}
+}
+
+type FactoryAssist acServer.Assist
 
 func (a FactoryAssist) String() string {
 	switch a {
@@ -254,7 +292,7 @@ func (a FactoryAssist) String() string {
 	return ""
 }
 
-type StartRule int
+type StartRule acServer.StartRule
 
 func (s StartRule) String() string {
 	switch s {
@@ -269,7 +307,7 @@ func (s StartRule) String() string {
 	return ""
 }
 
-type BlockListMode uint8
+type BlockListMode acServer.BlockListMode
 
 func (b BlockListMode) SelectMultiple() bool {
 	return false
@@ -278,25 +316,19 @@ func (b BlockListMode) SelectMultiple() bool {
 func (b BlockListMode) SelectOptions() []formulate.Option {
 	return []formulate.Option{
 		{
-			Value: BlockListModeNormalKick,
+			Value: acServer.BlockListModeNormalKick,
 			Label: "Normal kick, player can rejoin",
 		},
 		{
-			Value: BlockListModeNoRejoin,
+			Value: acServer.BlockListModeNoRejoin,
 			Label: "Kicked player cannot rejoin until server restart",
 		},
 		{
-			Value: BlockListModeAddToList,
+			Value: acServer.BlockListModeAddToList,
 			Label: "Kick player and add to blacklist.txt, kicked player can not rejoin unless removed from blacklist",
 		},
 	}
 }
-
-const (
-	BlockListModeNormalKick BlockListMode = 0
-	BlockListModeNoRejoin   BlockListMode = 1
-	BlockListModeAddToList  BlockListMode = 2
-)
 
 type CurrentRaceConfig struct {
 	Cars                      string        `ini:"CARS" show:"quick" input:"multiSelect" formopts:"CarOpts" help:"Models of cars allowed in the server"`
@@ -352,6 +384,88 @@ type CurrentRaceConfig struct {
 
 	Sessions Sessions                  `ini:"-"`
 	Weather  map[string]*WeatherConfig `ini:"-"`
+}
+
+func (c CurrentRaceConfig) ToACConfig() *acServer.EventConfig {
+	eventConfig := &acServer.EventConfig{
+		Cars:                      strings.Split(c.Cars, ";"),
+		Track:                     c.Track,
+		TrackLayout:               c.TrackLayout,
+		SunAngle:                  float32(c.SunAngle),
+		LegalTyres:                strings.Split(c.LegalTyres, ";"),
+		FuelRate:                  float32(c.FuelRate),
+		DamageMultiplier:          float32(c.DamageMultiplier),
+		TyreWearRate:              float32(c.TyreWearRate),
+		AllowedTyresOut:           int16(c.AllowedTyresOut),
+		ABSAllowed:                acServer.Assist(c.ABSAllowed),
+		TractionControlAllowed:    acServer.Assist(c.TractionControlAllowed),
+		StabilityControlAllowed:   c.StabilityControlAllowed == 1,
+		AutoClutchAllowed:         c.AutoClutchAllowed == 1,
+		TyreBlanketsAllowed:       c.TyreBlanketsAllowed == 1,
+		ForceVirtualMirror:        c.ForceVirtualMirror == 1,
+		RacePitWindowStart:        uint16(c.RacePitWindowStart),
+		RacePitWindowEnd:          uint16(c.RacePitWindowEnd),
+		ReversedGridRacePositions: int16(c.ReversedGridRacePositions),
+		TimeOfDayMultiplier:       c.TimeOfDayMultiplier,
+		QualifyMaxWaitPercentage:  c.QualifyMaxWaitPercentage,
+		RaceGasPenaltyDisabled:    c.RaceGasPenaltyDisabled == 1,
+		MaxBallastKilograms:       c.MaxBallastKilograms,
+		RaceExtraLap:              c.RaceExtraLap == 1,
+		MaxContactsPerKilometer:   uint8(c.MaxContactsPerKilometer),
+		ResultScreenTime:          uint32(c.ResultScreenTime),
+		PickupModeEnabled:         c.PickupModeEnabled == 1,
+		LockedEntryList:           c.LockedEntryList == 1,
+		LoopMode:                  c.LoopMode == 1,
+		MaxClients:                c.MaxClients,
+		RaceOverTime:              uint32(c.RaceOverTime),
+		StartRule:                 acServer.StartRule(c.StartRule),
+		DynamicTrack: acServer.DynamicTrack{
+			SessionStart:    c.DynamicTrack.SessionStart,
+			Randomness:      c.DynamicTrack.Randomness,
+			SessionTransfer: c.DynamicTrack.SessionTransfer,
+			LapGain:         c.DynamicTrack.LapGain,
+		},
+	}
+
+	i := 0
+
+	for {
+		weather, ok := c.Weather[fmt.Sprintf("WEATHER_%d", i)]
+
+		if !ok {
+			break
+		}
+
+		eventConfig.Weather = append(eventConfig.Weather, &acServer.WeatherConfig{
+			Graphics:               weather.Graphics,
+			Duration:               0, // @TODO weather durations
+			BaseTemperatureAmbient: weather.BaseTemperatureAmbient,
+			BaseTemperatureRoad:    weather.BaseTemperatureRoad,
+			VariationAmbient:       weather.VariationAmbient,
+			VariationRoad:          weather.VariationRoad,
+			WindSpeed:              weather.WindBaseSpeedMin, // @TODO wind
+			WindDirection:          weather.WindBaseDirection,
+		})
+
+		i++
+	}
+
+	sessions, sessionTypes := c.Sessions.AsSliceWithSessionTypes()
+
+	for sessionIndex, session := range sessions {
+		eventConfig.Sessions = append(eventConfig.Sessions, &acServer.SessionConfig{
+			SessionType: sessionTypes[sessionIndex].ACServerType(),
+			Name:        session.Name,
+			Time:        uint16(session.Time),
+			Laps:        uint16(session.Laps),
+			IsOpen:      acServer.OpenRule(session.IsOpen),
+			Solo:        false, // @TODO solo sessions
+			WaitTime:    session.WaitTime,
+			Weather:     nil, // @TODO weather per session
+		})
+	}
+
+	return eventConfig
 }
 
 func (c CurrentRaceConfig) Tyres() map[string]bool {

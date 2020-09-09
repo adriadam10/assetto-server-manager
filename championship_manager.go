@@ -544,13 +544,13 @@ func (cm *ChampionshipManager) BuildChampionshipEventOpts(r *http.Request) (*Rac
 			}
 
 			if !foundEvent {
-				defaultConfig := ConfigIniDefault()
+				defaultConfig := ConfigDefault()
 				opts.Current = defaultConfig.CurrentRaceConfig
 			}
 
 			opts.ChampionshipHasAtLeastOnceRace = true
 		} else {
-			defaultConfig := ConfigIniDefault()
+			defaultConfig := ConfigDefault()
 
 			opts.Current = defaultConfig.CurrentRaceConfig
 			opts.ChampionshipHasAtLeastOnceRace = false

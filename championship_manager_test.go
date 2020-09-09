@@ -63,7 +63,7 @@ type dummyServerProcess struct {
 	doneCh chan struct{}
 }
 
-func (dummyServerProcess) Start(event RaceEvent, udpPluginAddress string, udpPluginLocalPort int, forwardingAddress string, forwardListenPort int) error {
+func (dummyServerProcess) Start(event RaceEvent) error {
 	return nil
 }
 
@@ -102,7 +102,7 @@ func (d dummyServerProcess) NotifyDone(chan struct{}) {
 }
 
 func (dummyServerProcess) GetServerConfig() ServerConfig {
-	return ConfigIniDefault()
+	return ConfigDefault()
 }
 
 var championshipEventFixtures = []string{
@@ -210,7 +210,7 @@ func TestChampionshipManager_ChampionshipEventCallback(t *testing.T) {
 
 		for range championshipEventFixtures {
 			e := NewChampionshipEvent()
-			e.RaceSetup = ConfigIniDefault().CurrentRaceConfig
+			e.RaceSetup = ConfigDefault().CurrentRaceConfig
 
 			champ.Events = append(champ.Events, e)
 		}
@@ -252,7 +252,7 @@ func TestChampionshipManager_ChampionshipEventCallback(t *testing.T) {
 
 		for range championshipEventFixtures {
 			e := NewChampionshipEvent()
-			e.RaceSetup = ConfigIniDefault().CurrentRaceConfig
+			e.RaceSetup = ConfigDefault().CurrentRaceConfig
 
 			champ.Events = append(champ.Events, e)
 		}
@@ -302,7 +302,7 @@ func TestChampionshipManager_ChampionshipEventCallback(t *testing.T) {
 
 		for range championshipEventFixtures {
 			e := NewChampionshipEvent()
-			e.RaceSetup = ConfigIniDefault().CurrentRaceConfig
+			e.RaceSetup = ConfigDefault().CurrentRaceConfig
 
 			champ.Events = append(champ.Events, e)
 		}
@@ -352,7 +352,7 @@ func TestChampionshipManager_ChampionshipEventCallback(t *testing.T) {
 
 		for range championshipEventFixtures {
 			e := NewChampionshipEvent()
-			e.RaceSetup = ConfigIniDefault().CurrentRaceConfig
+			e.RaceSetup = ConfigDefault().CurrentRaceConfig
 
 			champ.Events = append(champ.Events, e)
 		}

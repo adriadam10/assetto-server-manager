@@ -310,7 +310,7 @@ func (rs *BoltStore) UpsertServerOptions(so *GlobalServerConfig) error {
 
 func (rs *BoltStore) LoadServerOptions() (*GlobalServerConfig, error) {
 	// start with defaults
-	defaultConfig := ConfigIniDefault()
+	defaultConfig := ConfigDefault()
 
 	so := &defaultConfig.GlobalServerConfig
 

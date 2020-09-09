@@ -31,13 +31,14 @@ const (
 
 type ServerState struct {
 	entryList       EntryList
-	raceConfig      *RaceConfig
+	raceConfig      *EventConfig
 	serverConfig    *ServerConfig
 	customChecksums []CustomChecksumFile
 	plugin          Plugin
 	logger          Logger
 
-	packetConn net.PacketConn
+	packetConn    net.PacketConn
+	baseDirectory string
 
 	// modifiable
 	sunAngle   float32
@@ -68,7 +69,7 @@ type DRSZone struct {
 	end       float32
 }
 
-func NewServerState(serverConfig *ServerConfig, raceConfig *RaceConfig, entryList EntryList, checksums []CustomChecksumFile, plugin Plugin, logger Logger) (*ServerState, error) {
+func NewServerState(baseDirectory string, serverConfig *ServerConfig, raceConfig *EventConfig, entryList EntryList, checksums []CustomChecksumFile, plugin Plugin, logger Logger) (*ServerState, error) {
 	ss := &ServerState{
 		serverConfig:    serverConfig,
 		raceConfig:      raceConfig,
@@ -79,6 +80,7 @@ func NewServerState(serverConfig *ServerConfig, raceConfig *RaceConfig, entryLis
 		sunAngle:        raceConfig.SunAngle,
 		randomSeed:      rand.Uint32(),
 		noJoinList:      make(map[string]bool),
+		baseDirectory:   baseDirectory,
 	}
 
 	if err := ss.init(); err != nil {
@@ -114,7 +116,7 @@ func (ss *ServerState) init() error {
 	return nil
 }
 
-const systemDataSurfacesPath = "system/data/surfaces.ini"
+var systemDataSurfacesPath = filepath.Join("system", "data", "surfaces.ini")
 
 type checksumFile struct {
 	Filename string
@@ -132,21 +134,25 @@ func (ss *ServerState) initChecksums() error {
 	var trackModelsPath string
 
 	if ss.raceConfig.TrackLayout == "" {
-		trackSurfacesPath = "content/tracks/" + ss.raceConfig.Track + "/data/surfaces.ini"
-		trackModelsPath = "content/tracks/" + ss.raceConfig.Track + "/models.ini"
+		trackSurfacesPath = filepath.Join(ss.baseDirectory, "content", "tracks", ss.raceConfig.Track, "data", "surfaces.ini")
+		trackModelsPath = filepath.Join(ss.baseDirectory, "content", "tracks", ss.raceConfig.Track, "models.ini")
 	} else {
-		trackSurfacesPath = "content/tracks/" + ss.raceConfig.Track + "/" + ss.raceConfig.TrackLayout + "/data/surfaces.ini"
-		trackModelsPath = "content/tracks/" + ss.raceConfig.Track + "/models_" + ss.raceConfig.TrackLayout + ".ini"
+		trackSurfacesPath = filepath.Join(ss.baseDirectory, "content", "tracks", ss.raceConfig.Track, ss.raceConfig.TrackLayout, "data", "surfaces.ini")
+		trackModelsPath = filepath.Join(ss.baseDirectory, "content", "tracks", ss.raceConfig.Track, "models_"+ss.raceConfig.TrackLayout+".ini")
 	}
 
-	filesToChecksum := []string{systemDataSurfacesPath, trackSurfacesPath, trackModelsPath}
+	filesToChecksum := []string{
+		filepath.Join(ss.baseDirectory, systemDataSurfacesPath),
+		trackSurfacesPath,
+		trackModelsPath,
+	}
 
 	for _, car := range ss.raceConfig.Cars {
-		acdFilepath := "content/cars/" + car + "/data.acd"
+		acdFilepath := filepath.Join(ss.baseDirectory, "content", "cars", car, "data.acd")
 
 		if _, err := os.Stat(acdFilepath); os.IsNotExist(err) {
 			// this car is likely using a data folder rather than an acd file. checksum all files within the data path
-			dataPath := "content/cars/" + car + "/data/"
+			dataPath := filepath.Join(ss.baseDirectory, "content", "cars", car, "data")
 
 			files, err := ioutil.ReadDir(dataPath)
 
@@ -248,9 +254,9 @@ func (ss *ServerState) initDRSZones() error {
 	var drsZonesPath string
 
 	if ss.raceConfig.TrackLayout == "" {
-		drsZonesPath = "content/tracks/" + ss.raceConfig.Track + "/data/drs_zones.ini"
+		drsZonesPath = filepath.Join(ss.baseDirectory, "content", "tracks", ss.raceConfig.Track, "data", "drs_zones.ini")
 	} else {
-		drsZonesPath = "content/tracks/" + ss.raceConfig.Track + "/" + ss.raceConfig.TrackLayout + "/data/drs_zones.ini"
+		drsZonesPath = filepath.Join(ss.baseDirectory, "content", "tracks", ss.raceConfig.Track, ss.raceConfig.TrackLayout, "data", "drs_zones.ini")
 	}
 
 	ss.logger.Debugf("Loading track DRS zones from %s", drsZonesPath)
@@ -313,7 +319,7 @@ entrants:
 				continue
 			}
 
-			setupFile, err := ini.Load(entrant.FixedSetup)
+			setupFile, err := ini.Load(filepath.Join(ss.baseDirectory, entrant.FixedSetup))
 
 			if err != nil {
 				return err
@@ -362,7 +368,7 @@ entrants:
 func (ss *ServerState) initMOTD() error {
 	ss.logger.Debugf("Loading server MOTD from: %s", ss.serverConfig.WelcomeMessageFile)
 
-	motd, err := ioutil.ReadFile(ss.serverConfig.WelcomeMessageFile)
+	motd, err := ioutil.ReadFile(filepath.Join(ss.baseDirectory, ss.serverConfig.WelcomeMessageFile))
 
 	if err != nil && !os.IsNotExist(err) {
 		return err
@@ -384,7 +390,7 @@ func (ss *ServerState) initMOTD() error {
 func (ss *ServerState) initBlockList() error {
 	ss.logger.Debug("Loading server blocklist.json")
 
-	blockListFile, err := ioutil.ReadFile("blocklist.json")
+	blockListFile, err := ioutil.ReadFile(filepath.Join(ss.baseDirectory, "blocklist.json"))
 
 	if err != nil && !os.IsNotExist(err) {
 		return err
@@ -581,7 +587,7 @@ func (ss *ServerState) AddToBlockList(guid string) error {
 	ss.blockList = append(ss.blockList, guid)
 
 	// save to file
-	file, err := os.Create("blocklist.json")
+	file, err := os.Create(filepath.Join("blocklist.json"))
 
 	if err != nil {
 		return err
@@ -1024,7 +1030,7 @@ func (ss *ServerState) SendSessionInfo(entrant *Car, leaderBoard []*LeaderboardL
 		leaderBoard = ss.Leaderboard()
 	}
 
-	ss.logger.Infof("Sending Client Session Information")
+	ss.logger.Debugf("Sending Client Session Information")
 
 	bw := NewPacket(nil)
 	bw.Write(TCPMessageCurrentSessionInfo)
@@ -1071,7 +1077,7 @@ type LeaderboardLine struct {
 }
 
 func (l *LeaderboardLine) String() string {
-	return fmt.Sprintf("CarID: %d, Time: %s, NumLaps: %d,", l.Car.CarID, l.Time, l.NumLaps)
+	return fmt.Sprintf("CarID: %d, Time: %s, NumLaps: %d", l.Car.CarID, l.Time, l.NumLaps)
 }
 
 func (ss *ServerState) Leaderboard() []*LeaderboardLine {

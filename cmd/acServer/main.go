@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"os"
 	"os/signal"
@@ -44,7 +45,7 @@ func main() {
 		}
 	}
 
-	server, err := acServer.NewServer(config.ServerConfig, config.RaceConfig, config.EntryList, config.CustomChecksums, logger, plugin)
+	server, err := acServer.NewServer(context.Background(), ".", config.ServerConfig, config.RaceConfig, config.EntryList, config.CustomChecksums, logger, plugin)
 
 	if err != nil {
 		logger.WithError(err).Fatal("Could not initialise server")
@@ -75,7 +76,7 @@ func main() {
 // TempConfig is temporary until we do server manager integration
 type TempConfig struct {
 	ServerConfig    *acServer.ServerConfig        `json:"server_config" yaml:"server_config"`
-	RaceConfig      *acServer.RaceConfig          `json:"race_config" yaml:"race_config"`
+	RaceConfig      *acServer.EventConfig         `json:"race_config" yaml:"race_config"`
 	EntryList       acServer.EntryList            `json:"entry_list" yaml:"entry_list"`
 	CustomChecksums []acServer.CustomChecksumFile `json:"checksums" yaml:"checksums"`
 }

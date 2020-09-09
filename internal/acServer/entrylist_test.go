@@ -10,7 +10,7 @@ import (
 
 func TestNewEntryListManager(t *testing.T) {
 	state := &ServerState{
-		raceConfig: &RaceConfig{
+		raceConfig: &EventConfig{
 			PickupModeEnabled: false,
 		},
 		entryList:    EntryList{},
@@ -156,7 +156,7 @@ func TestEntryListManager_ConnectCar(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			state := &ServerState{
 				entryList: test.entryList(),
-				raceConfig: &RaceConfig{
+				raceConfig: &EventConfig{
 					PickupModeEnabled: test.pickup,
 					LockedEntryList:   test.locked,
 					Cars:              connectCarTestCars,
@@ -232,7 +232,7 @@ func TestEntryListManager_ConnectCar(t *testing.T) {
 
 		state := &ServerState{
 			entryList: entryList,
-			raceConfig: &RaceConfig{
+			raceConfig: &EventConfig{
 				PickupModeEnabled: true,
 				LockedEntryList:   false,
 				Cars:              connectCarTestCars,
@@ -294,7 +294,7 @@ func TestEntryListManager_ConnectCar(t *testing.T) {
 
 		state := &ServerState{
 			entryList: entryList,
-			raceConfig: &RaceConfig{
+			raceConfig: &EventConfig{
 				PickupModeEnabled: true,
 				LockedEntryList:   false,
 				Cars:              connectCarTestCars,
@@ -438,7 +438,7 @@ func TestEntryListManager_BookCar(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			state := &ServerState{
 				entryList: test.entryList(),
-				raceConfig: &RaceConfig{
+				raceConfig: &EventConfig{
 					PickupModeEnabled: false,
 					LockedEntryList:   true,
 					Cars:              connectCarTestCars,
@@ -500,7 +500,7 @@ func TestEntryListManager_UnBookCar(t *testing.T) {
 	}
 
 	em := NewEntryListManager(&ServerState{entryList: e,
-		raceConfig: &RaceConfig{
+		raceConfig: &EventConfig{
 			PickupModeEnabled: false,
 			LockedEntryList:   true,
 			Cars:              connectCarTestCars,

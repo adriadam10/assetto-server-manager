@@ -111,6 +111,14 @@ func (pm *PositionMessageHandler) OnMessage(conn net.PacketConn, addr net.Addr, 
 		}()
 	}
 
+	go func() {
+		err := pm.plugin.OnCarUpdate(*entrant)
+
+		if err != nil {
+			pm.logger.WithError(err).Error("On car update plugin returned an error")
+		}
+	}()
+
 	return nil
 }
 
