@@ -9,6 +9,7 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	_ "time/tzdata"
 
 	"github.com/dustin/go-humanize"
 	"github.com/fatih/color"

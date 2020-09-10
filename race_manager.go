@@ -12,7 +12,6 @@ import (
 	"strings"
 	"sync"
 	"time"
-	_ "time/tzdata"
 
 	"justapengu.in/acsm/pkg/udp"
 	"justapengu.in/acsm/pkg/when"

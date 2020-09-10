@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"net/http"
 	"time"
-	_ "time/tzdata"
 
 	"github.com/go-chi/chi"
 	"github.com/google/uuid"
