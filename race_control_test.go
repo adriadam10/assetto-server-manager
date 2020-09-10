@@ -2,6 +2,7 @@ package acsm
 
 import (
 	"math/rand"
+	"net/url"
 	"os"
 	"path/filepath"
 	"testing"
@@ -12,6 +13,125 @@ import (
 )
 
 var testStore = NewJSONStore(filepath.Join(os.TempDir(), "asm-race-store"), filepath.Join(os.TempDir(), "asm-race-store-shared"))
+
+type dummyServerProcess struct {
+	doneCh chan struct{}
+}
+
+func (dummyServerProcess) Start(event RaceEvent) error {
+	return nil
+}
+
+func (dummyServerProcess) Logs() string {
+	return ""
+}
+
+func (d dummyServerProcess) Stop() error {
+	if d.doneCh != nil {
+		d.doneCh <- struct{}{}
+	}
+	return nil
+}
+
+func (dummyServerProcess) Restart() error {
+	return nil
+}
+
+func (dummyServerProcess) IsRunning() bool {
+	return true
+}
+
+func (dummyServerProcess) Event() RaceEvent {
+	return &ActiveChampionship{}
+}
+
+func (dummyServerProcess) UDPCallback(message udp.Message) {
+}
+
+func (dummyServerProcess) SetPlugin(acserver.Plugin) {
+
+}
+
+func (d dummyServerProcess) NotifyDone(chan struct{}) {
+
+}
+
+func (dummyServerProcess) GetServerConfig() ServerConfig {
+	return ConfigDefault()
+}
+
+var championshipManager *ChampionshipManager
+
+type dummyNotificationManager struct{}
+
+func (d *dummyNotificationManager) HasNotificationReminders() bool {
+	return false
+}
+
+func (d *dummyNotificationManager) GetNotificationReminders() []int {
+	var reminders []int
+
+	return reminders
+}
+
+func (d dummyNotificationManager) SendRaceWeekendReminderMessage(raceWeekend *RaceWeekend, session *RaceWeekendSession, timer int) error {
+	return nil
+}
+
+func (d dummyNotificationManager) SendMessage(title string, msg string) error {
+	return nil
+}
+
+func (d dummyNotificationManager) SendMessageWithLink(title string, msg string, linkText string, link *url.URL) error {
+	return nil
+}
+
+func (d dummyNotificationManager) SendRaceStartMessage(config ServerConfig, event RaceEvent) error {
+	return nil
+}
+
+func (d dummyNotificationManager) GetCarList(cars string) string {
+	return "nil"
+}
+
+func (d dummyNotificationManager) GetTrackInfo(track string, layout string, download bool) string {
+	return "nil"
+}
+
+func (d dummyNotificationManager) SendRaceScheduledMessage(event *CustomRace, date time.Time) error {
+	return nil
+}
+
+func (d dummyNotificationManager) SendRaceCancelledMessage(event *CustomRace, date time.Time) error {
+	return nil
+}
+
+func (d dummyNotificationManager) SendRaceReminderMessage(event *CustomRace, timer int) error {
+	return nil
+}
+
+func (d dummyNotificationManager) SendChampionshipReminderMessage(championship *Championship, event *ChampionshipEvent, timer int) error {
+	return nil
+}
+
+func (d dummyNotificationManager) SaveServerOptions(oldServerOpts *GlobalServerConfig, newServerOpts *GlobalServerConfig) error {
+	return nil
+}
+
+func init() {
+	config = &Configuration{}
+	championshipManager = NewChampionshipManager(
+		NewRaceManager(
+			NewJSONStore(filepath.Join(os.TempDir(), "asm-race-store"), filepath.Join(os.TempDir(), "asm-race-store-shared")),
+			dummyServerProcess{},
+			NewCarManager(NewTrackManager(), false, false),
+			NewTrackManager(),
+			&dummyNotificationManager{},
+			NewRaceControl(NilBroadcaster{}, nilTrackData{}, dummyServerProcess{}, testStore, NewPenaltiesManager(testStore)),
+		),
+		&ACSRClient{Enabled: false},
+	)
+}
 
 var drivers = []udp.SessionCarInfo{
 	{
@@ -55,7 +175,6 @@ var drivers = []udp.SessionCarInfo{
 		EventType:  udp.EventNewConnection,
 	},
 }
-
 
 type dummyServer struct{}
 
@@ -816,7 +935,6 @@ var raceLapTest = []driverLapResult{ // value in comments is 'total lap time (ac
 	{Driver: 1, LapTime: 1, ExpectedPos: 3, ExpectedSplit: "1 lap"}, // 31 - speedy boy
 	{Driver: 3, LapTime: 3, ExpectedPos: 2, ExpectedSplit: "2ms"},   // 32
 }
-
 
 func TestRaceControl_OnLapCompleted(t *testing.T) {
 	raceControl := newRaceControl()

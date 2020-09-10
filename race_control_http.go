@@ -348,7 +348,6 @@ func (rch *RaceControlHandler) kickUser(w http.ResponseWriter, r *http.Request) 
 			return nil
 		}
 
-
 		return rch.raceControl.server.KickUser(driver.CarInfo.CarID, acserver.KickReasonGeneric)
 	})
 

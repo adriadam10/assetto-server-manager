@@ -7,7 +7,7 @@ import (
 
 type RaceControlAdapter struct {
 	*RaceControl
-	server      acserver.ServerPlugin
+	server acserver.ServerPlugin
 }
 
 func NewRaceControlAdapter(raceControl *RaceControl) acserver.Plugin {

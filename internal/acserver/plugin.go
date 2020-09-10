@@ -41,7 +41,6 @@ type ServerPlugin interface {
 	GetLeaderboard() []*LeaderboardLine
 }
 
-
 type multiPlugin struct {
 	plugins []Plugin
 }

@@ -25,9 +25,11 @@ import (
 
 var defaultAddress = "0.0.0.0:8772"
 
+/*
 const (
 	udpRealtimePosRefreshIntervalMin = 100
 )
+*/
 
 func init() {
 	runtime.LockOSThread()
@@ -89,14 +91,14 @@ func main() {
 	}
 
 	if config.LiveMap.IsEnabled() {
-	/*
-		@TODO me
-		if config.LiveMap.IntervalMs < udpRealtimePosRefreshIntervalMin {
-			udp.RealtimePosIntervalMs = udpRealtimePosRefreshIntervalMin
-		} else {
-			udp.RealtimePosIntervalMs = config.LiveMap.IntervalMs
-		}
-*/
+		/*
+			@TODO me
+			if config.LiveMap.IntervalMs < udpRealtimePosRefreshIntervalMin {
+				udp.RealtimePosIntervalMs = udpRealtimePosRefreshIntervalMin
+			} else {
+				udp.RealtimePosIntervalMs = config.LiveMap.IntervalMs
+			}
+		*/
 		if runtime.GOOS == "linux" {
 			// check known kernel net memory restrictions. if they're lower than the recommended
 			// values, then print out explaining how to increase them

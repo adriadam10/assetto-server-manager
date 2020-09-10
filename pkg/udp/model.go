@@ -25,7 +25,6 @@ const (
 	EventSessionInfo      Event = 59
 	EventError            Event = 60
 	EventLapCompleted     Event = 73
-	EventClientEvent      Event = 130
 )
 
 type Message interface {
@@ -43,17 +42,6 @@ func (ServerError) Event() Event {
 type CarID = acserver.CarID
 type DriverGUID string
 
-type lapCompletedInternal struct {
-	CarID     CarID
-	LapTime   uint32
-	Cuts      uint8
-	CarsCount uint8
-}
-
-func (LapCompleted) Event() Event {
-	return EventLapCompleted
-}
-
 type LapCompleted struct {
 	CarID     CarID  `json:"CarID"`
 	LapTime   uint32 `json:"LapTime"`
@@ -61,6 +49,10 @@ type LapCompleted struct {
 	CarsCount uint8  `json:"CarsCount"`
 
 	Cars []*LapCompletedCar `json:"Cars"`
+}
+
+func (LapCompleted) Event() Event {
+	return EventLapCompleted
 }
 
 type LapCompletedCar struct {
