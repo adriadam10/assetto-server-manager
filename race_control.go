@@ -14,6 +14,7 @@ import (
 	"github.com/sirupsen/logrus"
 	lua "github.com/yuin/gopher-lua"
 
+	"justapengu.in/acsm/internal/acServer"
 	"justapengu.in/acsm/pkg/udp"
 )
 
@@ -21,12 +22,12 @@ type RaceControl struct {
 	process          ServerProcess
 	store            Store
 	penaltiesManager *PenaltiesManager
+	server           *acServer.Server
 
-	SessionInfo                udp.SessionInfo `json:"SessionInfo"`
-	TrackMapData               TrackMapData    `json:"TrackMapData"`
-	TrackInfo                  TrackInfo       `json:"TrackInfo"`
-	SessionStartTime           time.Time       `json:"SessionStartTime"`
-	CurrentRealtimePosInterval int             `json:"CurrentRealtimePosInterval"`
+	SessionInfo      udp.SessionInfo `json:"SessionInfo"`
+	TrackMapData     TrackMapData    `json:"TrackMapData"`
+	TrackInfo        TrackInfo       `json:"TrackInfo"`
+	SessionStartTime time.Time       `json:"SessionStartTime"`
 
 	ChatMessages      []udp.Chat
 	ChatMessagesMutex sync.Mutex
@@ -56,7 +57,7 @@ type RaceControl struct {
 	driverSwapPenalties      map[udp.DriverGUID]*driverSwapPenalty
 }
 
-// RaceControl piggyback's on the udp.Message interface so that the entire data can be sent to newly connected clients.
+// RaceControl piggybacks on the udp.Message interface so that the entire data can be sent to newly connected clients.
 func (rc *RaceControl) Event() udp.Event {
 	return 200
 }
@@ -90,10 +91,9 @@ func NewRaceControl(broadcaster Broadcaster, trackDataGateway TrackDataGateway, 
 	}
 
 	process.NotifyDone(rc.serverProcessStopped)
+	process.SetPlugin(NewRaceControlAdapter(rc))
 
 	rc.clearAllDrivers()
-
-	go panicCapture(rc.watchForTimedOutDrivers)
 
 	return rc
 }
@@ -170,8 +170,6 @@ func (rc *RaceControl) UDPCallback(message udp.Message) {
 
 	if sendUpdatedRaceControlStatus {
 		// update the current refresh rate
-		rc.CurrentRealtimePosInterval = udp.CurrentRealtimePosIntervalMs
-
 		lastUpdateMessage, err := rc.broadcaster.Send(rc)
 
 		if err != nil {
@@ -182,50 +180,6 @@ func (rc *RaceControl) UDPCallback(message udp.Message) {
 		rc.lastUpdateMessageMutex.Lock()
 		rc.lastUpdateMessage = lastUpdateMessage
 		rc.lastUpdateMessageMutex.Unlock()
-	}
-}
-
-var driverTimeout = time.Minute * 5
-
-func (rc *RaceControl) watchForTimedOutDrivers() {
-	if udp.RealtimePosIntervalMs <= 0 {
-		// with no real time pos interval, we have no driver positions, so no last update time.
-		return
-	}
-
-	ticker := time.NewTicker(time.Minute)
-
-	for range ticker.C {
-		var driversToDisconnect []*RaceControlDriver
-
-		_ = rc.ConnectedDrivers.Each(func(driverGUID udp.DriverGUID, driver *RaceControlDriver) error {
-			driver.mutex.Lock()
-			defer driver.mutex.Unlock()
-
-			if !driver.LastSeen.IsZero() && time.Since(driver.LastSeen) > driverTimeout || driver.LastSeen.IsZero() && time.Since(driver.ConnectedTime) > driverTimeout {
-				driversToDisconnect = append(driversToDisconnect, driver)
-			}
-
-			return nil
-		})
-
-		for _, driver := range driversToDisconnect {
-			logrus.Debugf("Driver: %s (%s) has not been seen in 5 minutes, disconnecting", driver.CarInfo.DriverName, driver.CarInfo.DriverGUID)
-			err := rc.disconnectDriver(driver)
-
-			if err != nil {
-				logrus.WithError(err).Errorf("Could not disconnect driver: %s (%s)", driver.CarInfo.DriverName, driver.CarInfo.DriverGUID)
-				continue
-			}
-		}
-
-		if len(driversToDisconnect) > 0 {
-			_, err := rc.broadcaster.Send(rc)
-
-			if err != nil {
-				logrus.WithError(err).Error("Could not broadcast driver disconnect message")
-			}
-		}
 	}
 }
 
@@ -301,7 +255,7 @@ func (rc *RaceControl) OnNewSession(sessionInfo udp.SessionInfo) error {
 	rc.driverSwapPenalties = make(map[udp.DriverGUID]*driverSwapPenalty)
 	rc.driverSwapPenaltiesMutex.Unlock()
 
-	if (rc.ConnectedDrivers.Len() > 0 || rc.DisconnectedDrivers.Len() > 0) && sessionInfo.Type == udp.SessionTypePractice {
+	if (rc.ConnectedDrivers.Len() > 0 || rc.DisconnectedDrivers.Len() > 0) && sessionInfo.Type == acServer.SessionTypePractice {
 		if oldSessionInfo.Type == sessionInfo.Type && oldSessionInfo.Track == sessionInfo.Track && oldSessionInfo.TrackConfig == sessionInfo.TrackConfig && oldSessionInfo.Name == sessionInfo.Name {
 			// this is a looped event, keep the cars
 			emptyCarInfo = false
@@ -400,16 +354,7 @@ func (rc *RaceControl) requestSessionInfo() {
 	for {
 		select {
 		case <-sessionInfoTicker.C:
-			err := rc.process.SendUDPMessage(udp.GetSessionInfo{})
-
-			if err == ErrNoOpenUDPConnection {
-				logrus.WithError(err).Warnf("Couldn't send session info udp request. Breaking loop.")
-				sessionInfoTicker.Stop()
-				return
-			} else if err != nil {
-				logrus.WithError(err).Errorf("Couldn't send session info udp request")
-			}
-
+			rc.UDPCallback(convertSessionInfoToUDP(udp.EventSessionInfo, rc.server.GetSessionInfo()))
 		case <-rc.serverProcessStopped:
 			logrus.Debugf("Assetto Process completed. Disconnecting all connected drivers. Session done.")
 			sessionInfoTicker.Stop()
@@ -755,16 +700,10 @@ func (rc *RaceControl) handleDriverSwap(ticker *time.Ticker, config CurrentRaceC
 				}
 			} else {
 				if totalTime.Seconds() >= completeTime.Seconds() {
-					sendChat, err := udp.NewSendChat(currentDriver.CarInfo.CarID, "You are clear to leave the pits, go go go!")
+					err := rc.server.SendChat("You are clear to leave the pits, go go go!", acServer.ServerCarID, currentDriver.CarInfo.CarID)
 
-					if err == nil {
-						err := rc.process.SendUDPMessage(sendChat)
-
-						if err != nil {
-							logrus.WithError(err).Errorf("Unable to send driver swap clear to leave message to: %s", currentDriver.CarInfo.DriverName)
-						}
-					} else {
-						logrus.WithError(err).Errorf("Unable to build driver swap clear to leave message to: %s", currentDriver.CarInfo.DriverName)
+					if err != nil {
+						logrus.WithError(err).Errorf("Unable to send driver swap clear to leave message to: %s", currentDriver.CarInfo.DriverName)
 					}
 
 					logrus.Infof("Driver: %d has successfully completed their driver swap and is free to leave the pits", currentDriver.CarInfo.CarID)
@@ -777,22 +716,17 @@ func (rc *RaceControl) handleDriverSwap(ticker *time.Ticker, config CurrentRaceC
 					nilVec := udp.Vec{X: 0, Y: 0, Z: 0}
 
 					if currentDriver.LastPos != nilVec {
-						sendChat, err := udp.NewSendChat(
-							currentDriver.CarInfo.CarID,
+						err := rc.server.SendChat(
 							fmt.Sprintf(
 								"Hi! You are mid way through a driver swap, please wait %s before leaving the pits",
 								countdown.String(),
 							),
+							acServer.ServerCarID,
+							currentDriver.CarInfo.CarID,
 						)
 
-						if err == nil {
-							err := rc.process.SendUDPMessage(sendChat)
-
-							if err != nil {
-								logrus.WithError(err).Errorf("Unable to send driver swap welcome message to: %s", currentDriver.CarInfo.DriverName)
-							}
-						} else {
-							logrus.WithError(err).Errorf("Unable to build driver swap welcome message to: %s", currentDriver.CarInfo.DriverName)
+						if err != nil {
+							logrus.WithError(err).Errorf("Unable to send driver swap welcome message to: %s", currentDriver.CarInfo.DriverName)
 						}
 
 						firstPositionUpdate = true
@@ -803,27 +737,23 @@ func (rc *RaceControl) handleDriverSwap(ticker *time.Ticker, config CurrentRaceC
 				if rc.positionHasChanged(position, currentDriver.LastPos) && firstPositionUpdate {
 					// if the time is within the disqualify window
 					if countdown >= (time.Second * time.Duration(config.DriverSwapDisqualifyTime)) {
-						sendChat, err := udp.NewSendChat(
-							currentDriver.CarInfo.CarID,
+
+						err := rc.server.SendChat(
 							fmt.Sprintf(
 								"You have been kicked from the session for leaving the pits %s early during a driver swap",
 								countdown.String(),
 							),
+							acServer.ServerCarID,
+							currentDriver.CarInfo.CarID,
 						)
 
-						if err == nil {
-							err := rc.process.SendUDPMessage(sendChat)
-
-							if err != nil {
-								logrus.WithError(err).Errorf("Unable to send driver swap kicked message to: %s", currentDriver.CarInfo.DriverName)
-							}
-						} else {
-							logrus.WithError(err).Errorf("Unable to build driver swap kicked message to: %s", currentDriver.CarInfo.DriverName)
+						if err != nil {
+							logrus.WithError(err).Errorf("Unable to send driver swap kicked message to: %s", currentDriver.CarInfo.DriverName)
 						}
 
 						time.Sleep(5 * time.Second)
 
-						err = rc.process.SendUDPMessage(udp.NewKickUser(uint8(currentDriver.CarInfo.CarID)))
+						err = rc.server.KickUser(currentDriver.CarInfo.CarID, acServer.KickReasonGeneric)
 
 						if err != nil {
 							logrus.WithError(err).Errorf("Unable to send kick command (driver swaps)")
@@ -851,23 +781,18 @@ func (rc *RaceControl) handleDriverSwap(ticker *time.Ticker, config CurrentRaceC
 						}
 						rc.driverSwapPenaltiesMutex.Unlock()
 
-						sendChat, err := udp.NewSendChat(
-							currentDriver.CarInfo.CarID,
+						err := rc.server.SendChat(
 							fmt.Sprintf(
 								"You have been given a %s second penalty for leaving the pits %s early during a driver swap",
 								(countdown+(time.Second*5)).String(),
 								countdown.String(),
 							),
+							acServer.ServerCarID,
+							currentDriver.CarInfo.CarID,
 						)
 
-						if err == nil {
-							err := rc.process.SendUDPMessage(sendChat)
-
-							if err != nil {
-								logrus.WithError(err).Errorf("Unable to send driver swap penalty message to: %s", currentDriver.CarInfo.DriverName)
-							}
-						} else {
-							logrus.WithError(err).Errorf("Unable to build driver swap penalty message to: %s", currentDriver.CarInfo.DriverName)
+						if err != nil {
+							logrus.WithError(err).Errorf("Unable to send driver swap penalty message to: %s", currentDriver.CarInfo.DriverName)
 						}
 
 						logrus.Infof(
@@ -884,16 +809,14 @@ func (rc *RaceControl) handleDriverSwap(ticker *time.Ticker, config CurrentRaceC
 
 				// send countdown messages
 				if firstPositionUpdate {
-					sendChat, err := udp.NewSendChat(currentDriver.CarInfo.CarID, fmt.Sprintf("Free to leave pits in %s", countdown.String()))
+					err := rc.server.SendChat(
+						fmt.Sprintf("Free to leave pits in %s", countdown.String()),
+						acServer.ServerCarID,
+						currentDriver.CarInfo.CarID,
+					)
 
-					if err == nil {
-						err := rc.process.SendUDPMessage(sendChat)
-
-						if err != nil {
-							logrus.WithError(err).Errorf("Unable to send driver swap countdown message to: %s", currentDriver.CarInfo.DriverName)
-						}
-					} else {
-						logrus.WithError(err).Errorf("Unable to build driver swap countdown message to: %s", currentDriver.CarInfo.DriverName)
+					if err != nil {
+						logrus.WithError(err).Errorf("Unable to send driver swap countdown message to: %s", currentDriver.CarInfo.DriverName)
 					}
 				}
 			}
@@ -969,17 +892,11 @@ func (rc *RaceControl) OnClientLoaded(loadedCar udp.ClientLoaded) error {
 		60,
 	), "\n")
 
-	for _, msg := range wrapped {
-		welcomeMessage, err := udp.NewSendChat(driver.CarInfo.CarID, msg)
+	for _, message := range wrapped {
+		err := rc.server.SendChat(message, acServer.ServerCarID, driver.CarInfo.CarID)
 
-		if err == nil {
-			err := rc.process.SendUDPMessage(welcomeMessage)
-
-			if err != nil {
-				logrus.WithError(err).Errorf("Unable to send welcome message to: %s", driver.CarInfo.DriverName)
-			}
-		} else {
-			logrus.WithError(err).Errorf("Unable to build welcome message to: %s", driver.CarInfo.DriverName)
+		if err != nil {
+			logrus.WithError(err).Errorf("Unable to send welcome message to: %s", driver.CarInfo.DriverName)
 		}
 	}
 
@@ -1040,17 +957,11 @@ func (rc *RaceControl) sendChampionshipPlayerSummaryMessage(driver *RaceControlD
 		60,
 	), "\n")
 
-	for _, msg := range wrapped {
-		welcomeMessage, err := udp.NewSendChat(driver.CarInfo.CarID, msg)
+	for _, message := range wrapped {
+		err := rc.server.SendChat(message, acServer.ServerCarID, driver.CarInfo.CarID)
 
-		if err == nil {
-			err := rc.process.SendUDPMessage(welcomeMessage)
-
-			if err != nil {
-				logrus.WithError(err).Errorf("Unable to send welcome message to: %s", driver.CarInfo.DriverName)
-			}
-		} else {
-			logrus.WithError(err).Errorf("Unable to build welcome message to: %s", driver.CarInfo.DriverName)
+		if err != nil {
+			logrus.WithError(err).Errorf("Unable to send welcome message to: %s", driver.CarInfo.DriverName)
 		}
 	}
 
@@ -1091,7 +1002,7 @@ func (rc *RaceControl) OnLapCompleted(lap udp.LapCompleted) error {
 
 	rc.ConnectedDrivers.sort()
 
-	if rc.SessionInfo.Type == udp.SessionTypeRace {
+	if rc.SessionInfo.Type == acServer.SessionTypeRace {
 		// calculate split
 		if driver.Position == 1 {
 			driver.Split = time.Duration(0).String()
@@ -1200,7 +1111,7 @@ func (rc *RaceControl) SortDrivers(driverGroup RaceControlDriverGroup, driverA, 
 	driverACar := driverA.CurrentCar()
 	driverBCar := driverB.CurrentCar()
 
-	if rc.SessionInfo.Type == udp.SessionTypeRace {
+	if rc.SessionInfo.Type == acServer.SessionTypeRace {
 		if driverGroup == ConnectedDrivers {
 			if driverACar.NumLaps == driverBCar.NumLaps {
 				return driverACar.TotalLapTime < driverBCar.TotalLapTime
@@ -1291,7 +1202,7 @@ func (rc *RaceControl) OnCollisionWithEnvironment(collision udp.CollisionWithEnv
 }
 
 type LiveTimingsPersistedData struct {
-	SessionType udp.SessionType
+	SessionType acServer.SessionType
 	Track       string
 	TrackLayout string
 	SessionName string
@@ -1386,18 +1297,8 @@ func (rc *RaceControl) splitAndBroadcastChat(message string, account *Account) e
 		60,
 	), "\n")
 
-	for _, msg := range wrapped {
-		broadcastMessage, err := udp.NewBroadcastChat(msg)
-
-		if err == nil {
-			err := rc.process.SendUDPMessage(broadcastMessage)
-
-			if err != nil {
-				return err
-			}
-		} else {
-			return err
-		}
+	for _, message := range wrapped {
+		rc.server.BroadcastChat(message, acServer.ServerCarID)
 	}
 
 	chat, err := udp.NewChat(message, 0, name, udp.DriverGUID(guid))
@@ -1426,16 +1327,10 @@ func (rc *RaceControl) splitAndSendChat(message, guid string) error {
 		60,
 	), "\n")
 
-	for _, msg := range wrapped {
-		welcomeMessage, err := udp.NewSendChat(udp.CarID(carID), msg)
+	for _, message := range wrapped {
+		err := rc.server.SendChat(message, acServer.ServerCarID, acServer.CarID(carID))
 
-		if err == nil {
-			err := rc.process.SendUDPMessage(welcomeMessage)
-
-			if err != nil {
-				return err
-			}
-		} else {
+		if err != nil {
 			return err
 		}
 	}

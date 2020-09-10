@@ -120,7 +120,7 @@ func (r *Resolver) resolveServerProcess() ServerProcess {
 		return r.serverProcess
 	}
 
-	r.serverProcess = NewAssettoServerProcess(r.UDPCallback, r.ResolveStore(), r.resolveContentManagerWrapper())
+	r.serverProcess = NewAssettoServerProcess(r.ResolveStore(), r.resolveContentManagerWrapper())
 
 	return r.serverProcess
 }

@@ -6,6 +6,8 @@ import (
 	"sync"
 	"time"
 
+	"golang.org/x/time/rate"
+
 	"justapengu.in/acsm/internal/acServer"
 )
 
@@ -48,10 +50,10 @@ type UDPPlugin struct {
 	remoteAddress *net.UDPAddr
 	packetConn    *net.UDPConn
 
-	server                    *acServer.Server
-	logger                    acServer.Logger
-	clientUpdateLastSendTimes map[acServer.CarID]time.Time
-	clientUpdateLastSendMutex sync.RWMutex
+	server               *acServer.Server
+	logger               acServer.Logger
+	clientUpdateLimiters map[acServer.CarID]*rate.Limiter
+	clientUpdateMutex    sync.Mutex
 
 	clientSendInterval      time.Duration
 	enableEnhancedReporting bool
@@ -71,10 +73,10 @@ func NewUDPPlugin(listenPort int, sendAddress string) (*UDPPlugin, error) {
 	}
 
 	p := &UDPPlugin{
-		localAddress:              localAddress,
-		remoteAddress:             remoteAddress,
-		clientSendInterval:        time.Millisecond * 400,
-		clientUpdateLastSendTimes: make(map[acServer.CarID]time.Time),
+		localAddress:         localAddress,
+		remoteAddress:        remoteAddress,
+		clientSendInterval:   time.Millisecond * 400,
+		clientUpdateLimiters: make(map[acServer.CarID]*rate.Limiter),
 	}
 
 	return p, nil
@@ -125,8 +127,13 @@ func (u *UDPPlugin) handleConnection(data []byte) error {
 	switch messageType {
 	case EventRealTimePositionInterval:
 		interval := p.ReadUint16()
-
 		u.clientSendInterval = time.Millisecond * time.Duration(interval)
+
+		u.clientUpdateMutex.Lock()
+		for carID := range u.clientUpdateLimiters {
+			u.clientUpdateLimiters[carID].SetLimit(rate.Every(u.clientSendInterval))
+		}
+		u.clientUpdateMutex.Unlock()
 	case EventGetCarInfo:
 		var carID acServer.CarID
 
@@ -224,19 +231,26 @@ func (u *UDPPlugin) OnConnectionClosed(car acServer.Car) error {
 	return p.WriteToUDPConn(u.packetConn)
 }
 
+func (u *UDPPlugin) getLimiter(car acServer.Car) *rate.Limiter {
+	u.clientUpdateMutex.Lock()
+	defer u.clientUpdateMutex.Unlock()
+
+	limiter, ok := u.clientUpdateLimiters[car.CarID]
+
+	if !ok {
+		limiter = rate.NewLimiter(rate.Every(u.clientSendInterval), 1)
+		u.clientUpdateLimiters[car.CarID] = limiter
+	}
+
+	return limiter
+}
+
 func (u *UDPPlugin) OnCarUpdate(car acServer.Car) error {
-	u.clientUpdateLastSendMutex.RLock()
-	if lastSend, ok := u.clientUpdateLastSendTimes[car.CarID]; ok && time.Since(lastSend) < u.clientSendInterval {
-		u.clientUpdateLastSendMutex.RUnlock()
+	limiter := u.getLimiter(car)
+
+	if !limiter.Allow() {
 		return nil
 	}
-	u.clientUpdateLastSendMutex.RUnlock()
-
-	defer func() {
-		u.clientUpdateLastSendMutex.Lock()
-		defer u.clientUpdateLastSendMutex.Unlock()
-		u.clientUpdateLastSendTimes[car.CarID] = time.Now()
-	}()
 
 	p := acServer.NewPacket(nil)
 	p.Write(EventCarUpdate)

@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"justapengu.in/acsm/internal/acServer"
 	"justapengu.in/acsm/pkg/udp"
 )
 
@@ -298,7 +299,7 @@ func TestRaceControl_OnNewSession(t *testing.T) {
 			Track:               "ks_laguna_seca",
 			TrackConfig:         "",
 			Name:                "Test Practice Session",
-			Type:                udp.SessionTypePractice,
+			Type:                acServer.SessionTypePractice,
 			Time:                10,
 			Laps:                0,
 			WaitTime:            120,
@@ -344,7 +345,7 @@ func TestRaceControl_OnNewSession(t *testing.T) {
 			Track:               "ks_laguna_seca",
 			TrackConfig:         "",
 			Name:                "Test Practice Session",
-			Type:                udp.SessionTypePractice,
+			Type:                acServer.SessionTypePractice,
 			Time:                10,
 			Laps:                0,
 			WaitTime:            120,
@@ -427,7 +428,7 @@ func TestRaceControl_OnNewSession(t *testing.T) {
 			Track:               "ks_laguna_seca",
 			TrackConfig:         "",
 			Name:                "Test Qualifying Session",
-			Type:                udp.SessionTypeQualifying,
+			Type:                acServer.SessionTypeQualifying,
 			Time:                10,
 			Laps:                0,
 			WaitTime:            120,
@@ -444,7 +445,7 @@ func TestRaceControl_OnNewSession(t *testing.T) {
 			return
 		}
 
-		if raceControl.SessionInfo.Type != udp.SessionTypeQualifying {
+		if raceControl.SessionInfo.Type != acServer.SessionTypeQualifying {
 			t.Error("Invalid session type detected, should be qualifying")
 			return
 		}
@@ -491,7 +492,7 @@ func TestRaceControl_OnNewSession(t *testing.T) {
 			Track:               "ks_laguna_seca",
 			TrackConfig:         "",
 			Name:                "Test Looped Practice Session",
-			Type:                udp.SessionTypePractice,
+			Type:                acServer.SessionTypePractice,
 			Time:                10,
 			Laps:                0,
 			WaitTime:            120,
@@ -574,7 +575,7 @@ func TestRaceControl_OnNewSession(t *testing.T) {
 			Track:               "ks_laguna_seca",
 			TrackConfig:         "",
 			Name:                "Test Looped Practice Session",
-			Type:                udp.SessionTypePractice,
+			Type:                acServer.SessionTypePractice,
 			Time:                10,
 			Laps:                0,
 			WaitTime:            120,
@@ -634,7 +635,7 @@ func TestRaceControl_OnCarUpdate(t *testing.T) {
 		Track:               "ks_laguna_seca",
 		TrackConfig:         "",
 		Name:                "Test Looped Practice Session",
-		Type:                udp.SessionTypePractice,
+		Type:                acServer.SessionTypePractice,
 		Time:                10,
 		Laps:                0,
 		WaitTime:            120,
@@ -786,7 +787,7 @@ func TestRaceControl_OnLapCompleted(t *testing.T) {
 		Track:               "ks_laguna_seca",
 		TrackConfig:         "",
 		Name:                "Test Looped Practice Session",
-		Type:                udp.SessionTypeRace,
+		Type:                acServer.SessionTypeRace,
 		Time:                10,
 		Laps:                0,
 		WaitTime:            120,
@@ -874,7 +875,7 @@ func TestRaceControl_OnLapCompleted(t *testing.T) {
 func TestRaceControl_SortDrivers(t *testing.T) {
 	t.Run("Race, connected drivers", func(t *testing.T) {
 		rc := NewRaceControl(NilBroadcaster{}, nilTrackData{}, dummyServerProcess{}, testStore, NewPenaltiesManager(testStore))
-		rc.SessionInfo.Type = udp.SessionTypeRace
+		rc.SessionInfo.Type = acServer.SessionTypeRace
 
 		d0 := NewRaceControlDriver(drivers[0])
 		d0.CurrentCar().NumLaps = 10
@@ -912,7 +913,7 @@ func TestRaceControl_SortDrivers(t *testing.T) {
 	t.Run("Non-race, connected drivers", func(t *testing.T) {
 		t.Run("Two drivers with valid laps, two without", func(t *testing.T) {
 			rc := NewRaceControl(NilBroadcaster{}, nilTrackData{}, dummyServerProcess{}, testStore, NewPenaltiesManager(testStore))
-			rc.SessionInfo.Type = udp.SessionTypePractice
+			rc.SessionInfo.Type = acServer.SessionTypePractice
 
 			d0 := NewRaceControlDriver(drivers[0])
 			d0.CurrentCar().NumLaps = 10
@@ -960,7 +961,7 @@ func TestRaceControl_SortDrivers(t *testing.T) {
 
 	t.Run("Race, disconnected drivers", func(t *testing.T) {
 		rc := NewRaceControl(NilBroadcaster{}, nilTrackData{}, dummyServerProcess{}, testStore, NewPenaltiesManager(testStore))
-		rc.SessionInfo.Type = udp.SessionTypeRace
+		rc.SessionInfo.Type = acServer.SessionTypeRace
 
 		d0 := NewRaceControlDriver(drivers[0])
 		d0.CurrentCar().LastLapCompletedTime = time.Now().Add(-10 * time.Minute)
@@ -999,7 +1000,7 @@ func TestRaceControl_SortDrivers(t *testing.T) {
 
 	t.Run("Non-Race, disconnected drivers", func(t *testing.T) {
 		rc := NewRaceControl(NilBroadcaster{}, nilTrackData{}, dummyServerProcess{}, testStore, NewPenaltiesManager(testStore))
-		rc.SessionInfo.Type = udp.SessionTypeQualifying
+		rc.SessionInfo.Type = acServer.SessionTypeQualifying
 
 		d0 := NewRaceControlDriver(drivers[0])
 		d0.CurrentCar().BestLap = 2000
@@ -1055,7 +1056,7 @@ func TestRaceControl_OnSessionUpdate(t *testing.T) {
 			Track:               "ks_laguna_seca",
 			TrackConfig:         "",
 			Name:                "Test Looped Practice Session",
-			Type:                udp.SessionTypePractice,
+			Type:                acServer.SessionTypePractice,
 			Time:                10,
 			Laps:                0,
 			WaitTime:            120,

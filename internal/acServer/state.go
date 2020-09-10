@@ -182,9 +182,17 @@ func (ss *ServerState) initChecksums() error {
 			return err
 		}
 
-		ss.logger.Debugf("Checksum added: md5(%s)=%s", file, hex.EncodeToString(checksum))
+		relativePath, err := filepath.Rel(ss.baseDirectory, file)
 
-		ss.checkSummableFiles = append(ss.checkSummableFiles, checksumFile{Filename: file, MD5: checksum})
+		if err != nil {
+			return err
+		}
+
+		relativePath = filepath.ToSlash(relativePath)
+
+		ss.logger.Debugf("Checksum added: md5(%s)=%s", relativePath, hex.EncodeToString(checksum))
+
+		ss.checkSummableFiles = append(ss.checkSummableFiles, checksumFile{Filename: relativePath, MD5: checksum})
 	}
 
 	for _, customChecksum := range ss.customChecksums {

@@ -7,24 +7,25 @@ import (
 )
 
 type Plugin interface {
-	OnCollisionWithCar(event ClientEvent) error
-	OnCollisionWithEnv(event ClientEvent) error
-	OnNewSession(newSession SessionInfo) error
-	OnNewConnection(car Car) error
-	OnConnectionClosed(car Car) error
-	OnCarUpdate(carUpdate Car) error
-	OnEndSession(sessionFile string) error
-	OnVersion(version uint16) error
-	OnChat(chat Chat) error
-	OnClientLoaded(car Car) error
-	OnLapCompleted(carID CarID, lap Lap) error
-	OnClientEvent(event ClientEvent) error
-
-	// new
 	Init(server *Server, logger Logger) error
 
-	OnSectorCompleted(split Split) error
+	OnVersion(version uint16) error
+	OnNewSession(newSession SessionInfo) error
 	OnWeatherChange(weather CurrentWeather) error
+	OnEndSession(sessionFile string) error
+
+	OnNewConnection(car Car) error
+	OnClientLoaded(car Car) error
+	OnSectorCompleted(split Split) error
+	OnLapCompleted(carID CarID, lap Lap) error
+	OnCarUpdate(carUpdate Car) error
+
+	OnClientEvent(event ClientEvent) error
+	OnCollisionWithCar(event ClientEvent) error
+	OnCollisionWithEnv(event ClientEvent) error
+
+	OnChat(chat Chat) error
+	OnConnectionClosed(car Car) error
 }
 
 type multiPlugin struct {

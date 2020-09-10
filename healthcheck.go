@@ -9,7 +9,7 @@ import (
 	"runtime"
 	"time"
 
-	"justapengu.in/acsm/pkg/udp"
+	"justapengu.in/acsm/internal/acServer"
 )
 
 var LaunchTime = time.Now()
@@ -86,7 +86,7 @@ func (h *HealthCheck) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		ServerName:          serverName,
 		ServerID:            serverID,
 		EventInProgress:     h.raceControl.process.IsRunning(),
-		EventIsCritical:     !event.IsPractice() && (event.IsChampionship() || event.IsRaceWeekend() || h.raceControl.SessionInfo.Type == udp.SessionTypeRace || h.raceControl.SessionInfo.Type == udp.SessionTypeQualifying),
+		EventIsCritical:     !event.IsPractice() && (event.IsChampionship() || event.IsRaceWeekend() || h.raceControl.SessionInfo.Type == acServer.SessionTypeRace || h.raceControl.SessionInfo.Type == acServer.SessionTypeQualifying),
 		EventIsChampionship: event.IsChampionship(),
 		EventIsRaceWeekend:  event.IsRaceWeekend(),
 		EventIsPractice:     event.IsPractice(),
