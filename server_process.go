@@ -17,10 +17,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/sirupsen/logrus"
+	"justapengu.in/acsm/internal/acserver"
+	"justapengu.in/acsm/internal/acserver/plugins"
 
-	"justapengu.in/acsm/internal/acServer"
-	"justapengu.in/acsm/internal/acServer/plugins"
+	"github.com/sirupsen/logrus"
 )
 
 const MaxLogSizeBytes = 1e6
@@ -31,7 +31,7 @@ type ServerProcess interface {
 	Restart() error
 	IsRunning() bool
 	Event() RaceEvent
-	SetPlugin(acServer.Plugin)
+	SetPlugin(acserver.Plugin)
 	NotifyDone(chan struct{})
 	Logs() string
 }
@@ -45,8 +45,8 @@ type AssettoServerProcess struct {
 	startMutex            sync.Mutex
 	started, stopped, run chan error
 	notifyDoneChs         []chan struct{}
-	server                *acServer.Server
-	plugin                acServer.Plugin
+	server                *acserver.Server
+	plugin                acserver.Plugin
 
 	ctx context.Context
 	cfn context.CancelFunc
@@ -160,7 +160,7 @@ func (sp *AssettoServerProcess) loop() {
 	}
 }
 
-func (sp *AssettoServerProcess) SetPlugin(plugin acServer.Plugin) {
+func (sp *AssettoServerProcess) SetPlugin(plugin acserver.Plugin) {
 	sp.plugin = plugin
 }
 
@@ -194,7 +194,7 @@ func (sp *AssettoServerProcess) startRaceEvent(raceEvent RaceEvent) error {
 			return err
 		}
 
-		timestamp := time.Now().Format("2006-02-01_15-04-05")
+		timestamp := time.Now().Format("2006-01-02_15-04-05")
 
 		sp.logFile, err = os.Create(filepath.Join(logDirectory, "output_"+timestamp+".log"))
 
@@ -233,10 +233,10 @@ func (sp *AssettoServerProcess) startRaceEvent(raceEvent RaceEvent) error {
 			return err
 		}
 
-		plugin = acServer.MultiPlugin(plugin, udpPlugin)
+		plugin = acserver.MultiPlugin(plugin, udpPlugin)
 	}
 
-	sp.server, err = acServer.NewServer(
+	sp.server, err = acserver.NewServer(
 		sp.ctx,
 		ServerInstallPath,
 		serverOptions.ToACServerConfig(),
@@ -246,6 +246,10 @@ func (sp *AssettoServerProcess) startRaceEvent(raceEvent RaceEvent) error {
 		logger,
 		plugin,
 	)
+
+	if err != nil {
+		return err
+	}
 
 	go func() {
 		sp.run <- sp.server.Run()

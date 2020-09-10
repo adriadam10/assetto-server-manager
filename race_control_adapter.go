@@ -1,35 +1,35 @@
 package acsm
 
 import (
-	"justapengu.in/acsm/internal/acServer"
+	"justapengu.in/acsm/internal/acserver"
 	"justapengu.in/acsm/pkg/udp"
 )
 
 type RaceControlAdapter struct {
-	server      *acServer.Server
-	raceControl *RaceControl
+	*RaceControl
+	server      acserver.ServerPlugin
 }
 
-func NewRaceControlAdapter(raceControl *RaceControl) acServer.Plugin {
+func NewRaceControlAdapter(raceControl *RaceControl) acserver.Plugin {
 	return &RaceControlAdapter{
-		raceControl: raceControl,
+		RaceControl: raceControl,
 	}
 }
 
-func (r *RaceControlAdapter) Init(server *acServer.Server, _ acServer.Logger) error {
+func (r *RaceControlAdapter) Init(server acserver.ServerPlugin, _ acserver.Logger) error {
 	r.server = server
-	r.raceControl.server = server
+	r.RaceControl.server = server
 
 	return nil
 }
 
 func (r *RaceControlAdapter) OnVersion(version uint16) error {
-	r.raceControl.UDPCallback(udp.Version(version))
+	r.RaceControl.UDPCallback(udp.Version(version))
 
 	return nil
 }
 
-func convertSessionInfoToUDP(eventType udp.Event, session acServer.SessionInfo) udp.SessionInfo {
+func convertSessionInfoToUDP(eventType udp.Event, session acserver.SessionInfo) udp.SessionInfo {
 	return udp.SessionInfo{
 		Version:             session.Version,
 		SessionIndex:        session.SessionIndex,
@@ -51,26 +51,26 @@ func convertSessionInfoToUDP(eventType udp.Event, session acServer.SessionInfo) 
 	}
 }
 
-func (r *RaceControlAdapter) OnNewSession(newSession acServer.SessionInfo) error {
-	r.raceControl.UDPCallback(convertSessionInfoToUDP(udp.EventNewSession, newSession))
+func (r *RaceControlAdapter) OnNewSession(newSession acserver.SessionInfo) error {
+	r.RaceControl.UDPCallback(convertSessionInfoToUDP(udp.EventNewSession, newSession))
 
 	return nil
 }
 
-func (r *RaceControlAdapter) OnWeatherChange(_ acServer.CurrentWeather) error {
-	r.raceControl.UDPCallback(convertSessionInfoToUDP(udp.EventSessionInfo, r.server.GetSessionInfo()))
+func (r *RaceControlAdapter) OnWeatherChange(_ acserver.CurrentWeather) error {
+	r.RaceControl.UDPCallback(convertSessionInfoToUDP(udp.EventSessionInfo, r.server.GetSessionInfo()))
 
 	return nil
 }
 
 func (r *RaceControlAdapter) OnEndSession(sessionFile string) error {
-	r.raceControl.UDPCallback(udp.EndSession(sessionFile))
+	r.RaceControl.UDPCallback(udp.EndSession(sessionFile))
 
 	return nil
 }
 
-func (r *RaceControlAdapter) OnNewConnection(car acServer.Car) error {
-	r.raceControl.UDPCallback(udp.SessionCarInfo{
+func (r *RaceControlAdapter) OnNewConnection(car acserver.Car) error {
+	r.RaceControl.UDPCallback(udp.SessionCarInfo{
 		CarID:      car.CarID,
 		DriverName: car.Driver.Name,
 		DriverGUID: udp.DriverGUID(car.Driver.GUID),
@@ -82,17 +82,17 @@ func (r *RaceControlAdapter) OnNewConnection(car acServer.Car) error {
 	return nil
 }
 
-func (r *RaceControlAdapter) OnClientLoaded(car acServer.Car) error {
-	r.raceControl.UDPCallback(udp.ClientLoaded(car.CarID))
+func (r *RaceControlAdapter) OnClientLoaded(car acserver.Car) error {
+	r.RaceControl.UDPCallback(udp.ClientLoaded(car.CarID))
 
 	return nil
 }
 
-func (r *RaceControlAdapter) OnSectorCompleted(split acServer.Split) error {
+func (r *RaceControlAdapter) OnSectorCompleted(split acserver.Split) error {
 	return nil
 }
 
-func (r *RaceControlAdapter) OnLapCompleted(carID acServer.CarID, lap acServer.Lap) error {
+func (r *RaceControlAdapter) OnLapCompleted(carID acserver.CarID, lap acserver.Lap) error {
 	leaderboard := r.server.GetLeaderboard()
 
 	l := udp.LapCompleted{
@@ -117,13 +117,13 @@ func (r *RaceControlAdapter) OnLapCompleted(carID acServer.CarID, lap acServer.L
 		})
 	}
 
-	r.raceControl.UDPCallback(l)
+	r.RaceControl.UDPCallback(l)
 
 	return nil
 }
 
-func (r *RaceControlAdapter) OnCarUpdate(carUpdate acServer.Car) error {
-	r.raceControl.UDPCallback(udp.CarUpdate{
+func (r *RaceControlAdapter) OnCarUpdate(carUpdate acserver.Car) error {
+	r.RaceControl.UDPCallback(udp.CarUpdate{
 		CarID:               carUpdate.CarID,
 		Pos:                 carUpdate.Status.Position,
 		Velocity:            carUpdate.Status.Velocity,
@@ -135,12 +135,12 @@ func (r *RaceControlAdapter) OnCarUpdate(carUpdate acServer.Car) error {
 	return nil
 }
 
-func (r *RaceControlAdapter) OnClientEvent(event acServer.ClientEvent) error {
+func (r *RaceControlAdapter) OnClientEvent(event acserver.ClientEvent) error {
 	return nil
 }
 
-func (r *RaceControlAdapter) OnCollisionWithCar(event acServer.ClientEvent) error {
-	r.raceControl.UDPCallback(udp.CollisionWithCar{
+func (r *RaceControlAdapter) OnCollisionWithCar(event acserver.ClientEvent) error {
+	r.RaceControl.UDPCallback(udp.CollisionWithCar{
 		CarID:       event.CarID,
 		OtherCarID:  event.OtherCarID,
 		ImpactSpeed: event.Speed,
@@ -151,8 +151,8 @@ func (r *RaceControlAdapter) OnCollisionWithCar(event acServer.ClientEvent) erro
 	return nil
 }
 
-func (r *RaceControlAdapter) OnCollisionWithEnv(event acServer.ClientEvent) error {
-	r.raceControl.UDPCallback(udp.CollisionWithEnvironment{
+func (r *RaceControlAdapter) OnCollisionWithEnv(event acserver.ClientEvent) error {
+	r.RaceControl.UDPCallback(udp.CollisionWithEnvironment{
 		CarID:       event.CarID,
 		ImpactSpeed: event.Speed,
 		WorldPos:    event.Position,
@@ -162,14 +162,14 @@ func (r *RaceControlAdapter) OnCollisionWithEnv(event acServer.ClientEvent) erro
 	return nil
 }
 
-func (r *RaceControlAdapter) OnChat(chat acServer.Chat) error {
+func (r *RaceControlAdapter) OnChat(chat acserver.Chat) error {
 	car, err := r.server.GetCarInfo(chat.FromCar)
 
 	if err != nil {
 		return err
 	}
 
-	r.raceControl.UDPCallback(udp.Chat{
+	r.RaceControl.UDPCallback(udp.Chat{
 		CarID:      chat.FromCar,
 		Message:    chat.Message,
 		DriverGUID: udp.DriverGUID(car.Driver.GUID),
@@ -180,8 +180,8 @@ func (r *RaceControlAdapter) OnChat(chat acServer.Chat) error {
 	return nil
 }
 
-func (r *RaceControlAdapter) OnConnectionClosed(car acServer.Car) error {
-	r.raceControl.UDPCallback(udp.SessionCarInfo{
+func (r *RaceControlAdapter) OnConnectionClosed(car acserver.Car) error {
+	r.RaceControl.UDPCallback(udp.SessionCarInfo{
 		CarID:      car.CarID,
 		DriverName: car.Driver.Name,
 		DriverGUID: udp.DriverGUID(car.Driver.GUID),

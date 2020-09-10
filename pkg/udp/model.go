@@ -4,7 +4,7 @@ import (
 	"regexp"
 	"time"
 
-	"justapengu.in/acsm/internal/acServer"
+	"justapengu.in/acsm/internal/acserver"
 )
 
 type Event uint8
@@ -40,7 +40,7 @@ func (ServerError) Event() Event {
 	return EventError
 }
 
-type CarID = acServer.CarID
+type CarID = acserver.CarID
 type DriverGUID string
 
 type lapCompletedInternal struct {
@@ -70,7 +70,7 @@ type LapCompletedCar struct {
 	Completed uint8  `json:"Completed"`
 }
 
-type Vec = acServer.Vector3F
+type Vec = acserver.Vector3F
 
 type CollisionWithCar struct {
 	CarID       CarID   `json:"CarID"`
@@ -191,7 +191,7 @@ type SessionInfo struct {
 	Track               string               `json:"Track"`
 	TrackConfig         string               `json:"TrackConfig"`
 	Name                string               `json:"Name"`
-	Type                acServer.SessionType `json:"Type"`
+	Type                acserver.SessionType `json:"Type"`
 	Time                uint16               `json:"Time"`
 	Laps                uint16               `json:"Laps"`
 	WaitTime            uint16               `json:"WaitTime"`

@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"justapengu.in/acsm/internal/acServer"
+	"justapengu.in/acsm/internal/acserver"
 	"justapengu.in/acsm/pkg/udp"
 )
 
@@ -90,7 +90,7 @@ func (dummyServerProcess) Event() RaceEvent {
 func (dummyServerProcess) UDPCallback(message udp.Message) {
 }
 
-func (dummyServerProcess) SetPlugin(acServer.Plugin) {
+func (dummyServerProcess) SetPlugin(acserver.Plugin) {
 
 }
 

@@ -9,7 +9,7 @@ import (
 	"runtime"
 	"time"
 
-	"justapengu.in/acsm/internal/acServer"
+	"justapengu.in/acsm/internal/acserver"
 )
 
 var LaunchTime = time.Now()
@@ -86,7 +86,7 @@ func (h *HealthCheck) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		ServerName:          serverName,
 		ServerID:            serverID,
 		EventInProgress:     h.raceControl.process.IsRunning(),
-		EventIsCritical:     !event.IsPractice() && (event.IsChampionship() || event.IsRaceWeekend() || h.raceControl.SessionInfo.Type == acServer.SessionTypeRace || h.raceControl.SessionInfo.Type == acServer.SessionTypeQualifying),
+		EventIsCritical:     !event.IsPractice() && (event.IsChampionship() || event.IsRaceWeekend() || h.raceControl.SessionInfo.Type == acserver.SessionTypeRace || h.raceControl.SessionInfo.Type == acserver.SessionTypeQualifying),
 		EventIsChampionship: event.IsChampionship(),
 		EventIsRaceWeekend:  event.IsRaceWeekend(),
 		EventIsPractice:     event.IsPractice(),

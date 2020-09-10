@@ -14,7 +14,7 @@ import (
 	"github.com/sirupsen/logrus"
 	lua "github.com/yuin/gopher-lua"
 
-	"justapengu.in/acsm/internal/acServer"
+	"justapengu.in/acsm/internal/acserver"
 	"justapengu.in/acsm/pkg/udp"
 )
 
@@ -22,7 +22,7 @@ type RaceControl struct {
 	process          ServerProcess
 	store            Store
 	penaltiesManager *PenaltiesManager
-	server           *acServer.Server
+	server           acserver.ServerPlugin
 
 	SessionInfo      udp.SessionInfo `json:"SessionInfo"`
 	TrackMapData     TrackMapData    `json:"TrackMapData"`
@@ -255,7 +255,7 @@ func (rc *RaceControl) OnNewSession(sessionInfo udp.SessionInfo) error {
 	rc.driverSwapPenalties = make(map[udp.DriverGUID]*driverSwapPenalty)
 	rc.driverSwapPenaltiesMutex.Unlock()
 
-	if (rc.ConnectedDrivers.Len() > 0 || rc.DisconnectedDrivers.Len() > 0) && sessionInfo.Type == acServer.SessionTypePractice {
+	if (rc.ConnectedDrivers.Len() > 0 || rc.DisconnectedDrivers.Len() > 0) && sessionInfo.Type == acserver.SessionTypePractice {
 		if oldSessionInfo.Type == sessionInfo.Type && oldSessionInfo.Track == sessionInfo.Track && oldSessionInfo.TrackConfig == sessionInfo.TrackConfig && oldSessionInfo.Name == sessionInfo.Name {
 			// this is a looped event, keep the cars
 			emptyCarInfo = false
@@ -700,7 +700,7 @@ func (rc *RaceControl) handleDriverSwap(ticker *time.Ticker, config CurrentRaceC
 				}
 			} else {
 				if totalTime.Seconds() >= completeTime.Seconds() {
-					err := rc.server.SendChat("You are clear to leave the pits, go go go!", acServer.ServerCarID, currentDriver.CarInfo.CarID)
+					err := rc.server.SendChat("You are clear to leave the pits, go go go!", acserver.ServerCarID, currentDriver.CarInfo.CarID)
 
 					if err != nil {
 						logrus.WithError(err).Errorf("Unable to send driver swap clear to leave message to: %s", currentDriver.CarInfo.DriverName)
@@ -721,7 +721,7 @@ func (rc *RaceControl) handleDriverSwap(ticker *time.Ticker, config CurrentRaceC
 								"Hi! You are mid way through a driver swap, please wait %s before leaving the pits",
 								countdown.String(),
 							),
-							acServer.ServerCarID,
+							acserver.ServerCarID,
 							currentDriver.CarInfo.CarID,
 						)
 
@@ -743,7 +743,7 @@ func (rc *RaceControl) handleDriverSwap(ticker *time.Ticker, config CurrentRaceC
 								"You have been kicked from the session for leaving the pits %s early during a driver swap",
 								countdown.String(),
 							),
-							acServer.ServerCarID,
+							acserver.ServerCarID,
 							currentDriver.CarInfo.CarID,
 						)
 
@@ -753,7 +753,7 @@ func (rc *RaceControl) handleDriverSwap(ticker *time.Ticker, config CurrentRaceC
 
 						time.Sleep(5 * time.Second)
 
-						err = rc.server.KickUser(currentDriver.CarInfo.CarID, acServer.KickReasonGeneric)
+						err = rc.server.KickUser(currentDriver.CarInfo.CarID, acserver.KickReasonGeneric)
 
 						if err != nil {
 							logrus.WithError(err).Errorf("Unable to send kick command (driver swaps)")
@@ -787,7 +787,7 @@ func (rc *RaceControl) handleDriverSwap(ticker *time.Ticker, config CurrentRaceC
 								(countdown+(time.Second*5)).String(),
 								countdown.String(),
 							),
-							acServer.ServerCarID,
+							acserver.ServerCarID,
 							currentDriver.CarInfo.CarID,
 						)
 
@@ -811,7 +811,7 @@ func (rc *RaceControl) handleDriverSwap(ticker *time.Ticker, config CurrentRaceC
 				if firstPositionUpdate {
 					err := rc.server.SendChat(
 						fmt.Sprintf("Free to leave pits in %s", countdown.String()),
-						acServer.ServerCarID,
+						acserver.ServerCarID,
 						currentDriver.CarInfo.CarID,
 					)
 
@@ -893,7 +893,7 @@ func (rc *RaceControl) OnClientLoaded(loadedCar udp.ClientLoaded) error {
 	), "\n")
 
 	for _, message := range wrapped {
-		err := rc.server.SendChat(message, acServer.ServerCarID, driver.CarInfo.CarID)
+		err := rc.server.SendChat(message, acserver.ServerCarID, driver.CarInfo.CarID)
 
 		if err != nil {
 			logrus.WithError(err).Errorf("Unable to send welcome message to: %s", driver.CarInfo.DriverName)
@@ -958,7 +958,7 @@ func (rc *RaceControl) sendChampionshipPlayerSummaryMessage(driver *RaceControlD
 	), "\n")
 
 	for _, message := range wrapped {
-		err := rc.server.SendChat(message, acServer.ServerCarID, driver.CarInfo.CarID)
+		err := rc.server.SendChat(message, acserver.ServerCarID, driver.CarInfo.CarID)
 
 		if err != nil {
 			logrus.WithError(err).Errorf("Unable to send welcome message to: %s", driver.CarInfo.DriverName)
@@ -1002,7 +1002,7 @@ func (rc *RaceControl) OnLapCompleted(lap udp.LapCompleted) error {
 
 	rc.ConnectedDrivers.sort()
 
-	if rc.SessionInfo.Type == acServer.SessionTypeRace {
+	if rc.SessionInfo.Type == acserver.SessionTypeRace {
 		// calculate split
 		if driver.Position == 1 {
 			driver.Split = time.Duration(0).String()
@@ -1111,7 +1111,7 @@ func (rc *RaceControl) SortDrivers(driverGroup RaceControlDriverGroup, driverA, 
 	driverACar := driverA.CurrentCar()
 	driverBCar := driverB.CurrentCar()
 
-	if rc.SessionInfo.Type == acServer.SessionTypeRace {
+	if rc.SessionInfo.Type == acserver.SessionTypeRace {
 		if driverGroup == ConnectedDrivers {
 			if driverACar.NumLaps == driverBCar.NumLaps {
 				return driverACar.TotalLapTime < driverBCar.TotalLapTime
@@ -1202,7 +1202,7 @@ func (rc *RaceControl) OnCollisionWithEnvironment(collision udp.CollisionWithEnv
 }
 
 type LiveTimingsPersistedData struct {
-	SessionType acServer.SessionType
+	SessionType acserver.SessionType
 	Track       string
 	TrackLayout string
 	SessionName string
@@ -1298,7 +1298,7 @@ func (rc *RaceControl) splitAndBroadcastChat(message string, account *Account) e
 	), "\n")
 
 	for _, message := range wrapped {
-		rc.server.BroadcastChat(message, acServer.ServerCarID)
+		rc.server.BroadcastChat(message, acserver.ServerCarID)
 	}
 
 	chat, err := udp.NewChat(message, 0, name, udp.DriverGUID(guid))
@@ -1328,7 +1328,7 @@ func (rc *RaceControl) splitAndSendChat(message, guid string) error {
 	), "\n")
 
 	for _, message := range wrapped {
-		err := rc.server.SendChat(message, acServer.ServerCarID, acServer.CarID(carID))
+		err := rc.server.SendChat(message, acserver.ServerCarID, acserver.CarID(carID))
 
 		if err != nil {
 			return err

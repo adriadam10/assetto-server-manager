@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"justapengu.in/acsm/internal/acServer"
+	"justapengu.in/acsm/internal/acserver"
 	"justapengu.in/acsm/pkg/udp"
 )
 
@@ -56,11 +56,59 @@ var drivers = []udp.SessionCarInfo{
 	},
 }
 
+
+type dummyServer struct{}
+
+func (d dummyServer) GetCarInfo(id acserver.CarID) (acserver.Car, error) {
+	return acserver.Car{CarID: id}, nil
+}
+
+func (d dummyServer) GetSessionInfo() acserver.SessionInfo {
+	return acserver.SessionInfo{}
+}
+
+func (d dummyServer) SendChat(message string, from, to acserver.CarID) error {
+	return nil
+}
+
+func (d dummyServer) BroadcastChat(message string, from acserver.CarID) {
+
+}
+
+func (d dummyServer) KickUser(carIDToKick acserver.CarID, reason acserver.KickReason) error {
+	return nil
+}
+
+func (d dummyServer) NextSession() {
+}
+
+func (d dummyServer) RestartSession() {
+}
+
+func (d dummyServer) SetCurrentSession(index uint8, config *acserver.SessionConfig) {
+}
+
+func (d dummyServer) AdminCommand(command string) error {
+	return nil
+}
+
+func (d dummyServer) GetLeaderboard() []*acserver.LeaderboardLine {
+	return nil
+}
+
+func newRaceControl() *RaceControl {
+	rc := NewRaceControl(NilBroadcaster{}, nilTrackData{}, dummyServerProcess{}, testStore, NewPenaltiesManager(testStore))
+
+	rc.server = dummyServer{}
+
+	return rc
+}
+
 func TestRaceControl_OnClientConnect(t *testing.T) {
 	t.Run("Client first connect", func(t *testing.T) {
 		// on first connect, a client is added to connected drivers but does not yet have a loaded time.
 		// their GUID is added to the CarID -> GUID map for future lookup
-		raceControl := NewRaceControl(NilBroadcaster{}, nilTrackData{}, dummyServerProcess{}, testStore, NewPenaltiesManager(testStore))
+		raceControl := newRaceControl()
 
 		err := raceControl.OnClientConnect(drivers[0])
 
@@ -189,7 +237,7 @@ func TestRaceControl_OnClientConnect(t *testing.T) {
 	})
 
 	t.Run("Client disconnects having never connected", func(t *testing.T) {
-		raceControl := NewRaceControl(NilBroadcaster{}, nilTrackData{}, dummyServerProcess{}, testStore, NewPenaltiesManager(testStore))
+		raceControl := newRaceControl()
 
 		// disconnect the driver
 		driver := drivers[0]
@@ -205,7 +253,7 @@ func TestRaceControl_OnClientConnect(t *testing.T) {
 }
 
 func TestRaceControl_OnClientLoaded(t *testing.T) {
-	raceControl := NewRaceControl(NilBroadcaster{}, nilTrackData{}, dummyServerProcess{}, testStore, NewPenaltiesManager(testStore))
+	raceControl := newRaceControl()
 
 	for _, driverIndex := range []int{1, 2, 3} {
 		err := raceControl.OnClientConnect(drivers[driverIndex])
@@ -282,7 +330,7 @@ func (nilTrackData) TrackMap(name, layout string) (*TrackMapData, error) {
 
 func TestRaceControl_OnNewSession(t *testing.T) {
 	t.Run("New session, no previous data", func(t *testing.T) {
-		raceControl := NewRaceControl(NilBroadcaster{}, nilTrackData{}, dummyServerProcess{}, testStore, NewPenaltiesManager(testStore))
+		raceControl := newRaceControl()
 
 		if err := raceControl.OnVersion(udp.Version(4)); err != nil {
 			t.Error(err)
@@ -299,7 +347,7 @@ func TestRaceControl_OnNewSession(t *testing.T) {
 			Track:               "ks_laguna_seca",
 			TrackConfig:         "",
 			Name:                "Test Practice Session",
-			Type:                acServer.SessionTypePractice,
+			Type:                acserver.SessionTypePractice,
 			Time:                10,
 			Laps:                0,
 			WaitTime:            120,
@@ -328,7 +376,7 @@ func TestRaceControl_OnNewSession(t *testing.T) {
 	})
 
 	t.Run("New session, drivers join, then another new session. Drivers should have lap times cleared but not be disconnected", func(t *testing.T) {
-		raceControl := NewRaceControl(NilBroadcaster{}, nilTrackData{}, dummyServerProcess{}, testStore, NewPenaltiesManager(testStore))
+		raceControl := newRaceControl()
 
 		if err := raceControl.OnVersion(udp.Version(4)); err != nil {
 			t.Error(err)
@@ -345,7 +393,7 @@ func TestRaceControl_OnNewSession(t *testing.T) {
 			Track:               "ks_laguna_seca",
 			TrackConfig:         "",
 			Name:                "Test Practice Session",
-			Type:                acServer.SessionTypePractice,
+			Type:                acserver.SessionTypePractice,
 			Time:                10,
 			Laps:                0,
 			WaitTime:            120,
@@ -428,7 +476,7 @@ func TestRaceControl_OnNewSession(t *testing.T) {
 			Track:               "ks_laguna_seca",
 			TrackConfig:         "",
 			Name:                "Test Qualifying Session",
-			Type:                acServer.SessionTypeQualifying,
+			Type:                acserver.SessionTypeQualifying,
 			Time:                10,
 			Laps:                0,
 			WaitTime:            120,
@@ -445,7 +493,7 @@ func TestRaceControl_OnNewSession(t *testing.T) {
 			return
 		}
 
-		if raceControl.SessionInfo.Type != acServer.SessionTypeQualifying {
+		if raceControl.SessionInfo.Type != acserver.SessionTypeQualifying {
 			t.Error("Invalid session type detected, should be qualifying")
 			return
 		}
@@ -475,7 +523,7 @@ func TestRaceControl_OnNewSession(t *testing.T) {
 	})
 
 	t.Run("Looped practice event, all cars and session information should be kept", func(t *testing.T) {
-		raceControl := NewRaceControl(NilBroadcaster{}, nilTrackData{}, dummyServerProcess{}, testStore, NewPenaltiesManager(testStore))
+		raceControl := newRaceControl()
 
 		if err := raceControl.OnVersion(udp.Version(4)); err != nil {
 			t.Error(err)
@@ -492,7 +540,7 @@ func TestRaceControl_OnNewSession(t *testing.T) {
 			Track:               "ks_laguna_seca",
 			TrackConfig:         "",
 			Name:                "Test Looped Practice Session",
-			Type:                acServer.SessionTypePractice,
+			Type:                acserver.SessionTypePractice,
 			Time:                10,
 			Laps:                0,
 			WaitTime:            120,
@@ -575,7 +623,7 @@ func TestRaceControl_OnNewSession(t *testing.T) {
 			Track:               "ks_laguna_seca",
 			TrackConfig:         "",
 			Name:                "Test Looped Practice Session",
-			Type:                acServer.SessionTypePractice,
+			Type:                acserver.SessionTypePractice,
 			Time:                10,
 			Laps:                0,
 			WaitTime:            120,
@@ -618,7 +666,7 @@ func TestRaceControl_OnNewSession(t *testing.T) {
 }
 
 func TestRaceControl_OnCarUpdate(t *testing.T) {
-	raceControl := NewRaceControl(NilBroadcaster{}, nilTrackData{}, dummyServerProcess{}, testStore, NewPenaltiesManager(testStore))
+	raceControl := newRaceControl()
 
 	if err := raceControl.OnVersion(udp.Version(4)); err != nil {
 		t.Error(err)
@@ -635,7 +683,7 @@ func TestRaceControl_OnCarUpdate(t *testing.T) {
 		Track:               "ks_laguna_seca",
 		TrackConfig:         "",
 		Name:                "Test Looped Practice Session",
-		Type:                acServer.SessionTypePractice,
+		Type:                acserver.SessionTypePractice,
 		Time:                10,
 		Laps:                0,
 		WaitTime:            120,
@@ -769,8 +817,9 @@ var raceLapTest = []driverLapResult{ // value in comments is 'total lap time (ac
 	{Driver: 3, LapTime: 3, ExpectedPos: 2, ExpectedSplit: "2ms"},   // 32
 }
 
+
 func TestRaceControl_OnLapCompleted(t *testing.T) {
-	raceControl := NewRaceControl(NilBroadcaster{}, nilTrackData{}, dummyServerProcess{}, testStore, NewPenaltiesManager(testStore))
+	raceControl := newRaceControl()
 
 	if err := raceControl.OnVersion(udp.Version(4)); err != nil {
 		t.Error(err)
@@ -787,7 +836,7 @@ func TestRaceControl_OnLapCompleted(t *testing.T) {
 		Track:               "ks_laguna_seca",
 		TrackConfig:         "",
 		Name:                "Test Looped Practice Session",
-		Type:                acServer.SessionTypeRace,
+		Type:                acserver.SessionTypeRace,
 		Time:                10,
 		Laps:                0,
 		WaitTime:            120,
@@ -874,8 +923,8 @@ func TestRaceControl_OnLapCompleted(t *testing.T) {
 
 func TestRaceControl_SortDrivers(t *testing.T) {
 	t.Run("Race, connected drivers", func(t *testing.T) {
-		rc := NewRaceControl(NilBroadcaster{}, nilTrackData{}, dummyServerProcess{}, testStore, NewPenaltiesManager(testStore))
-		rc.SessionInfo.Type = acServer.SessionTypeRace
+		rc := newRaceControl()
+		rc.SessionInfo.Type = acserver.SessionTypeRace
 
 		d0 := NewRaceControlDriver(drivers[0])
 		d0.CurrentCar().NumLaps = 10
@@ -912,8 +961,8 @@ func TestRaceControl_SortDrivers(t *testing.T) {
 
 	t.Run("Non-race, connected drivers", func(t *testing.T) {
 		t.Run("Two drivers with valid laps, two without", func(t *testing.T) {
-			rc := NewRaceControl(NilBroadcaster{}, nilTrackData{}, dummyServerProcess{}, testStore, NewPenaltiesManager(testStore))
-			rc.SessionInfo.Type = acServer.SessionTypePractice
+			rc := newRaceControl()
+			rc.SessionInfo.Type = acserver.SessionTypePractice
 
 			d0 := NewRaceControlDriver(drivers[0])
 			d0.CurrentCar().NumLaps = 10
@@ -960,8 +1009,8 @@ func TestRaceControl_SortDrivers(t *testing.T) {
 	})
 
 	t.Run("Race, disconnected drivers", func(t *testing.T) {
-		rc := NewRaceControl(NilBroadcaster{}, nilTrackData{}, dummyServerProcess{}, testStore, NewPenaltiesManager(testStore))
-		rc.SessionInfo.Type = acServer.SessionTypeRace
+		rc := newRaceControl()
+		rc.SessionInfo.Type = acserver.SessionTypeRace
 
 		d0 := NewRaceControlDriver(drivers[0])
 		d0.CurrentCar().LastLapCompletedTime = time.Now().Add(-10 * time.Minute)
@@ -999,8 +1048,8 @@ func TestRaceControl_SortDrivers(t *testing.T) {
 	})
 
 	t.Run("Non-Race, disconnected drivers", func(t *testing.T) {
-		rc := NewRaceControl(NilBroadcaster{}, nilTrackData{}, dummyServerProcess{}, testStore, NewPenaltiesManager(testStore))
-		rc.SessionInfo.Type = acServer.SessionTypeQualifying
+		rc := newRaceControl()
+		rc.SessionInfo.Type = acserver.SessionTypeQualifying
 
 		d0 := NewRaceControlDriver(drivers[0])
 		d0.CurrentCar().BestLap = 2000
@@ -1040,7 +1089,7 @@ func TestRaceControl_SortDrivers(t *testing.T) {
 
 func TestRaceControl_OnSessionUpdate(t *testing.T) {
 	t.Run("Session update", func(t *testing.T) {
-		raceControl := NewRaceControl(NilBroadcaster{}, nilTrackData{}, dummyServerProcess{}, testStore, NewPenaltiesManager(testStore))
+		raceControl := newRaceControl()
 
 		if err := raceControl.OnVersion(udp.Version(4)); err != nil {
 			t.Error(err)
@@ -1056,7 +1105,7 @@ func TestRaceControl_OnSessionUpdate(t *testing.T) {
 			Track:               "ks_laguna_seca",
 			TrackConfig:         "",
 			Name:                "Test Looped Practice Session",
-			Type:                acServer.SessionTypePractice,
+			Type:                acserver.SessionTypePractice,
 			Time:                10,
 			Laps:                0,
 			WaitTime:            120,
@@ -1112,7 +1161,7 @@ func TestRaceControl_OnSessionUpdate(t *testing.T) {
 }
 
 func TestRaceControl_Event(t *testing.T) {
-	rc := NewRaceControl(NilBroadcaster{}, nilTrackData{}, dummyServerProcess{}, testStore, NewPenaltiesManager(testStore))
+	rc := newRaceControl()
 
 	if rc.Event() != 200 {
 		t.Error("Expected Race Control event to be 200")

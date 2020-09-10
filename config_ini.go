@@ -13,7 +13,7 @@ import (
 	"github.com/cj123/ini"
 	"github.com/sirupsen/logrus"
 
-	"justapengu.in/acsm/internal/acServer"
+	"justapengu.in/acsm/internal/acserver"
 )
 
 func init() {
@@ -57,19 +57,19 @@ func (s SessionType) String() string {
 	}
 }
 
-func (s SessionType) ACServerType() acServer.SessionType {
+func (s SessionType) ACServerType() acserver.SessionType {
 	switch s {
 	case SessionTypeBooking:
-		return acServer.SessionTypeBooking
+		return acserver.SessionTypeBooking
 	case SessionTypePractice:
-		return acServer.SessionTypePractice
+		return acserver.SessionTypePractice
 	case SessionTypeQualifying:
-		return acServer.SessionTypeQualifying
+		return acserver.SessionTypeQualifying
 	case SessionTypeRace:
-		return acServer.SessionTypeRace
+		return acserver.SessionTypeRace
 	}
 
-	return acServer.SessionTypePractice
+	return acserver.SessionTypePractice
 }
 
 var AvailableSessions = []SessionType{
@@ -253,8 +253,8 @@ func (gsc GlobalServerConfig) GetName() string {
 	return gsc.Name
 }
 
-func (gsc GlobalServerConfig) ToACServerConfig() *acServer.ServerConfig {
-	return &acServer.ServerConfig{
+func (gsc GlobalServerConfig) ToACServerConfig() *acserver.ServerConfig {
+	return &acserver.ServerConfig{
 		Name:                      gsc.Name,
 		Password:                  gsc.Password,
 		AdminPassword:             gsc.AdminPassword,
@@ -268,7 +268,7 @@ func (gsc GlobalServerConfig) ToACServerConfig() *acServer.ServerConfig {
 		KickQuorum:                gsc.KickQuorum,
 		VotingQuorum:              gsc.VotingQuorum,
 		VoteDuration:              gsc.VoteDuration,
-		BlockListMode:             acServer.BlockListMode(gsc.BlacklistMode),
+		BlockListMode:             acserver.BlockListMode(gsc.BlacklistMode),
 		NumberOfThreads:           gsc.NumberOfThreads,
 		SleepTime:                 gsc.SleepTime,
 		UDPPluginAddress:          gsc.UDPPluginAddress,
@@ -277,7 +277,7 @@ func (gsc GlobalServerConfig) ToACServerConfig() *acServer.ServerConfig {
 	}
 }
 
-type FactoryAssist acServer.Assist
+type FactoryAssist acserver.Assist
 
 func (a FactoryAssist) String() string {
 	switch a {
@@ -292,7 +292,7 @@ func (a FactoryAssist) String() string {
 	return ""
 }
 
-type StartRule acServer.StartRule
+type StartRule acserver.StartRule
 
 func (s StartRule) String() string {
 	switch s {
@@ -307,7 +307,7 @@ func (s StartRule) String() string {
 	return ""
 }
 
-type BlockListMode acServer.BlockListMode
+type BlockListMode acserver.BlockListMode
 
 func (b BlockListMode) SelectMultiple() bool {
 	return false
@@ -316,15 +316,15 @@ func (b BlockListMode) SelectMultiple() bool {
 func (b BlockListMode) SelectOptions() []formulate.Option {
 	return []formulate.Option{
 		{
-			Value: acServer.BlockListModeNormalKick,
+			Value: acserver.BlockListModeNormalKick,
 			Label: "Normal kick, player can rejoin",
 		},
 		{
-			Value: acServer.BlockListModeNoRejoin,
+			Value: acserver.BlockListModeNoRejoin,
 			Label: "Kicked player cannot rejoin until server restart",
 		},
 		{
-			Value: acServer.BlockListModeAddToList,
+			Value: acserver.BlockListModeAddToList,
 			Label: "Kick player and add to blacklist.txt, kicked player can not rejoin unless removed from blacklist",
 		},
 	}
@@ -386,8 +386,8 @@ type CurrentRaceConfig struct {
 	Weather  map[string]*WeatherConfig `ini:"-"`
 }
 
-func (c CurrentRaceConfig) ToACConfig() *acServer.EventConfig {
-	eventConfig := &acServer.EventConfig{
+func (c CurrentRaceConfig) ToACConfig() *acserver.EventConfig {
+	eventConfig := &acserver.EventConfig{
 		Cars:                      strings.Split(c.Cars, ";"),
 		Track:                     c.Track,
 		TrackLayout:               c.TrackLayout,
@@ -397,8 +397,8 @@ func (c CurrentRaceConfig) ToACConfig() *acServer.EventConfig {
 		DamageMultiplier:          float32(c.DamageMultiplier),
 		TyreWearRate:              float32(c.TyreWearRate),
 		AllowedTyresOut:           int16(c.AllowedTyresOut),
-		ABSAllowed:                acServer.Assist(c.ABSAllowed),
-		TractionControlAllowed:    acServer.Assist(c.TractionControlAllowed),
+		ABSAllowed:                acserver.Assist(c.ABSAllowed),
+		TractionControlAllowed:    acserver.Assist(c.TractionControlAllowed),
 		StabilityControlAllowed:   c.StabilityControlAllowed == 1,
 		AutoClutchAllowed:         c.AutoClutchAllowed == 1,
 		TyreBlanketsAllowed:       c.TyreBlanketsAllowed == 1,
@@ -418,8 +418,8 @@ func (c CurrentRaceConfig) ToACConfig() *acServer.EventConfig {
 		LoopMode:                  c.LoopMode == 1,
 		MaxClients:                c.MaxClients,
 		RaceOverTime:              uint32(c.RaceOverTime),
-		StartRule:                 acServer.StartRule(c.StartRule),
-		DynamicTrack: acServer.DynamicTrack{
+		StartRule:                 acserver.StartRule(c.StartRule),
+		DynamicTrack: acserver.DynamicTrack{
 			SessionStart:    c.DynamicTrack.SessionStart,
 			Randomness:      c.DynamicTrack.Randomness,
 			SessionTransfer: c.DynamicTrack.SessionTransfer,
@@ -436,7 +436,7 @@ func (c CurrentRaceConfig) ToACConfig() *acServer.EventConfig {
 			break
 		}
 
-		eventConfig.Weather = append(eventConfig.Weather, &acServer.WeatherConfig{
+		eventConfig.Weather = append(eventConfig.Weather, &acserver.WeatherConfig{
 			Graphics:               weather.Graphics,
 			Duration:               0, // @TODO weather durations
 			BaseTemperatureAmbient: weather.BaseTemperatureAmbient,
@@ -453,12 +453,12 @@ func (c CurrentRaceConfig) ToACConfig() *acServer.EventConfig {
 	sessions, sessionTypes := c.Sessions.AsSliceWithSessionTypes()
 
 	for sessionIndex, session := range sessions {
-		eventConfig.Sessions = append(eventConfig.Sessions, &acServer.SessionConfig{
+		eventConfig.Sessions = append(eventConfig.Sessions, &acserver.SessionConfig{
 			SessionType: sessionTypes[sessionIndex].ACServerType(),
 			Name:        session.Name,
 			Time:        uint16(session.Time),
 			Laps:        uint16(session.Laps),
-			IsOpen:      acServer.OpenRule(session.IsOpen),
+			IsOpen:      acserver.OpenRule(session.IsOpen),
 			Solo:        false, // @TODO solo sessions
 			WaitTime:    session.WaitTime,
 			Weather:     nil, // @TODO weather per session

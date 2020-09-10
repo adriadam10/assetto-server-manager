@@ -10,7 +10,7 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/sirupsen/logrus"
 
-	"justapengu.in/acsm/internal/acServer"
+	"justapengu.in/acsm/internal/acserver"
 	"justapengu.in/acsm/pkg/udp"
 )
 
@@ -349,7 +349,7 @@ func (rch *RaceControlHandler) kickUser(w http.ResponseWriter, r *http.Request) 
 		}
 
 
-		return rch.raceControl.server.KickUser(driver.CarInfo.CarID, acServer.KickReasonGeneric)
+		return rch.raceControl.server.KickUser(driver.CarInfo.CarID, acserver.KickReasonGeneric)
 	})
 
 	if err != nil {

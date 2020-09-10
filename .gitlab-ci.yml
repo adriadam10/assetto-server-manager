@@ -1,0 +1,22 @@
+variables:
+  REPO_NAME: justapengu.in/acsm
+
+stages:
+  - build
+
+compile:
+  image: golang:1.15
+  stage: build
+  before_script:
+    - mkdir -p $GOPATH/src/$(dirname $REPO_NAME)
+    - ln -svf $CI_PROJECT_DIR $GOPATH/src/$REPO_NAME
+    - cd $GOPATH/src/$REPO_NAME
+    - make install-linter
+    - apt-get update && apt-get -y install nodejs npm dos2unix zip
+  script:
+    - make generate
+    - make vet
+    # run a go build before doing deployment to ensure that the package is importable
+    - go build
+
+    - VERSION=${CI_COMMIT_TAG} make deploy
