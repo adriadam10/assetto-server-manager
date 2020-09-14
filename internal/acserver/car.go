@@ -193,6 +193,10 @@ func (c *Car) SwapDrivers(newDriver Driver) {
 	previousDriver := c.Driver
 	c.Driver = newDriver
 
+	if previousDriver.GUID == "" {
+		return
+	}
+
 	// add previous driver to the list of known drivers of the car
 	for i, driver := range c.Drivers {
 		if driver.GUID == previousDriver.GUID {
