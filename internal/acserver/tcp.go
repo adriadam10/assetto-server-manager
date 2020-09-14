@@ -80,16 +80,18 @@ func (t *TCP) Listen(ctx context.Context) error {
 		return err
 	}
 
-	for {
-		select {
-		case <-ctx.Done():
-			return t.listener.Close()
-		default:
+	go func() {
+		for {
 			conn, err := t.listener.AcceptTCP()
 
 			if err != nil {
-				t.logger.WithError(err).Error("couldn't accept tcp connection")
-				continue
+				select {
+				case <-ctx.Done():
+					return
+				default:
+					t.logger.WithError(err).Error("couldn't accept tcp connection")
+					continue
+				}
 			}
 
 			if err := conn.SetKeepAlive(true); err != nil {
@@ -156,7 +158,11 @@ func (t *TCP) Listen(ctx context.Context) error {
 				}
 			}(c)
 		}
-	}
+	}()
+
+	<-ctx.Done()
+	t.logger.Infof("Closing TCP server")
+	return t.listener.Close()
 }
 
 func (t *TCP) handleConnection(conn net.Conn, messageLength uint16) error {

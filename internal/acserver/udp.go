@@ -58,18 +58,20 @@ func (u *UDP) Listen(ctx context.Context) error {
 		return err
 	}
 
-	for {
-		select {
-		case <-ctx.Done():
-			return u.packetConn.Close()
-		default:
+	go func() {
+		for {
 			buf := make([]byte, 1024)
 
 			n, addr, err := u.packetConn.ReadFrom(buf)
 
 			if err != nil {
-				u.logger.WithError(err).Error("could not read from udp buffer")
-				continue
+				select {
+				case <-ctx.Done():
+					return
+				default:
+					u.logger.WithError(err).Error("could not read from udp buffer")
+					continue
+				}
 			}
 
 			if err := u.handleConnection(addr, buf[:n]); err != nil {
@@ -77,7 +79,11 @@ func (u *UDP) Listen(ctx context.Context) error {
 				continue
 			}
 		}
-	}
+	}()
+
+	<-ctx.Done()
+	u.logger.Infof("Closing UDP server")
+	return u.packetConn.Close()
 }
 
 func (u *UDP) handleConnection(addr net.Addr, b []byte) error {

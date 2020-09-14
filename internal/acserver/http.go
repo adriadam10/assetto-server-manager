@@ -32,7 +32,6 @@ func NewHTTP(port uint16, state *ServerState, sessionManager *SessionManager, en
 }
 
 func (h *HTTP) Listen() error {
-	fmt.Println("HI")
 	h.logger.Infof("HTTP server listening on port: %d", h.port)
 
 	h.server = &http.Server{

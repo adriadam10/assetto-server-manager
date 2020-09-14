@@ -35,8 +35,7 @@ func (r *UDPPluginAdapter) UDPCallback(message udp.Message) {
 func (r *UDPPluginAdapter) Init(server acserver.ServerPlugin, _ acserver.Logger) error {
 	r.server = server
 	r.raceControl.server = server
-	// @TODO this was blocking.
-	//r.server.SetUpdateInterval(RealtimePosInterval)
+	r.server.SetUpdateInterval(RealtimePosInterval)
 
 	return nil
 }

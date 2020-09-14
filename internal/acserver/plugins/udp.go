@@ -47,8 +47,8 @@ type UDPPlugin struct {
 	remoteAddress *net.UDPAddr
 	packetConn    *net.UDPConn
 
-	server               acserver.ServerPlugin
-	logger               acserver.Logger
+	server acserver.ServerPlugin
+	logger acserver.Logger
 
 	enableEnhancedReporting bool
 }
@@ -67,8 +67,8 @@ func NewUDPPlugin(listenPort int, sendAddress string) (*UDPPlugin, error) {
 	}
 
 	p := &UDPPlugin{
-		localAddress:         localAddress,
-		remoteAddress:        remoteAddress,
+		localAddress:  localAddress,
+		remoteAddress: remoteAddress,
 	}
 
 	return p, nil

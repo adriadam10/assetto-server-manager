@@ -2,7 +2,6 @@ package acserver
 
 import (
 	"context"
-	"fmt"
 	"runtime"
 	"sync"
 	"time"
@@ -27,8 +26,11 @@ type Server struct {
 
 	logger Logger
 
+	tcpError             chan error
+	udpError             chan error
 	stopped              chan error
 	pluginUpdateInterval chan time.Duration
+	carUpdateOnce        sync.Once
 }
 
 func NewServer(ctx context.Context, baseDirectory string, serverConfig *ServerConfig, raceConfig *EventConfig, entryList EntryList, checksums []CustomChecksumFile, logger Logger, plugin Plugin) (*Server, error) {
@@ -60,6 +62,8 @@ func NewServer(ctx context.Context, baseDirectory string, serverConfig *ServerCo
 		lobby:                lobby,
 		plugin:               plugin,
 		stopped:              make(chan error, 1),
+		tcpError:             make(chan error, 1),
+		udpError:             make(chan error, 1),
 		ctx:                  ctx,
 		cfn:                  cfn,
 		logger:               logger,
@@ -82,14 +86,12 @@ func (s *Server) Start() error {
 	s.udp = NewUDP(s.state.serverConfig.UDPPort, s)
 	s.http = NewHTTP(s.state.serverConfig.HTTPPort, s.state, s.sessionManager, s.entryListManager, s.logger)
 
-	errCh := make(chan error)
-
 	go func() {
-		errCh <- s.tcp.Listen(s.ctx)
+		s.tcpError <- s.tcp.Listen(s.ctx)
 	}()
 
 	go func() {
-		errCh <- s.udp.Listen(s.ctx)
+		s.udpError <- s.udp.Listen(s.ctx)
 	}()
 
 	if err := s.plugin.Init(s, s.logger); err != nil {
@@ -97,14 +99,6 @@ func (s *Server) Start() error {
 	}
 
 	s.state.udp = s.udp
-
-	select {
-	case err := <-errCh:
-		if err != nil {
-			return err
-		}
-	default:
-	}
 
 	go func() {
 		err := s.plugin.OnVersion(CurrentProtocolVersion)
@@ -144,6 +138,14 @@ func (s *Server) Stop() (err error) {
 	s.cfn()
 
 	if err = s.http.Close(); err != nil {
+		return err
+	}
+
+	if err := <-s.tcpError; err != nil {
+		return err
+	}
+
+	if err := <-s.udpError; err != nil {
 		return err
 	}
 
@@ -334,16 +336,12 @@ func (s *Server) GetLeaderboard() []*LeaderboardLine {
 	return s.state.Leaderboard()
 }
 
-var carUpdateOnce sync.Once
-
 func (s *Server) SetUpdateInterval(interval time.Duration) {
-	fmt.Println("AAAAAA HI")
-	carUpdateOnce.Do(func() {
+	s.carUpdateOnce.Do(func() {
 		go s.pluginPositionUpdate()
 	})
 
 	s.pluginUpdateInterval <- interval
-	fmt.Println("BBBBBB HI")
 }
 
 func (s *Server) pluginPositionUpdate() {
@@ -367,6 +365,7 @@ func (s *Server) pluginPositionUpdate() {
 			s.logger.Infof("Updated to send car updates at interval: %s", interval)
 			ticker.Reset(v)
 		case <-s.ctx.Done():
+			s.logger.Debugf("Stopped sending car updates")
 			ticker.Stop()
 			return
 		}
