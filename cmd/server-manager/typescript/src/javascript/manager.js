@@ -1333,23 +1333,36 @@ let serverLogs = {
             return node.scrollTop + node.offsetHeight >= node.scrollHeight - 40;
         }
 
+        function coloriseLogOutput(data) {
+            let lines = data.split("\n");
+
+            for (let i = 0; i < lines.length; i++) {
+                if (lines[i].indexOf("level=debug") !== -1) {
+                    lines[i] = '<span class="text-muted">' + lines[i] + '</span>';
+                } else if (lines[i].indexOf("level=error") !== -1) {
+                    lines[i] = '<span class="text-danger">' + lines[i] + '</span>';
+                }
+            }
+
+            return lines.join("\n");
+        }
+
         if ($serverLog.length && $managerLog.length && $pluginLog.length) {
             setInterval(function () {
                 $.get("/api/logs", function (data) {
                     if (!window.getSelection().toString()) {
-
                         if (isAtBottom($serverLog) && !disableServerLogRefresh) {
-                            $serverLog.text(data.ServerLog);
+                            $serverLog.html(coloriseLogOutput(data.ServerLog));
                             $serverLog.scrollTop(1E10);
                         }
 
                         if (isAtBottom($managerLog) && !disableManagerLogRefresh) {
-                            $managerLog.text(data.ManagerLog);
+                            $managerLog.html(coloriseLogOutput(data.ManagerLog));
                             $managerLog.scrollTop(1E10);
                         }
 
                         if (isAtBottom($pluginLog) && !disablePluginLogRefresh) {
-                            $pluginLog.text(data.PluginsLog);
+                            $pluginLog.html(coloriseLogOutput(data.PluginsLog));
                             $pluginLog.scrollTop(1E10);
                         }
                     }

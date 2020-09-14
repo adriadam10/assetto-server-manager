@@ -10,6 +10,7 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/sirupsen/logrus"
 
+	"justapengu.in/acsm/internal/acserver"
 	"justapengu.in/acsm/pkg/udp"
 )
 
@@ -160,7 +161,7 @@ type liveTimingTemplateVars struct {
 
 	RaceDetails                 *CustomRace
 	FrameLinks                  []string
-	CSSDotSmoothing             int
+	CSSDotSmoothing             int64
 	CMJoinLink                  string
 	UseMPH                      bool
 	IsStrackerEnabled           bool
@@ -234,7 +235,7 @@ func (rch *RaceControlHandler) liveTiming(w http.ResponseWriter, r *http.Request
 		},
 		RaceDetails:                 customRace,
 		FrameLinks:                  frameLinks,
-		CSSDotSmoothing:             udp.RealtimePosIntervalMs,
+		CSSDotSmoothing:             RealtimePosInterval.Milliseconds(),
 		CMJoinLink:                  linkString,
 		UseMPH:                      serverOpts.UseMPH == 1,
 		IsStrackerEnabled:           IsStrackerInstalled() && strackerOptions.EnableStracker,
@@ -324,16 +325,10 @@ func (rch *RaceControlHandler) adminCommand(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	adminCommand, err := udp.NewAdminCommand(r.FormValue("admin-command"))
+	err := rch.raceControl.server.AdminCommand(r.FormValue("admin-command"))
 
-	if err == nil {
-		err := rch.serverProcess.SendUDPMessage(adminCommand)
-
-		if err != nil {
-			logrus.WithError(err).Errorf("Unable to send admin command")
-		}
-	} else {
-		logrus.WithError(err).Errorf("Unable to build admin command")
+	if err != nil {
+		logrus.WithError(err).Errorf("Unable to send admin command")
 	}
 }
 
@@ -353,13 +348,7 @@ func (rch *RaceControlHandler) kickUser(w http.ResponseWriter, r *http.Request) 
 			return nil
 		}
 
-		command, err := udp.NewAdminCommand("/kick " + driver.CarInfo.DriverName)
-
-		if err != nil {
-			return err
-		}
-
-		return rch.serverProcess.SendUDPMessage(command)
+		return rch.raceControl.server.KickUser(driver.CarInfo.CarID, acserver.KickReasonGeneric)
 	})
 
 	if err != nil {
@@ -386,31 +375,16 @@ func (rch *RaceControlHandler) sendChat(w http.ResponseWriter, r *http.Request) 
 }
 
 func (rch *RaceControlHandler) restartSession(w http.ResponseWriter, r *http.Request) {
-	err := rch.serverProcess.SendUDPMessage(&udp.RestartSession{})
-
-	if err != nil {
-		logrus.WithError(err).Errorf("Unable to restart session")
-
-		AddErrorFlash(w, r, "The server was unable to restart the session!")
-	}
-
+	rch.raceControl.server.RestartSession()
 	http.Redirect(w, r, "/live-timing", http.StatusFound)
 }
 
 func (rch *RaceControlHandler) nextSession(w http.ResponseWriter, r *http.Request) {
-	err := rch.serverProcess.SendUDPMessage(&udp.NextSession{})
-
-	if err != nil {
-		logrus.WithError(err).Errorf("Unable to move to next session")
-
-		AddErrorFlash(w, r, "The server was unable to move to the next session!")
-	}
-
+	rch.raceControl.server.NextSession()
 	http.Redirect(w, r, "/live-timing", http.StatusFound)
 }
 
 func (rch *RaceControlHandler) countdown(w http.ResponseWriter, r *http.Request) {
-
 	// broadcast countdown
 	ticker := time.NewTicker(time.Second * 3)
 	i := 4

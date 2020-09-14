@@ -16,11 +16,10 @@ import (
 	"justapengu.in/acsm/pkg/udp"
 	"justapengu.in/acsm/pkg/when"
 
-	"4d63.com/tz"
-	"github.com/etcd-io/bbolt"
 	"github.com/go-chi/chi"
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
+	"go.etcd.io/bbolt"
 )
 
 var ErrCustomRaceNotFound = errors.New("servermanager: custom race not found")
@@ -841,7 +840,7 @@ func (rm *RaceManager) SetupCustomRace(r *http.Request) error {
 		timeString := r.FormValue("CustomRaceScheduledTime")
 		timezone := r.FormValue("CustomRaceScheduledTimezone")
 
-		location, err := tz.LoadLocation(timezone)
+		location, err := time.LoadLocation(timezone)
 
 		if err != nil {
 			logrus.WithError(err).Errorf("could not find location: %s", location)

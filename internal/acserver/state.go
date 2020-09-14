@@ -37,7 +37,7 @@ type ServerState struct {
 	plugin          Plugin
 	logger          Logger
 
-	packetConn    net.PacketConn
+	udp           *UDP
 	baseDirectory string
 
 	// modifiable
@@ -182,9 +182,17 @@ func (ss *ServerState) initChecksums() error {
 			return err
 		}
 
-		ss.logger.Debugf("Checksum added: md5(%s)=%s", file, hex.EncodeToString(checksum))
+		relativePath, err := filepath.Rel(ss.baseDirectory, file)
 
-		ss.checkSummableFiles = append(ss.checkSummableFiles, checksumFile{Filename: file, MD5: checksum})
+		if err != nil {
+			return err
+		}
+
+		relativePath = filepath.ToSlash(relativePath)
+
+		ss.logger.Debugf("Checksum added: md5(%s)=%s", relativePath, hex.EncodeToString(checksum))
+
+		ss.checkSummableFiles = append(ss.checkSummableFiles, checksumFile{Filename: relativePath, MD5: checksum})
 	}
 
 	for _, customChecksum := range ss.customChecksums {
@@ -960,7 +968,7 @@ func (ss *ServerState) SendMegaPacket(car *Car, currentTime int64, connectedCars
 		bw.Write(otherCar.Status.StatusBytes)
 	}
 
-	return bw.WriteUDP(ss.packetConn, car.Connection.udpAddr)
+	return bw.WriteUDP(ss.udp, car.Connection.udpAddr)
 }
 
 func (ss *ServerState) BroadcastCarUpdate(car *Car) {
@@ -991,7 +999,7 @@ func (ss *ServerState) BroadcastCarUpdate(car *Car) {
 		p.Write(car.Status.PerformanceDelta)
 		p.Write(car.Status.Gas)
 
-		if err := p.WriteUDP(ss.packetConn, otherCar.Connection.udpAddr); err != nil {
+		if err := p.WriteUDP(ss.udp, otherCar.Connection.udpAddr); err != nil {
 			ss.logger.WithError(err).Errorf("Could not send CarUpdate to %s", otherCar.String())
 		}
 	}

@@ -38,22 +38,22 @@ type CarUpdate struct {
 	NormalisedSplinePos float32
 }
 
-func (pm *PositionMessageHandler) OnMessage(conn net.PacketConn, addr net.Addr, p *Packet) error {
+func (pm *PositionMessageHandler) OnMessage(_ net.PacketConn, addr net.Addr, p *Packet) error {
 	var carUpdate CarUpdate
 
 	p.Read(&carUpdate)
 
-	entrant := pm.state.GetCarByUDPAddress(addr)
+	car := pm.state.GetCarByUDPAddress(addr)
 
-	if entrant == nil {
+	if car == nil {
 		return nil
 	}
 
-	if !entrant.Connection.HasSentFirstUpdate || (pm.state.currentSession.SessionType != SessionTypeQualifying || (pm.state.currentSession.SessionType == SessionTypeQualifying && !pm.state.currentSession.Solo)) {
-		entrant.Status = carUpdate
+	if !car.Connection.HasSentFirstUpdate || (pm.state.currentSession.SessionType != SessionTypeQualifying || (pm.state.currentSession.SessionType == SessionTypeQualifying && !pm.state.currentSession.Solo)) {
+		car.Status = carUpdate
 
 		if pm.state.currentSession.SessionType == SessionTypeQualifying && pm.state.currentSession.Solo {
-			entrant.Status.Velocity = Vector3F{
+			car.Status.Velocity = Vector3F{
 				X: 0,
 				Y: 0,
 				Z: 0,
@@ -61,10 +61,10 @@ func (pm *PositionMessageHandler) OnMessage(conn net.PacketConn, addr net.Addr, 
 		}
 	}
 
-	entrant.Status.Timestamp += entrant.Connection.TimeOffset
-	entrant.HasUpdateToBroadcast = true
+	car.Status.Timestamp += car.Connection.TimeOffset
+	car.HasUpdateToBroadcast = true
 
-	diff := int(entrant.Connection.TargetTimeOffset) - int(entrant.Connection.TimeOffset)
+	diff := int(car.Connection.TargetTimeOffset) - int(car.Connection.TimeOffset)
 
 	var v13, v14 int
 
@@ -72,52 +72,44 @@ func (pm *PositionMessageHandler) OnMessage(conn net.PacketConn, addr net.Addr, 
 		v13 = diff
 		v14 = diff
 	} else {
-		v14 = int(entrant.Connection.TimeOffset) - int(entrant.Connection.TargetTimeOffset)
+		v14 = int(car.Connection.TimeOffset) - int(car.Connection.TargetTimeOffset)
 	}
 
 	if v13 > 0 || v13 == 0 && v14 > 1000 {
-		entrant.Connection.TimeOffset = entrant.Connection.TargetTimeOffset
+		car.Connection.TimeOffset = car.Connection.TargetTimeOffset
 	} else if v13 == 0 && v14 < 3 || v13 < 0 {
-		entrant.Connection.TimeOffset = entrant.Connection.TargetTimeOffset
+		car.Connection.TimeOffset = car.Connection.TargetTimeOffset
 	} else {
 		if diff > 0 {
-			entrant.Connection.TimeOffset = entrant.Connection.TimeOffset + 3
+			car.Connection.TimeOffset = car.Connection.TimeOffset + 3
 		}
 
 		if diff < 0 {
-			entrant.Connection.TimeOffset = entrant.Connection.TimeOffset - 3
+			car.Connection.TimeOffset = car.Connection.TimeOffset - 3
 		}
 	}
 
-	if !entrant.Connection.HasSentFirstUpdate {
-		if entrant.Connection.FailedChecksum {
-			if err := pm.state.Kick(entrant.CarID, KickReasonChecksumFailed); err != nil {
+	if !car.Connection.HasSentFirstUpdate {
+		if car.Connection.FailedChecksum {
+			if err := pm.state.Kick(car.CarID, KickReasonChecksumFailed); err != nil {
 				return err
 			}
 		}
 
-		entrant.Connection.HasSentFirstUpdate = true
+		car.Connection.HasSentFirstUpdate = true
 
-		if err := pm.SendFirstUpdate(entrant); err != nil {
+		if err := pm.SendFirstUpdate(car); err != nil {
 			return err
 		}
 
 		go func() {
-			err := pm.plugin.OnClientLoaded(*entrant)
+			err := pm.plugin.OnClientLoaded(*car)
 
 			if err != nil {
 				pm.logger.WithError(err).Error("On client loaded plugin returned an error")
 			}
 		}()
 	}
-
-	go func() {
-		err := pm.plugin.OnCarUpdate(*entrant)
-
-		if err != nil {
-			pm.logger.WithError(err).Error("On car update plugin returned an error")
-		}
-	}()
 
 	return nil
 }

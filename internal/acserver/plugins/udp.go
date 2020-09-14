@@ -3,7 +3,6 @@ package plugins
 import (
 	"fmt"
 	"net"
-	"sync"
 	"time"
 
 	"justapengu.in/acsm/internal/acserver"
@@ -48,12 +47,9 @@ type UDPPlugin struct {
 	remoteAddress *net.UDPAddr
 	packetConn    *net.UDPConn
 
-	server                    *acserver.Server
-	logger                    acserver.Logger
-	clientUpdateLastSendTimes map[acserver.CarID]time.Time
-	clientUpdateLastSendMutex sync.RWMutex
+	server acserver.ServerPlugin
+	logger acserver.Logger
 
-	clientSendInterval      time.Duration
 	enableEnhancedReporting bool
 }
 
@@ -71,10 +67,8 @@ func NewUDPPlugin(listenPort int, sendAddress string) (*UDPPlugin, error) {
 	}
 
 	p := &UDPPlugin{
-		localAddress:              localAddress,
-		remoteAddress:             remoteAddress,
-		clientSendInterval:        time.Millisecond * 400,
-		clientUpdateLastSendTimes: make(map[acserver.CarID]time.Time),
+		localAddress:  localAddress,
+		remoteAddress: remoteAddress,
 	}
 
 	return p, nil
@@ -98,7 +92,7 @@ func (u *UDPPlugin) listen() {
 	}
 }
 
-func (u *UDPPlugin) Init(server *acserver.Server, logger acserver.Logger) error {
+func (u *UDPPlugin) Init(server acserver.ServerPlugin, logger acserver.Logger) error {
 	u.server = server
 	u.logger = logger
 
@@ -125,8 +119,7 @@ func (u *UDPPlugin) handleConnection(data []byte) error {
 	switch messageType {
 	case EventRealTimePositionInterval:
 		interval := p.ReadUint16()
-
-		u.clientSendInterval = time.Millisecond * time.Duration(interval)
+		u.server.SetUpdateInterval(time.Millisecond * time.Duration(interval))
 	case EventGetCarInfo:
 		var carID acserver.CarID
 
@@ -225,19 +218,6 @@ func (u *UDPPlugin) OnConnectionClosed(car acserver.Car) error {
 }
 
 func (u *UDPPlugin) OnCarUpdate(car acserver.Car) error {
-	u.clientUpdateLastSendMutex.RLock()
-	if lastSend, ok := u.clientUpdateLastSendTimes[car.CarID]; ok && time.Since(lastSend) < u.clientSendInterval {
-		u.clientUpdateLastSendMutex.RUnlock()
-		return nil
-	}
-	u.clientUpdateLastSendMutex.RUnlock()
-
-	defer func() {
-		u.clientUpdateLastSendMutex.Lock()
-		defer u.clientUpdateLastSendMutex.Unlock()
-		u.clientUpdateLastSendTimes[car.CarID] = time.Now()
-	}()
-
 	p := acserver.NewPacket(nil)
 	p.Write(EventCarUpdate)
 	p.Write(car.CarID)

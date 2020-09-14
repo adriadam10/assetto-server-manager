@@ -1,6 +1,7 @@
 package acserver
 
 import (
+	"context"
 	"encoding/binary"
 	"fmt"
 	"net"
@@ -13,7 +14,6 @@ type TCP struct {
 	messageHandlers map[MessageType]TCPMessageHandler
 
 	listener *net.TCPListener
-	closed   chan struct{}
 	state    *ServerState
 	logger   Logger
 }
@@ -22,7 +22,6 @@ func NewTCP(port uint16, server *Server) *TCP {
 	tcp := &TCP{
 		port:            port,
 		messageHandlers: make(map[MessageType]TCPMessageHandler),
-		closed:          make(chan struct{}, 1),
 		state:           server.state,
 		logger:          server.logger,
 	}
@@ -64,7 +63,7 @@ type tcpConn struct {
 	closer chan struct{}
 }
 
-func (t *TCP) Listen() error {
+func (t *TCP) Listen(ctx context.Context) error {
 	t.logger.Infof("TCP server listening on port: %d", t.port)
 
 	addr, err := net.ResolveTCPAddr("tcp", fmt.Sprintf(":%d", t.port))
@@ -85,7 +84,7 @@ func (t *TCP) Listen() error {
 
 			if err != nil {
 				select {
-				case <-t.closed:
+				case <-ctx.Done():
 					return
 				default:
 					t.logger.WithError(err).Error("couldn't accept tcp connection")
@@ -115,6 +114,8 @@ func (t *TCP) Listen() error {
 
 				for {
 					select {
+					case <-ctx.Done():
+						return
 					case <-conn.closer:
 						car, _ := t.state.GetCarByTCPConn(conn)
 
@@ -157,7 +158,9 @@ func (t *TCP) Listen() error {
 		}
 	}()
 
-	return nil
+	<-ctx.Done()
+	t.logger.Infof("Closing TCP server")
+	return t.listener.Close()
 }
 
 func (t *TCP) handleConnection(conn net.Conn, messageLength uint16) error {
@@ -188,13 +191,6 @@ func (t *TCP) handleConnection(conn net.Conn, messageLength uint16) error {
 	}
 
 	return nil
-}
-
-func (t *TCP) Close() error {
-	t.logger.Debugf("Closing TCP Listener")
-	t.closed <- struct{}{}
-
-	return t.listener.Close()
 }
 
 func closeTCPConnectionWithError(conn net.Conn, errorMessage MessageType) error {

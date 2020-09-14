@@ -2,29 +2,45 @@ package acserver
 
 import (
 	"context"
+	"time"
 
 	"golang.org/x/sync/errgroup"
 )
 
 type Plugin interface {
+	Init(server ServerPlugin, logger Logger) error
+
+	OnVersion(version uint16) error
+	OnNewSession(newSession SessionInfo) error
+	OnWeatherChange(weather CurrentWeather) error
+	OnEndSession(sessionFile string) error
+
+	OnNewConnection(car Car) error
+	OnClientLoaded(car Car) error
+	OnSectorCompleted(split Split) error
+	OnLapCompleted(carID CarID, lap Lap) error
+	OnCarUpdate(carUpdate Car) error
+
+	OnClientEvent(event ClientEvent) error
 	OnCollisionWithCar(event ClientEvent) error
 	OnCollisionWithEnv(event ClientEvent) error
-	OnNewSession(newSession SessionInfo) error
-	OnNewConnection(car Car) error
-	OnConnectionClosed(car Car) error
-	OnCarUpdate(carUpdate Car) error
-	OnEndSession(sessionFile string) error
-	OnVersion(version uint16) error
+
 	OnChat(chat Chat) error
-	OnClientLoaded(car Car) error
-	OnLapCompleted(carID CarID, lap Lap) error
-	OnClientEvent(event ClientEvent) error
+	OnConnectionClosed(car Car) error
+}
 
-	// new
-	Init(server *Server, logger Logger) error
-
-	OnSectorCompleted(split Split) error
-	OnWeatherChange(weather CurrentWeather) error
+type ServerPlugin interface {
+	GetCarInfo(id CarID) (Car, error)
+	GetSessionInfo() SessionInfo
+	SendChat(message string, from, to CarID) error
+	BroadcastChat(message string, from CarID)
+	KickUser(carIDToKick CarID, reason KickReason) error
+	NextSession()
+	RestartSession()
+	SetCurrentSession(index uint8, config *SessionConfig)
+	AdminCommand(command string) error
+	GetLeaderboard() []*LeaderboardLine
+	SetUpdateInterval(interval time.Duration)
 }
 
 type multiPlugin struct {
@@ -35,7 +51,7 @@ func MultiPlugin(plugins ...Plugin) Plugin {
 	return &multiPlugin{plugins: plugins}
 }
 
-func (mp *multiPlugin) Init(server *Server, logger Logger) error {
+func (mp *multiPlugin) Init(server ServerPlugin, logger Logger) error {
 	g, _ := errgroup.WithContext(context.Background())
 
 	for _, plugin := range mp.plugins {
@@ -232,62 +248,62 @@ func (mp *multiPlugin) OnWeatherChange(weather CurrentWeather) error {
 
 type nilPlugin struct{}
 
-func (n nilPlugin) OnCollisionWithCar(event ClientEvent) error {
+func (n nilPlugin) OnCollisionWithCar(_ ClientEvent) error {
 	return nil
 }
 
-func (n nilPlugin) OnCollisionWithEnv(event ClientEvent) error {
+func (n nilPlugin) OnCollisionWithEnv(_ ClientEvent) error {
 	return nil
 }
 
-func (n nilPlugin) OnNewSession(newSession SessionInfo) error {
+func (n nilPlugin) OnNewSession(_ SessionInfo) error {
 	return nil
 }
 
-func (n nilPlugin) OnNewConnection(car Car) error {
+func (n nilPlugin) OnNewConnection(_ Car) error {
 	return nil
 }
 
-func (n nilPlugin) OnConnectionClosed(car Car) error {
+func (n nilPlugin) OnConnectionClosed(_ Car) error {
 	return nil
 }
 
-func (n nilPlugin) OnCarUpdate(carUpdate Car) error {
+func (n nilPlugin) OnCarUpdate(_ Car) error {
 	return nil
 }
 
-func (n nilPlugin) OnEndSession(sessionFile string) error {
+func (n nilPlugin) OnEndSession(_ string) error {
 	return nil
 }
 
-func (n nilPlugin) OnVersion(version uint16) error {
+func (n nilPlugin) OnVersion(_ uint16) error {
 	return nil
 }
 
-func (n nilPlugin) OnChat(chat Chat) error {
+func (n nilPlugin) OnChat(_ Chat) error {
 	return nil
 }
 
-func (n nilPlugin) OnClientLoaded(car Car) error {
+func (n nilPlugin) OnClientLoaded(_ Car) error {
 	return nil
 }
 
-func (n nilPlugin) OnLapCompleted(carID CarID, lap Lap) error {
+func (n nilPlugin) OnLapCompleted(_ CarID, _ Lap) error {
 	return nil
 }
 
-func (n nilPlugin) OnClientEvent(event ClientEvent) error {
+func (n nilPlugin) OnClientEvent(_ ClientEvent) error {
 	return nil
 }
 
-func (n nilPlugin) Init(server *Server, logger Logger) error {
+func (n nilPlugin) Init(_ ServerPlugin, _ Logger) error {
 	return nil
 }
 
-func (n nilPlugin) OnSectorCompleted(split Split) error {
+func (n nilPlugin) OnSectorCompleted(_ Split) error {
 	return nil
 }
 
-func (n nilPlugin) OnWeatherChange(weather CurrentWeather) error {
+func (n nilPlugin) OnWeatherChange(_ CurrentWeather) error {
 	return nil
 }
