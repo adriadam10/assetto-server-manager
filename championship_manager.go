@@ -118,7 +118,7 @@ func (cm *ChampionshipManager) ListChampionships() ([]*Championship, error) {
 }
 
 func (cm *ChampionshipManager) LoadACSRRatings(championship *Championship) (map[string]*ACSRDriverRating, error) {
-	if !championship.ACSR || !Premium() {
+	if !championship.ACSR {
 		return nil, nil
 	}
 
@@ -150,10 +150,6 @@ func (cm *ChampionshipManager) LoadACSRRatings(championship *Championship) (map[
 }
 
 func (cm *ChampionshipManager) LoadACSRRating(guid string) (*ACSRDriverRating, error) {
-	if !Premium() {
-		return nil, nil
-	}
-
 	ratingMap, err := cm.acsrClient.GetRating(guid)
 
 	if err != nil {
@@ -164,10 +160,6 @@ func (cm *ChampionshipManager) LoadACSRRating(guid string) (*ACSRDriverRating, e
 }
 
 func (cm *ChampionshipManager) LoadACSRRanges() ([]*ACSRRatingRanges, error) {
-	if !Premium() {
-		return nil, nil
-	}
-
 	return cm.acsrClient.GetRanges()
 }
 
@@ -306,10 +298,7 @@ func (cm *ChampionshipManager) HandleCreateChampionship(r *http.Request) (champi
 	championship.Info = template.HTML(r.FormValue("ChampionshipInfo"))
 	championship.DefaultTab = ChampionshipTab(r.FormValue("ChampionshipDefaultTab"))
 	championship.OverridePassword = r.FormValue("OverridePassword") == "on" || r.FormValue("OverridePassword") == "1"
-
-	if Premium() {
-		championship.OGImage = r.FormValue("ChampionshipOGImage")
-	}
+	championship.OGImage = r.FormValue("ChampionshipOGImage")
 
 	newACSR := r.FormValue("ACSR") == "on" || r.FormValue("ACSR") == "1"
 
@@ -338,20 +327,18 @@ func (cm *ChampionshipManager) HandleCreateChampionship(r *http.Request) (champi
 	previousNumPoints := 0
 	previousNumCars := 0
 
-	if Premium() {
-		// spectator car
-		entrants, err := cm.BuildEntryList(r, previousNumEntrants, 1)
+	// spectator car
+	entrants, err := cm.BuildEntryList(r, previousNumEntrants, 1)
 
-		if err != nil {
-			return nil, edited, err
-		}
-
-		championship.SpectatorCar = *(entrants.AsSlice()[0])
-
-		previousNumEntrants++
-		previousNumCars += formValueAsInt(r.FormValue("NumAvailableSpectatorCars"))
-		championship.SpectatorCarEnabled = formValueAsInt(r.FormValue("Championship.SpectatorCar.Enabled")) == 1
+	if err != nil {
+		return nil, edited, err
 	}
+
+	championship.SpectatorCar = *(entrants.AsSlice()[0])
+
+	previousNumEntrants++
+	previousNumCars += formValueAsInt(r.FormValue("NumAvailableSpectatorCars"))
+	championship.SpectatorCarEnabled = formValueAsInt(r.FormValue("Championship.SpectatorCar.Enabled")) == 1
 
 	for i := 0; i < len(r.Form["ClassName"]); i++ {
 		class := NewChampionshipClass(r.Form["ClassName"][i])
@@ -723,7 +710,7 @@ func (cm *ChampionshipManager) StartEvent(championshipID string, eventID string,
 
 	raceSetup, entryList := cm.FinalEventConfigurationFiles(championship, event, isPreChampionshipPracticeEvent)
 
-	if config.Lua.Enabled && Premium() {
+	if config.Lua.Enabled {
 		err := championshipEventStartPlugin(event, championship, &entryList)
 
 		if err != nil {
@@ -859,7 +846,7 @@ func (cm *ChampionshipManager) ScheduleEvent(championshipID string, eventID stri
 			}
 		}
 
-		if config.Lua.Enabled && Premium() {
+		if config.Lua.Enabled {
 			err = championshipEventSchedulePlugin(championship, event)
 
 			if err != nil {

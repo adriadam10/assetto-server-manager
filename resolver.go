@@ -58,11 +58,11 @@ func NewResolver(templateLoader TemplateLoader, reloadTemplates bool, store Stor
 		store:           store,
 	}
 
-	if err := r.initViewRenderer(); err != nil {
+	if err := r.initACSRClient(); err != nil {
 		return nil, err
 	}
 
-	if err := r.initACSRClient(); err != nil {
+	if err := r.initViewRenderer(); err != nil {
 		return nil, err
 	}
 

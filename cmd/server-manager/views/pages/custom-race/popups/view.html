@@ -125,18 +125,16 @@
                                     <li>Locked Entry List: {{ yn (eq $.EventConfig.LockedEntryList 1) }}</li>
                                     <li>Pickup Mode: {{ yn (eq $.EventConfig.PickupModeEnabled 1) }}</li>
 
-                                    {{ if $.IsPremium }}
-                                        <li>
-                                            Driver Swaps: {{ yn (eq $.EventConfig.DriverSwapEnabled 1) }}
+                                    <li>
+                                        Driver Swaps: {{ yn (eq $.EventConfig.DriverSwapEnabled 1) }}
 
-                                            {{ if eq $.EventConfig.DriverSwapEnabled 1 }}
-                                                <ul>
-                                                    <li>Minimum Driver Swap Time: {{ $.EventConfig.DriverSwapMinTime }} seconds</li>
-                                                    <li>Minimum Number of Required Swaps: {{ $.EventConfig.DriverSwapMinimumNumberOfSwaps }}</li>
-                                                </ul>
-                                            {{ end }}
-                                        </li>
-                                    {{ end }}
+                                        {{ if eq $.EventConfig.DriverSwapEnabled 1 }}
+                                            <ul>
+                                                <li>Minimum Driver Swap Time: {{ $.EventConfig.DriverSwapMinTime }} seconds</li>
+                                                <li>Minimum Number of Required Swaps: {{ $.EventConfig.DriverSwapMinimumNumberOfSwaps }}</li>
+                                            </ul>
+                                        {{ end }}
+                                    </li>
                                 </ul>
                             </div>
                         </div>
