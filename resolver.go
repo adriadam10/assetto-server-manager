@@ -2,8 +2,6 @@ package acsm
 
 import (
 	"net/http"
-
-	"justapengu.in/acsm/pkg/udp"
 )
 
 type Resolver struct {
@@ -69,19 +67,6 @@ func NewResolver(templateLoader TemplateLoader, reloadTemplates bool, store Stor
 	}
 
 	return r, nil
-}
-
-func (r *Resolver) UDPCallback(message udp.Message) {
-	if !config.Server.PerformanceMode {
-		r.ResolveRaceControl().UDPCallback(message)
-	}
-
-	if message.Event() != udp.EventCarUpdate {
-		r.resolveChampionshipManager().ChampionshipEventCallback(message)
-		r.resolveRaceWeekendManager().UDPCallback(message)
-		r.resolveRaceManager().LoopCallback(message)
-		r.resolveContentManagerWrapper().UDPCallback(message)
-	}
 }
 
 func (r *Resolver) initViewRenderer() error {

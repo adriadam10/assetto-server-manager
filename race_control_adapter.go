@@ -25,11 +25,16 @@ func NewUDPPluginAdapter(raceManager *RaceManager, raceControl *RaceControl, cha
 }
 
 func (r *UDPPluginAdapter) UDPCallback(message udp.Message) {
-	r.raceControl.UDPCallback(message)
-	r.championshipManager.ChampionshipEventCallback(message)
-	r.raceWeekendManager.UDPCallback(message)
-	r.raceManager.LoopCallback(message)
-	r.contentManagerWrapper.UDPCallback(message)
+	if !config.Server.PerformanceMode {
+		r.raceControl.UDPCallback(message)
+	}
+
+	if message.Event() != udp.EventCarUpdate {
+		r.championshipManager.ChampionshipEventCallback(message)
+		r.raceWeekendManager.UDPCallback(message)
+		r.raceManager.LoopCallback(message)
+		r.contentManagerWrapper.UDPCallback(message)
+	}
 }
 
 func (r *UDPPluginAdapter) Init(server acserver.ServerPlugin, _ acserver.Logger) error {
