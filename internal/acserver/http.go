@@ -1,11 +1,9 @@
 package acserver
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"html/template"
-	"net"
 	"net/http"
 	"strings"
 	"time"
@@ -34,18 +32,22 @@ func NewHTTP(port uint16, state *ServerState, sessionManager *SessionManager, en
 }
 
 func (h *HTTP) Listen() error {
+	fmt.Println("HI")
 	h.logger.Infof("HTTP server listening on port: %d", h.port)
 
-	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", h.port))
-
-	if err != nil {
-		return err
+	h.server = &http.Server{
+		Handler: h.Router(),
+		Addr:    fmt.Sprintf(":%d", h.port),
 	}
 
-	h.server = &http.Server{Handler: h.Router()}
-
 	go func() {
-		_ = h.server.Serve(listener)
+		err := h.server.ListenAndServe()
+
+		if err == http.ErrServerClosed {
+			return
+		} else if err != nil {
+			h.logger.WithError(err).Errorf("Could not start HTTP server")
+		}
 	}()
 
 	return nil
@@ -394,9 +396,5 @@ const timeTableHTML = `
 func (h *HTTP) Close() error {
 	h.logger.Debugf("Closing HTTP listener")
 
-	if err := h.server.Shutdown(context.Background()); err != nil {
-		return err
-	}
-
-	return nil
+	return h.server.Close()
 }

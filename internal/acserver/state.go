@@ -37,7 +37,7 @@ type ServerState struct {
 	plugin          Plugin
 	logger          Logger
 
-	packetConn    net.PacketConn
+	udp           *UDP
 	baseDirectory string
 
 	// modifiable
@@ -968,7 +968,7 @@ func (ss *ServerState) SendMegaPacket(car *Car, currentTime int64, connectedCars
 		bw.Write(otherCar.Status.StatusBytes)
 	}
 
-	return bw.WriteUDP(ss.packetConn, car.Connection.udpAddr)
+	return bw.WriteUDP(ss.udp, car.Connection.udpAddr)
 }
 
 func (ss *ServerState) BroadcastCarUpdate(car *Car) {
@@ -999,7 +999,7 @@ func (ss *ServerState) BroadcastCarUpdate(car *Car) {
 		p.Write(car.Status.PerformanceDelta)
 		p.Write(car.Status.Gas)
 
-		if err := p.WriteUDP(ss.packetConn, otherCar.Connection.udpAddr); err != nil {
+		if err := p.WriteUDP(ss.udp, otherCar.Connection.udpAddr); err != nil {
 			ss.logger.WithError(err).Errorf("Could not send CarUpdate to %s", otherCar.String())
 		}
 	}

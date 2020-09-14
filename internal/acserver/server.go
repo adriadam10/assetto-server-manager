@@ -2,7 +2,9 @@ package acserver
 
 import (
 	"context"
+	"fmt"
 	"runtime"
+	"sync"
 	"time"
 )
 
@@ -25,7 +27,8 @@ type Server struct {
 
 	logger Logger
 
-	stopped chan error
+	stopped              chan error
+	pluginUpdateInterval chan time.Duration
 }
 
 func NewServer(ctx context.Context, baseDirectory string, serverConfig *ServerConfig, raceConfig *EventConfig, entryList EntryList, checksums []CustomChecksumFile, logger Logger, plugin Plugin) (*Server, error) {
@@ -53,23 +56,20 @@ func NewServer(ctx context.Context, baseDirectory string, serverConfig *ServerCo
 	ctx, cfn := context.WithCancel(ctx)
 
 	server := &Server{
-		state:         state,
-		lobby:         lobby,
-		plugin:        plugin,
-		stopped:       make(chan error, 1),
-		ctx:           ctx,
-		cfn:           cfn,
-		logger:        logger,
-		baseDirectory: baseDirectory,
+		state:                state,
+		lobby:                lobby,
+		plugin:               plugin,
+		stopped:              make(chan error, 1),
+		ctx:                  ctx,
+		cfn:                  cfn,
+		logger:               logger,
+		baseDirectory:        baseDirectory,
+		pluginUpdateInterval: make(chan time.Duration),
 	}
 
 	server.sessionManager = NewSessionManager(state, lobby, plugin, logger, server.Stop, baseDirectory)
 	server.adminCommandManager = NewAdminCommandManager(state, server.sessionManager, logger)
 	server.entryListManager = NewEntryListManager(state, logger)
-
-	if err := plugin.Init(server, logger); err != nil {
-		return server, err
-	}
 
 	return server, nil
 }
@@ -82,16 +82,28 @@ func (s *Server) Start() error {
 	s.udp = NewUDP(s.state.serverConfig.UDPPort, s)
 	s.http = NewHTTP(s.state.serverConfig.HTTPPort, s.state, s.sessionManager, s.entryListManager, s.logger)
 
-	err := s.tcp.Listen()
+	errCh := make(chan error)
 
-	if err != nil {
+	go func() {
+		errCh <- s.tcp.Listen(s.ctx)
+	}()
+
+	go func() {
+		errCh <- s.udp.Listen(s.ctx)
+	}()
+
+	if err := s.plugin.Init(s, s.logger); err != nil {
 		return err
 	}
 
-	s.state.packetConn, err = s.udp.Listen()
+	s.state.udp = s.udp
 
-	if err != nil {
-		return err
+	select {
+	case err := <-errCh:
+		if err != nil {
+			return err
+		}
+	default:
 	}
 
 	go func() {
@@ -104,7 +116,7 @@ func (s *Server) Start() error {
 
 	go s.loop()
 
-	err = s.http.Listen()
+	err := s.http.Listen()
 
 	if err != nil {
 		return err
@@ -130,14 +142,6 @@ func (s *Server) Stop() (err error) {
 	s.logger.Infof("Shutting down acServer")
 
 	s.cfn()
-
-	if err = s.tcp.Close(); err != nil {
-		return err
-	}
-
-	if err = s.udp.Close(); err != nil {
-		return err
-	}
 
 	if err = s.http.Close(); err != nil {
 		return err
@@ -204,7 +208,7 @@ func (s *Server) loop() {
 						px.Write(uint16(car.Connection.Ping))
 						car.Connection.LastPingTime = time.Now()
 
-						if err := px.WriteUDP(s.state.packetConn, car.Connection.udpAddr); err != nil {
+						if err := px.WriteUDP(s.udp, car.Connection.udpAddr); err != nil {
 							s.logger.WithError(err).Error("Could not write ping")
 						}
 					}
@@ -328,4 +332,43 @@ func (s *Server) AdminCommand(command string) error {
 
 func (s *Server) GetLeaderboard() []*LeaderboardLine {
 	return s.state.Leaderboard()
+}
+
+var carUpdateOnce sync.Once
+
+func (s *Server) SetUpdateInterval(interval time.Duration) {
+	fmt.Println("AAAAAA HI")
+	carUpdateOnce.Do(func() {
+		go s.pluginPositionUpdate()
+	})
+
+	s.pluginUpdateInterval <- interval
+	fmt.Println("BBBBBB HI")
+}
+
+func (s *Server) pluginPositionUpdate() {
+	interval := <-s.pluginUpdateInterval
+	s.logger.Infof("Will send car updates at interval: %s", interval)
+	ticker := time.NewTicker(interval)
+
+	for {
+		select {
+		case <-ticker.C:
+			for _, car := range s.state.entryList {
+				if !car.IsConnected() || !car.Connection.HasSentFirstUpdate {
+					continue
+				}
+
+				if err := s.plugin.OnCarUpdate(*car); err != nil {
+					s.logger.WithError(err).Errorf("Could not send car update for car: %d", car.CarID)
+				}
+			}
+		case v := <-s.pluginUpdateInterval:
+			s.logger.Infof("Updated to send car updates at interval: %s", interval)
+			ticker.Reset(v)
+		case <-s.ctx.Done():
+			ticker.Stop()
+			return
+		}
+	}
 }

@@ -1,6 +1,7 @@
 package acserver
 
 import (
+	"context"
 	"fmt"
 	"net"
 )
@@ -42,45 +43,41 @@ func (u *UDP) initMessageHandlers(server *Server) {
 	}
 }
 
-func (u *UDP) Listen() (net.PacketConn, error) {
+func (u *UDP) Listen(ctx context.Context) error {
 	u.logger.Infof("UDP server listening on port: %d", u.port)
 
 	addr, err := net.ResolveUDPAddr("udp", fmt.Sprintf(":%d", u.port))
 
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	u.packetConn, err = net.ListenUDP("udp", addr)
 
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	go func() {
-		for {
+	for {
+		select {
+		case <-ctx.Done():
+			return u.packetConn.Close()
+		default:
 			buf := make([]byte, 1024)
 
 			n, addr, err := u.packetConn.ReadFrom(buf)
 
 			if err != nil {
-				select {
-				case <-u.closed:
-					return
-				default:
-					u.logger.WithError(err).Error("could not read from udp buffer")
-					continue
-				}
+				u.logger.WithError(err).Error("could not read from udp buffer")
+				continue
 			}
 
 			if err := u.handleConnection(addr, buf[:n]); err != nil {
 				u.logger.WithError(err).Error("could not handle udp connection")
-				return
-			} // @TODO this was in a goroutine. does it need to be?
+				continue
+			}
 		}
-	}()
-
-	return u.packetConn, nil
+	}
 }
 
 func (u *UDP) handleConnection(addr net.Addr, b []byte) error {
@@ -103,8 +100,6 @@ func (u *UDP) handleConnection(addr net.Addr, b []byte) error {
 	return nil
 }
 
-func (u *UDP) Close() error {
-	u.closed <- struct{}{}
-	u.logger.Debugf("Closing UDP Listener")
-	return u.packetConn.Close()
+func (u *UDP) WriteTo(b []byte, addr net.Addr) (int, error) {
+	return u.packetConn.WriteTo(b, addr)
 }

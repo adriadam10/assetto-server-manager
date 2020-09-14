@@ -27,6 +27,7 @@ type Resolver struct {
 	raceControlHub        *RaceControlHub
 	contentManagerWrapper *ContentManagerWrapper
 	acsrClient            *ACSRClient
+	udpPluginAdapter      *UDPPluginAdapter
 
 	// handlers
 	baseHandler                 *BaseHandler
@@ -121,8 +122,25 @@ func (r *Resolver) resolveServerProcess() ServerProcess {
 	}
 
 	r.serverProcess = NewAssettoServerProcess(r.ResolveStore(), r.resolveContentManagerWrapper())
+	r.serverProcess.SetPlugin(r.resolveUDPPluginAdapter())
 
 	return r.serverProcess
+}
+
+func (r *Resolver) resolveUDPPluginAdapter() *UDPPluginAdapter {
+	if r.udpPluginAdapter != nil {
+		return r.udpPluginAdapter
+	}
+
+	r.udpPluginAdapter = NewUDPPluginAdapter(
+		r.resolveRaceManager(),
+		r.ResolveRaceControl(),
+		r.resolveChampionshipManager(),
+		r.resolveRaceWeekendManager(),
+		r.resolveContentManagerWrapper(),
+	)
+
+	return r.udpPluginAdapter
 }
 
 func (r *Resolver) resolveContentManagerWrapper() *ContentManagerWrapper {

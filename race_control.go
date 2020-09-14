@@ -18,16 +18,21 @@ import (
 	"justapengu.in/acsm/pkg/udp"
 )
 
+var (
+	RealtimePosInterval time.Duration
+)
+
 type RaceControl struct {
 	process          ServerProcess
 	store            Store
 	penaltiesManager *PenaltiesManager
 	server           acserver.ServerPlugin
 
-	SessionInfo      udp.SessionInfo `json:"SessionInfo"`
-	TrackMapData     TrackMapData    `json:"TrackMapData"`
-	TrackInfo        TrackInfo       `json:"TrackInfo"`
-	SessionStartTime time.Time       `json:"SessionStartTime"`
+	CurrentRealtimePosInterval int             `json:"CurrentRealtimePosInterval"`
+	SessionInfo                udp.SessionInfo `json:"SessionInfo"`
+	TrackMapData               TrackMapData    `json:"TrackMapData"`
+	TrackInfo                  TrackInfo       `json:"TrackInfo"`
+	SessionStartTime           time.Time       `json:"SessionStartTime"`
 
 	ChatMessages      []udp.Chat
 	ChatMessagesMutex sync.Mutex
@@ -38,7 +43,6 @@ type RaceControl struct {
 	CarIDToGUID      map[udp.CarID]udp.DriverGUID `json:"CarIDToGUID"`
 	carIDToGUIDMutex sync.RWMutex
 
-	carUpdaters          map[udp.CarID]chan udp.CarUpdate
 	serverProcessStopped chan struct{}
 
 	broadcaster      Broadcaster
@@ -86,12 +90,10 @@ func NewRaceControl(broadcaster Broadcaster, trackDataGateway TrackDataGateway, 
 		store:                store,
 		driverSwapTimers:     make(map[int]*time.Timer),
 		penaltiesManager:     penaltiesManager,
-		carUpdaters:          make(map[udp.CarID]chan udp.CarUpdate),
 		serverProcessStopped: make(chan struct{}),
 	}
 
 	process.NotifyDone(rc.serverProcessStopped)
-	process.SetPlugin(NewRaceControlAdapter(rc))
 
 	rc.clearAllDrivers()
 
@@ -170,6 +172,8 @@ func (rc *RaceControl) UDPCallback(message udp.Message) {
 
 	if sendUpdatedRaceControlStatus {
 		// update the current refresh rate
+		rc.CurrentRealtimePosInterval = int(RealtimePosInterval.Milliseconds())
+
 		lastUpdateMessage, err := rc.broadcaster.Send(rc)
 
 		if err != nil {
@@ -195,23 +199,7 @@ func (rc *RaceControl) OnVersion(version udp.Version) error {
 // OnCarUpdate occurs every udp.RealTimePosInterval and returns car position, speed, etc.
 // drivers top speeds are recorded per lap, as well as their last seen updated.
 func (rc *RaceControl) OnCarUpdate(update udp.CarUpdate) error {
-	if ch, ok := rc.carUpdaters[update.CarID]; !ok || ch == nil {
-		rc.carUpdaters[update.CarID] = make(chan udp.CarUpdate, 1000)
-
-		go panicCapture(func() {
-			for update := range rc.carUpdaters[update.CarID] {
-				err := rc.handleCarUpdate(update)
-
-				if err != nil {
-					logrus.WithError(err).Error("Could not handle car update")
-				}
-			}
-		})
-	}
-
-	rc.carUpdaters[update.CarID] <- update
-
-	return nil
+	return rc.handleCarUpdate(update)
 }
 
 func (rc *RaceControl) handleCarUpdate(update udp.CarUpdate) error {
@@ -589,10 +577,6 @@ func (rc *RaceControl) OnClientConnect(client udp.SessionCarInfo) error {
 
 // OnClientDisconnect moves a client from ConnectedDrivers to DisconnectedDrivers.
 func (rc *RaceControl) OnClientDisconnect(client udp.SessionCarInfo) error {
-	if ch, ok := rc.carUpdaters[client.CarID]; ok && ch != nil {
-		delete(rc.carUpdaters, client.CarID)
-	}
-
 	driver, ok := rc.ConnectedDrivers.Get(client.DriverGUID)
 
 	if !ok {

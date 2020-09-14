@@ -9,6 +9,7 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"time"
 	_ "time/tzdata"
 
 	"github.com/dustin/go-humanize"
@@ -26,11 +27,9 @@ import (
 
 var defaultAddress = "0.0.0.0:8772"
 
-/*
 const (
-	udpRealtimePosRefreshIntervalMin = 100
+	udpRealtimePosRefreshIntervalMin = 50
 )
-*/
 
 func init() {
 	runtime.LockOSThread()
@@ -92,14 +91,12 @@ func main() {
 	}
 
 	if config.LiveMap.IsEnabled() {
-		/*
-			@TODO me
-			if config.LiveMap.IntervalMs < udpRealtimePosRefreshIntervalMin {
-				udp.RealtimePosIntervalMs = udpRealtimePosRefreshIntervalMin
-			} else {
-				udp.RealtimePosIntervalMs = config.LiveMap.IntervalMs
-			}
-		*/
+		if config.LiveMap.IntervalMs < udpRealtimePosRefreshIntervalMin {
+			acsm.RealtimePosInterval = time.Duration(udpRealtimePosRefreshIntervalMin) * time.Millisecond
+		} else {
+			acsm.RealtimePosInterval = time.Duration(config.LiveMap.IntervalMs) * time.Millisecond
+		}
+
 		if runtime.GOOS == "linux" {
 			// check known kernel net memory restrictions. if they're lower than the recommended
 			// values, then print out explaining how to increase them

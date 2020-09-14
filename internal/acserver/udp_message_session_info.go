@@ -15,6 +15,10 @@ func NewSessionInfoHandler(state *ServerState) *SessionInfoHandler {
 func (s SessionInfoHandler) OnMessage(_ net.PacketConn, addr net.Addr, p *Packet) error {
 	entrant := s.state.GetCarByUDPAddress(addr)
 
+	if entrant == nil {
+		return nil
+	}
+
 	gameThinksWeAreInSessionType := SessionType(p.ReadUint8())
 
 	if gameThinksWeAreInSessionType == s.state.currentSession.SessionType {

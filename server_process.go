@@ -97,7 +97,7 @@ func (sp *AssettoServerProcess) IsRunning() bool {
 	sp.mutex.Lock()
 	defer sp.mutex.Unlock()
 
-	return sp.raceEvent != nil
+	return sp.raceEvent != nil && sp.server != nil
 }
 
 var ErrServerProcessTimeout = errors.New("servermanager: server process did not stop even after manual kill. please check your server configuration")
@@ -218,7 +218,7 @@ func (sp *AssettoServerProcess) startRaceEvent(raceEvent RaceEvent) error {
 	sp.ctx, sp.cfn = context.WithCancel(context.Background())
 
 	logger := logrus.New()
-	logger.SetOutput(logOutput)
+	logger.SetOutput(io.MultiWriter(os.Stdout, logOutput))
 	logger.SetLevel(logrus.GetLevel())
 	logger.SetFormatter(&logrus.TextFormatter{FullTimestamp: true})
 

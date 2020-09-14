@@ -3,10 +3,7 @@ package plugins
 import (
 	"fmt"
 	"net"
-	"sync"
 	"time"
-
-	"golang.org/x/time/rate"
 
 	"justapengu.in/acsm/internal/acserver"
 )
@@ -52,10 +49,7 @@ type UDPPlugin struct {
 
 	server               acserver.ServerPlugin
 	logger               acserver.Logger
-	clientUpdateLimiters map[acserver.CarID]*rate.Limiter
-	clientUpdateMutex    sync.Mutex
 
-	clientSendInterval      time.Duration
 	enableEnhancedReporting bool
 }
 
@@ -75,8 +69,6 @@ func NewUDPPlugin(listenPort int, sendAddress string) (*UDPPlugin, error) {
 	p := &UDPPlugin{
 		localAddress:         localAddress,
 		remoteAddress:        remoteAddress,
-		clientSendInterval:   time.Millisecond * 400,
-		clientUpdateLimiters: make(map[acserver.CarID]*rate.Limiter),
 	}
 
 	return p, nil
@@ -127,13 +119,7 @@ func (u *UDPPlugin) handleConnection(data []byte) error {
 	switch messageType {
 	case EventRealTimePositionInterval:
 		interval := p.ReadUint16()
-		u.clientSendInterval = time.Millisecond * time.Duration(interval)
-
-		u.clientUpdateMutex.Lock()
-		for carID := range u.clientUpdateLimiters {
-			u.clientUpdateLimiters[carID].SetLimit(rate.Every(u.clientSendInterval))
-		}
-		u.clientUpdateMutex.Unlock()
+		u.server.SetUpdateInterval(time.Millisecond * time.Duration(interval))
 	case EventGetCarInfo:
 		var carID acserver.CarID
 
@@ -231,27 +217,7 @@ func (u *UDPPlugin) OnConnectionClosed(car acserver.Car) error {
 	return p.WriteToUDPConn(u.packetConn)
 }
 
-func (u *UDPPlugin) getLimiter(car acserver.Car) *rate.Limiter {
-	u.clientUpdateMutex.Lock()
-	defer u.clientUpdateMutex.Unlock()
-
-	limiter, ok := u.clientUpdateLimiters[car.CarID]
-
-	if !ok {
-		limiter = rate.NewLimiter(rate.Every(u.clientSendInterval), 1)
-		u.clientUpdateLimiters[car.CarID] = limiter
-	}
-
-	return limiter
-}
-
 func (u *UDPPlugin) OnCarUpdate(car acserver.Car) error {
-	limiter := u.getLimiter(car)
-
-	if !limiter.Allow() {
-		return nil
-	}
-
 	p := acserver.NewPacket(nil)
 	p.Write(EventCarUpdate)
 	p.Write(car.CarID)

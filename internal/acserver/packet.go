@@ -137,7 +137,11 @@ func (p *Packet) WriteTCP(w io.Writer) error {
 	return err
 }
 
-func (p *Packet) WriteUDP(conn net.PacketConn, addr net.Addr) error {
+type writerTo interface {
+	WriteTo(b []byte, addr net.Addr) (int, error)
+}
+
+func (p *Packet) WriteUDP(conn writerTo, addr net.Addr) error {
 	b := p.buf.Bytes()
 
 	_, err := conn.WriteTo(b, addr)
