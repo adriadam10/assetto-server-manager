@@ -178,6 +178,10 @@ var drivers = []udp.SessionCarInfo{
 
 type dummyServer struct{}
 
+func (d dummyServer) SetUpdateInterval(interval time.Duration) {
+
+}
+
 func (d dummyServer) GetCarInfo(id acserver.CarID) (acserver.Car, error) {
 	return acserver.Car{CarID: id}, nil
 }

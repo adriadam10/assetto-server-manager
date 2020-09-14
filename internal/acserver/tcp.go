@@ -14,7 +14,6 @@ type TCP struct {
 	messageHandlers map[MessageType]TCPMessageHandler
 
 	listener *net.TCPListener
-	closed   chan struct{}
 	state    *ServerState
 	logger   Logger
 }
@@ -23,7 +22,6 @@ func NewTCP(port uint16, server *Server) *TCP {
 	tcp := &TCP{
 		port:            port,
 		messageHandlers: make(map[MessageType]TCPMessageHandler),
-		closed:          make(chan struct{}, 1),
 		state:           server.state,
 		logger:          server.logger,
 	}

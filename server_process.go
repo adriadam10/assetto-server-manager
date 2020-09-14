@@ -103,7 +103,7 @@ func (sp *AssettoServerProcess) IsRunning() bool {
 var ErrServerProcessTimeout = errors.New("servermanager: server process did not stop even after manual kill. please check your server configuration")
 
 func (sp *AssettoServerProcess) Stop() error {
-	if !sp.IsRunning() {
+	if !sp.IsRunning() || sp.server == nil {
 		return nil
 	}
 
@@ -180,13 +180,8 @@ func (sp *AssettoServerProcess) startRaceEvent(raceEvent RaceEvent) error {
 
 	if serverOptions.LogACServerOutputToFile {
 		logDirectory := filepath.Join(ServerInstallPath, "logs", "session")
-		errorDirectory := filepath.Join(ServerInstallPath, "logs", "error")
 
 		if err := os.MkdirAll(logDirectory, 0755); err != nil {
-			return err
-		}
-
-		if err := os.MkdirAll(errorDirectory, 0755); err != nil {
 			return err
 		}
 
@@ -218,7 +213,7 @@ func (sp *AssettoServerProcess) startRaceEvent(raceEvent RaceEvent) error {
 	sp.ctx, sp.cfn = context.WithCancel(context.Background())
 
 	logger := logrus.New()
-	logger.SetOutput(io.MultiWriter(os.Stdout, logOutput))
+	logger.SetOutput(logOutput)
 	logger.SetLevel(logrus.GetLevel())
 	logger.SetFormatter(&logrus.TextFormatter{FullTimestamp: true})
 

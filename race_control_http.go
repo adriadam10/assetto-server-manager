@@ -161,7 +161,7 @@ type liveTimingTemplateVars struct {
 
 	RaceDetails                 *CustomRace
 	FrameLinks                  []string
-	CSSDotSmoothing             int
+	CSSDotSmoothing             int64
 	CMJoinLink                  string
 	UseMPH                      bool
 	IsStrackerEnabled           bool
@@ -235,7 +235,7 @@ func (rch *RaceControlHandler) liveTiming(w http.ResponseWriter, r *http.Request
 		},
 		RaceDetails:                 customRace,
 		FrameLinks:                  frameLinks,
-		CSSDotSmoothing:             400, // @TODO parameterise this
+		CSSDotSmoothing:             RealtimePosInterval.Milliseconds(),
 		CMJoinLink:                  linkString,
 		UseMPH:                      serverOpts.UseMPH == 1,
 		IsStrackerEnabled:           IsStrackerInstalled() && strackerOptions.EnableStracker,

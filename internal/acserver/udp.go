@@ -13,14 +13,12 @@ type UDP struct {
 	messageHandlers map[MessageType]UDPMessageHandler
 
 	packetConn *net.UDPConn
-	closed     chan struct{}
 }
 
 func NewUDP(port uint16, server *Server) *UDP {
 	u := &UDP{
 		port:            port,
 		messageHandlers: make(map[MessageType]UDPMessageHandler),
-		closed:          make(chan struct{}, 1),
 		logger:          server.logger,
 	}
 
