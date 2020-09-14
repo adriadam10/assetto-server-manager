@@ -13,7 +13,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
 
-	"justapengu.in/acsm/internal/acServer"
+	"justapengu.in/acsm/internal/acserver"
 )
 
 const (
@@ -27,18 +27,18 @@ const (
 
 type EntryList map[string]*Entrant
 
-func (e EntryList) ToACServerConfig() acServer.EntryList {
-	var entryList acServer.EntryList
+func (e EntryList) ToACServerConfig() acserver.EntryList {
+	var entryList acserver.EntryList
 
 	for carID, entrant := range e.AsSlice() {
-		entryList = append(entryList, &acServer.Car{
-			Driver: acServer.Driver{
+		entryList = append(entryList, &acserver.Car{
+			Driver: acserver.Driver{
 				Name: entrant.Name,
 				Team: entrant.Team,
 				GUID: entrant.GUID,
 			},
 			Drivers:       nil, // @TODO driver swap support
-			CarID:         acServer.CarID(carID),
+			CarID:         acserver.CarID(carID),
 			Model:         entrant.Model,
 			Skin:          entrant.Skin,
 			Ballast:       float32(entrant.Ballast),

@@ -17,8 +17,8 @@ import (
 	"sync"
 	"time"
 
-	"justapengu.in/acsm/internal/acServer"
-	"justapengu.in/acsm/internal/acServer/plugins"
+	"justapengu.in/acsm/internal/acserver"
+	"justapengu.in/acsm/internal/acserver/plugins"
 	"justapengu.in/acsm/pkg/udp"
 
 	"github.com/sirupsen/logrus"
@@ -47,7 +47,7 @@ type AssettoServerProcess struct {
 	startMutex            sync.Mutex
 	started, stopped, run chan error
 	notifyDoneChs         []chan struct{}
-	server                *acServer.Server
+	server                *acserver.Server
 
 	ctx context.Context
 	cfn context.CancelFunc
@@ -261,7 +261,7 @@ func (sp *AssettoServerProcess) startRaceEvent(raceEvent RaceEvent) error {
 
 	udpPluginPortsSetup := serverOptions.UDPPluginLocalPort >= 0 && serverOptions.UDPPluginAddress != "" || strings.Contains(serverOptions.UDPPluginAddress, ":")
 
-	var plugin acServer.Plugin
+	var plugin acserver.Plugin
 
 	if udpPluginPortsSetup {
 		plugin, err = plugins.NewUDPPlugin(serverOptions.UDPPluginLocalPort, serverOptions.UDPPluginAddress)
@@ -271,7 +271,7 @@ func (sp *AssettoServerProcess) startRaceEvent(raceEvent RaceEvent) error {
 		}
 	}
 
-	sp.server, err = acServer.NewServer(
+	sp.server, err = acserver.NewServer(
 		sp.ctx,
 		ServerInstallPath,
 		serverOptions.ToACServerConfig(),
@@ -281,6 +281,10 @@ func (sp *AssettoServerProcess) startRaceEvent(raceEvent RaceEvent) error {
 		logger,
 		plugin,
 	)
+
+	if err != nil {
+		return err
+	}
 
 	go func() {
 		sp.run <- sp.server.Run()
