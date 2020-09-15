@@ -19,6 +19,7 @@ import {ChangelogPopup} from "./ChangelogPopup";
 import {HostedIntroPopup} from "./HostedIntroPopup";
 import {Messages} from "./Messages";
 import {Championship} from "./Championship";
+import {CustomRace} from "./CustomRace"
 import {Results} from "./Results";
 import {RaceList} from "./RaceList";
 import {SpectatorCar} from "./SpectatorCar";
@@ -34,6 +35,7 @@ $(() => {
     new HostedIntroPopup();
     Messages.initSummerNote();
     new Championship.View();
+    new CustomRace.View();
     new Results();
     new RaceList();
     new SpectatorCar();
