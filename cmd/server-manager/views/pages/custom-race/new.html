@@ -1003,6 +1003,17 @@
             </div>
         </div>
 
+        {{ if not $.IsRaceWeekend }}
+            <select multiple class="form-control WeatherSessions-template">
+                {{ range $index, $sessionType := $.AvailableSessions }}
+                    {{ if ne $sessionType "BOOK"}}
+                        {{ $hasSession := $f.HasSession $sessionType }}
+
+                        <option value="{{ $sessionType }}" class="weather-session-{{ $sessionType }}" {{ if $hasSession }}selected="selected"{{ end }}>{{ $sessionType }}</option>
+                    {{ end }}
+                {{ end }}
+            </select>
+        {{ end }}
 
         <div class="card mt-3 border-secondary">
             <div class="card-header">
@@ -1094,9 +1105,11 @@
 
                 <hr>
 
-                <p>Each new session will <strong>randomly select</strong> its weather configuration from the below options.</p>
+                <p>If multiple weathers are applied to the same session one of them will be <strong>randomly selected</strong> for the entire event duration
+                if duration is 0 or they will all be <strong>cycled through in page order</strong> if duration is set. You can change
+                the weather order by dragging and dropping or editing the position input.</p>
 
-                <div class="row">
+                <div class="row weather-container">
 
                     {{ $weatherIndex := 0 }}
                     {{ $weatherOptions := .Weather }}
@@ -1104,9 +1117,11 @@
                     {{ range $index, $weather := $f.Weather }}
 
                         <div class="col-sm-12 weather">
-                            <div class="card mb-5 border-primary">
+                            <div class="card mb-3 border-primary">
                                 <div class="card-header">
                                     <strong class="weather-num">{{ $weatherIndex }}</strong>
+                                     - <span class="header-weather-graphics">{{ prettify $weather.Graphics false }}</span>
+                                    {{ if not $.IsRaceWeekend }}- <span class="header-weather-sessions">{{ $weather.SessionsCSV }}</span>{{ end }}
 
                                     <a href="#"
                                        class="float-right text-danger weather-delete"
@@ -1117,9 +1132,19 @@
                                     >
                                         <i class="fa fa-trash"></i>
                                     </a>
+
+                                    <a class="float-right mr-2 collapser"
+                                       data-toggle="collapse"
+                                       href="#collapse-weather-{{ $weatherIndex }}"
+                                       role="button"
+                                       aria-expanded="true" aria-controls="collapse-weather-{{ $weatherIndex }}"
+                                       title="Collapse/Show this weather"
+                                    >
+                                        <i class="fa fa-arrow-down"></i>
+                                    </a>
                                 </div>
 
-                                <div class="card-body row">
+                                <div class="card-body row collapse show" id="collapse-weather-{{ $weatherIndex }}">
 
                                     <div class="col-sm-7">
 
@@ -1174,6 +1199,24 @@
                                             </select>
                                         </div>
 
+                                        <div class="form-group row">
+                                            <label class="col-sm-3 col-form-label">Duration</label>
+
+                                            <div class="col-sm-9 p-0">
+                                                <input
+                                                        type="number"
+                                                        min="0"
+                                                        id="Duration"
+                                                        name="Duration"
+                                                        class="form-control"
+                                                        value="{{ $weather.Duration }}"
+                                                        step="1"
+                                                >
+
+                                                <small>How many minutes the weather should last before moving to the next mid-session. Set to 0 to disable.</small>
+                                            </div>
+                                        </div>
+
                                         <div class="form-group row {{ if not $.IsChampionship }}d-none{{ end }}">
                                             <label class="col-sm-3 col-form-label" for="ChampionshipPracticeWeather">Championship Weather Context</label>
 
@@ -1203,6 +1246,15 @@
                                     <div class="col-sm-5">
                                         <img class="img img-fluid weather-preview mb-3" src="/content/weather/{{ $weather.TrimName $weather.Graphics }}/preview.jpg" alt="{{ $weather.TrimName $weather.Graphics }}">
                                     </div>
+
+                                    {{ if not $.IsRaceWeekend }}
+                                        <div class="form-group col-sm-12 sessionsWrapper sessionsWrapper-{{ $index }}">
+                                            <span class="d-none SessionsForWeather">{{ $weather.SessionsCSV }}</span>
+                                            <label>Sessions</label>
+
+                                            <!-- select appended by js -->
+                                        </div>
+                                    {{ end }}
 
                                     <div class="form-group col-sm-6">
                                         <label>Base Temperature Ambient</label>
