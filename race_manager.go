@@ -95,10 +95,6 @@ func (rm *RaceManager) applyConfigAndStart(event RaceEvent) error {
 		rm.raceControl.currentTimeAttackEvent = nil
 	}
 
-	if !Premium() {
-		rm.raceControl.currentTimeAttackEvent = nil
-	}
-
 	// load server opts
 	serverOpts, err := rm.LoadServerOptions()
 
@@ -115,7 +111,7 @@ func (rm *RaceManager) applyConfigAndStart(event RaceEvent) error {
 	raceConfig := event.GetRaceConfig()
 	entryList := event.GetEntryList()
 
-	if config.Lua.Enabled && Premium() {
+	if config.Lua.Enabled {
 		err = eventStartPlugin(&raceConfig, serverOpts, &entryList)
 
 		if err != nil {
@@ -575,12 +571,7 @@ func (rm *RaceManager) BuildCustomRaceFromForm(r *http.Request) (*CurrentRaceCon
 		gasPenaltyDisabled = 0
 	}
 
-	timeAttack := false
-
-	if Premium() {
-		timeAttack = formValueAsInt(r.FormValue("TimeAttack")) == 1
-	}
-
+	timeAttack := formValueAsInt(r.FormValue("TimeAttack")) == 1
 	loopMode := formValueAsInt(r.FormValue("LoopMode"))
 
 	if timeAttack {
@@ -656,19 +647,15 @@ func (rm *RaceManager) BuildCustomRaceFromForm(r *http.Request) (*CurrentRaceCon
 		TimeAttack: timeAttack,
 	}
 
-	if Premium() {
-		// driver swap
-		raceConfig.DriverSwapEnabled = formValueAsInt(r.FormValue("DriverSwapEnabled"))
-		raceConfig.DriverSwapMinTime = formValueAsInt(r.FormValue("DriverSwapMinTime"))
-		raceConfig.DriverSwapDisqualifyTime = formValueAsInt(r.FormValue("DriverSwapDisqualifyTime"))
-		raceConfig.DriverSwapPenaltyTime = formValueAsInt(r.FormValue("DriverSwapPenaltyTime"))
-		raceConfig.DriverSwapMinimumNumberOfSwaps = formValueAsInt(r.FormValue("DriverSwapMinimumNumberOfSwaps"))
-		raceConfig.DriverSwapNotEnoughSwapsPenalty = formValueAsInt(r.FormValue("DriverSwapNotEnoughSwapsPenalty"))
+	// driver swap
+	raceConfig.DriverSwapEnabled = formValueAsInt(r.FormValue("DriverSwapEnabled"))
+	raceConfig.DriverSwapMinTime = formValueAsInt(r.FormValue("DriverSwapMinTime"))
+	raceConfig.DriverSwapDisqualifyTime = formValueAsInt(r.FormValue("DriverSwapDisqualifyTime"))
+	raceConfig.DriverSwapPenaltyTime = formValueAsInt(r.FormValue("DriverSwapPenaltyTime"))
+	raceConfig.DriverSwapMinimumNumberOfSwaps = formValueAsInt(r.FormValue("DriverSwapMinimumNumberOfSwaps"))
+	raceConfig.DriverSwapNotEnoughSwapsPenalty = formValueAsInt(r.FormValue("DriverSwapNotEnoughSwapsPenalty"))
 
-		raceConfig.ExportSecondRaceToACSR = formValueAsInt(r.FormValue("ExportSecondRaceToACSR")) == 1
-	} else {
-		raceConfig.DriverSwapEnabled = 0
-	}
+	raceConfig.ExportSecondRaceToACSR = formValueAsInt(r.FormValue("ExportSecondRaceToACSR")) == 1
 
 	if isSol {
 		raceConfig.SunAngle = 0
@@ -876,7 +863,7 @@ func (rm *RaceManager) SetupCustomRace(r *http.Request) error {
 		return nil
 	}
 
-	if race.RaceConfig.TimeAttack && Premium() {
+	if race.RaceConfig.TimeAttack {
 		logrus.Info("Time Attack event started")
 		rm.raceControl.currentTimeAttackEvent = race
 	}
@@ -1232,7 +1219,7 @@ func (rm *RaceManager) StartCustomRace(uuid string, forceRestart bool) (*CustomR
 		return nil, err
 	}
 
-	if race.RaceConfig.TimeAttack && Premium() {
+	if race.RaceConfig.TimeAttack {
 		logrus.Info("Time Attack event started")
 		rm.raceControl.currentTimeAttackEvent = race
 	}
@@ -1301,7 +1288,7 @@ func (rm *RaceManager) ScheduleRace(uuid string, date time.Time, action string, 
 			}
 		}
 
-		if config.Lua.Enabled && Premium() {
+		if config.Lua.Enabled {
 			err = eventSchedulePlugin(race)
 
 			if err != nil {

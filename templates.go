@@ -522,7 +522,6 @@ type BaseTemplateVars struct {
 	CustomCSS             template.CSS
 	User                  *Account
 	IsHosted              bool
-	IsPremium             bool
 	MaxClientsOverride    int
 	IsDarkTheme           bool
 	Request               *http.Request
@@ -573,7 +572,6 @@ func (tr *Renderer) addData(w http.ResponseWriter, r *http.Request, vars Templat
 	data.CustomCSS = template.CSS(opts.CustomCSS)
 	data.User = AccountFromRequest(r)
 	data.IsHosted = IsHosted
-	data.IsPremium = Premium()
 	data.MaxClientsOverride = MaxClientsOverride
 	data.IsDarkTheme = opts.DarkTheme == 1
 	data.Request = r
@@ -587,17 +585,15 @@ func (tr *Renderer) addData(w http.ResponseWriter, r *http.Request, vars Templat
 	data.ServerID = serverID
 	data.ShowEventDetailsPopup = opts.ShowEventDetailsPopup
 
-	if Premium() {
-		data.OGImage = opts.OGImage
+	data.OGImage = opts.OGImage
 
-		id := chi.URLParam(r, "championshipID")
+	id := chi.URLParam(r, "championshipID")
 
-		if id != "" {
-			championship, err := tr.store.LoadChampionship(id)
+	if id != "" {
+		championship, err := tr.store.LoadChampionship(id)
 
-			if err == nil && championship.OGImage != "" {
-				data.OGImage = championship.OGImage
-			}
+		if err == nil && championship.OGImage != "" {
+			data.OGImage = championship.OGImage
 		}
 	}
 
