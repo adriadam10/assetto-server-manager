@@ -715,8 +715,6 @@ func (rm *RaceManager) BuildCustomRaceFromForm(r *http.Request) (*CurrentRaceCon
 			}
 		}
 
-		fmt.Println(sessions)
-
 		WFXType, err := getWeatherType(weatherName)
 
 		// if WFXType can't be found due to an error, default to non-sol weather.
