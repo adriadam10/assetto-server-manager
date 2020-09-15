@@ -443,8 +443,10 @@ func (c CurrentRaceConfig) ToACConfig() *acserver.EventConfig {
 			BaseTemperatureRoad:    weather.BaseTemperatureRoad,
 			VariationAmbient:       weather.VariationAmbient,
 			VariationRoad:          weather.VariationRoad,
-			WindSpeed:              weather.WindBaseSpeedMin, // @TODO wind
-			WindDirection:          weather.WindBaseDirection,
+			WindBaseSpeedMin:       weather.WindBaseSpeedMin,
+			WindBaseSpeedMax:       weather.WindBaseSpeedMax,
+			WindVariationDirection: weather.WindVariationDirection,
+			WindBaseDirection:      weather.WindBaseDirection,
 		})
 
 		i++

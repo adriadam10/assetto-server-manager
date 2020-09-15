@@ -16,6 +16,7 @@ type Server struct {
 	sessionManager      *SessionManager
 	adminCommandManager *AdminCommandManager
 	entryListManager    *EntryListManager
+	weatherManager      *WeatherManager
 
 	tcp  *TCP
 	udp  *UDP
@@ -71,7 +72,8 @@ func NewServer(ctx context.Context, baseDirectory string, serverConfig *ServerCo
 		pluginUpdateInterval: make(chan time.Duration),
 	}
 
-	server.sessionManager = NewSessionManager(state, lobby, plugin, logger, server.Stop, baseDirectory)
+	server.weatherManager = NewWeatherManager(state, plugin, logger)
+	server.sessionManager = NewSessionManager(state, server.weatherManager, lobby, plugin, logger, server.Stop, baseDirectory)
 	server.adminCommandManager = NewAdminCommandManager(state, server.sessionManager, logger)
 	server.entryListManager = NewEntryListManager(state, logger)
 
@@ -283,9 +285,9 @@ func (s *Server) GetSessionInfo() SessionInfo {
 		NumMinutes:      s.state.currentSession.Time,
 		NumLaps:         s.state.currentSession.Laps,
 		WaitTime:        s.state.currentSession.WaitTime,
-		AmbientTemp:     s.state.currentWeather.Ambient,
-		RoadTemp:        s.state.currentWeather.Road,
-		WeatherGraphics: s.state.currentWeather.GraphicsName,
+		AmbientTemp:     s.weatherManager.currentWeather.Ambient,
+		RoadTemp:        s.weatherManager.currentWeather.Road,
+		WeatherGraphics: s.weatherManager.currentWeather.GraphicsName,
 		ElapsedTime:     s.sessionManager.ElapsedSessionTime(),
 		SessionType:     s.state.currentSession.SessionType,
 	}
