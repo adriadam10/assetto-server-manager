@@ -8,7 +8,7 @@ import (
 
 	"github.com/cj123/ini"
 
-	"justapengu.in/acsm/internal/acServer"
+	"justapengu.in/acsm/internal/acserver"
 )
 
 type ServerConfig struct {
@@ -219,7 +219,7 @@ func readLegacyConfigs() (*TempConfig, error) {
 		x++
 	}
 
-	serverConfig := &acServer.ServerConfig{
+	serverConfig := &acserver.ServerConfig{
 		Name:                      sc.Name,
 		Password:                  sc.Password,
 		AdminPassword:             sc.AdminPassword,
@@ -233,7 +233,7 @@ func readLegacyConfigs() (*TempConfig, error) {
 		KickQuorum:                sc.KickQuorum,
 		VotingQuorum:              sc.VotingQuorum,
 		VoteDuration:              sc.VoteDuration,
-		BlockListMode:             acServer.BlockListMode(sc.BlacklistMode),
+		BlockListMode:             acserver.BlockListMode(sc.BlacklistMode),
 		NumberOfThreads:           sc.NumberOfThreads,
 		SleepTime:                 sc.SleepTime,
 		UDPPluginAddress:          sc.UDPPluginAddress,
@@ -241,7 +241,7 @@ func readLegacyConfigs() (*TempConfig, error) {
 		WelcomeMessageFile:        sc.WelcomeMessage,
 	}
 
-	eventConfig := &acServer.EventConfig{
+	eventConfig := &acserver.EventConfig{
 		Cars:                      strings.Split(sc.Cars, ";"),
 		Track:                     sc.Track,
 		TrackLayout:               sc.TrackLayout,
@@ -251,8 +251,8 @@ func readLegacyConfigs() (*TempConfig, error) {
 		DamageMultiplier:          float32(sc.DamageMultiplier),
 		TyreWearRate:              float32(sc.TyreWearRate),
 		AllowedTyresOut:           int16(sc.AllowedTyresOut),
-		ABSAllowed:                acServer.Assist(sc.ABSAllowed),
-		TractionControlAllowed:    acServer.Assist(sc.TractionControlAllowed),
+		ABSAllowed:                acserver.Assist(sc.ABSAllowed),
+		TractionControlAllowed:    acserver.Assist(sc.TractionControlAllowed),
 		StabilityControlAllowed:   sc.StabilityControlAllowed == 1,
 		AutoClutchAllowed:         sc.AutoClutchAllowed == 1,
 		TyreBlanketsAllowed:       sc.TyreBlanketsAllowed == 1,
@@ -272,8 +272,8 @@ func readLegacyConfigs() (*TempConfig, error) {
 		LoopMode:                  sc.LoopMode == 1,
 		MaxClients:                sc.MaxClients,
 		RaceOverTime:              uint32(sc.RaceOverTime),
-		StartRule:                 acServer.StartRule(sc.StartRule),
-		DynamicTrack: acServer.DynamicTrack{
+		StartRule:                 acserver.StartRule(sc.StartRule),
+		DynamicTrack: acserver.DynamicTrack{
 			SessionStart:    sc.DynamicTrack.SessionStart,
 			Randomness:      sc.DynamicTrack.Randomness,
 			SessionTransfer: sc.DynamicTrack.SessionTransfer,
@@ -282,31 +282,31 @@ func readLegacyConfigs() (*TempConfig, error) {
 	}
 
 	for _, session := range sc.Sessions.AsSlice() {
-		var st acServer.SessionType
+		var st acserver.SessionType
 
 		switch session.Type {
 		case SessionTypeRace:
-			st = acServer.SessionTypeRace
+			st = acserver.SessionTypeRace
 		case SessionTypeQualifying:
-			st = acServer.SessionTypeQualifying
+			st = acserver.SessionTypeQualifying
 		case SessionTypePractice:
-			st = acServer.SessionTypePractice
+			st = acserver.SessionTypePractice
 		case SessionTypeBooking:
-			st = acServer.SessionTypeBooking
+			st = acserver.SessionTypeBooking
 		}
 
-		eventConfig.Sessions = append(eventConfig.Sessions, &acServer.SessionConfig{
+		eventConfig.Sessions = append(eventConfig.Sessions, &acserver.SessionConfig{
 			SessionType: st,
 			Name:        session.Name,
 			Time:        uint16(session.Time),
 			Laps:        uint16(session.Laps),
-			IsOpen:      acServer.OpenRule(session.IsOpen),
+			IsOpen:      acserver.OpenRule(session.IsOpen),
 			WaitTime:    session.WaitTime,
 		})
 	}
 
 	for _, weather := range sc.Weather {
-		eventConfig.Weather = append(eventConfig.Weather, &acServer.WeatherConfig{
+		eventConfig.Weather = append(eventConfig.Weather, &acserver.WeatherConfig{
 			Graphics:               weather.Graphics,
 			BaseTemperatureAmbient: weather.BaseTemperatureAmbient,
 			BaseTemperatureRoad:    weather.BaseTemperatureRoad,
@@ -331,7 +331,7 @@ func readLegacyConfigs() (*TempConfig, error) {
 		return nil, err
 	}
 
-	var entryList acServer.EntryList
+	var entryList acserver.EntryList
 
 	for i := 0; i < 255; i++ {
 		x, err := e.GetSection(fmt.Sprintf("CAR_%d", i))
@@ -346,13 +346,13 @@ func readLegacyConfigs() (*TempConfig, error) {
 			return nil, err
 		}
 
-		entryList = append(entryList, &acServer.Car{
-			Driver: acServer.Driver{
+		entryList = append(entryList, &acserver.Car{
+			Driver: acserver.Driver{
 				Name: entrant.Name,
 				Team: entrant.Team,
 				GUID: entrant.GUID,
 			},
-			CarID:         acServer.CarID(i),
+			CarID:         acserver.CarID(i),
 			Model:         entrant.Model,
 			Skin:          entrant.Skin,
 			Ballast:       float32(entrant.Ballast),

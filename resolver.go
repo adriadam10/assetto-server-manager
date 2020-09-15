@@ -2,8 +2,6 @@ package acsm
 
 import (
 	"net/http"
-
-	"justapengu.in/acsm/pkg/udp"
 )
 
 type Resolver struct {
@@ -27,6 +25,7 @@ type Resolver struct {
 	raceControlHub        *RaceControlHub
 	contentManagerWrapper *ContentManagerWrapper
 	acsrClient            *ACSRClient
+	udpPluginAdapter      *UDPPluginAdapter
 
 	// handlers
 	baseHandler                 *BaseHandler
@@ -70,19 +69,6 @@ func NewResolver(templateLoader TemplateLoader, reloadTemplates bool, store Stor
 	return r, nil
 }
 
-func (r *Resolver) UDPCallback(message udp.Message) {
-	if !config.Server.PerformanceMode {
-		r.ResolveRaceControl().UDPCallback(message)
-	}
-
-	if message.Event() != udp.EventCarUpdate {
-		r.resolveChampionshipManager().ChampionshipEventCallback(message)
-		r.resolveRaceWeekendManager().UDPCallback(message)
-		r.resolveRaceManager().LoopCallback(message)
-		r.resolveContentManagerWrapper().UDPCallback(message)
-	}
-}
-
 func (r *Resolver) initViewRenderer() error {
 	if r.viewRenderer != nil {
 		return nil
@@ -120,9 +106,26 @@ func (r *Resolver) resolveServerProcess() ServerProcess {
 		return r.serverProcess
 	}
 
-	r.serverProcess = NewAssettoServerProcess(r.UDPCallback, r.ResolveStore(), r.resolveContentManagerWrapper())
+	r.serverProcess = NewAssettoServerProcess(r.ResolveStore(), r.resolveContentManagerWrapper())
+	r.serverProcess.SetPlugin(r.resolveUDPPluginAdapter())
 
 	return r.serverProcess
+}
+
+func (r *Resolver) resolveUDPPluginAdapter() *UDPPluginAdapter {
+	if r.udpPluginAdapter != nil {
+		return r.udpPluginAdapter
+	}
+
+	r.udpPluginAdapter = NewUDPPluginAdapter(
+		r.resolveRaceManager(),
+		r.ResolveRaceControl(),
+		r.resolveChampionshipManager(),
+		r.resolveRaceWeekendManager(),
+		r.resolveContentManagerWrapper(),
+	)
+
+	return r.udpPluginAdapter
 }
 
 func (r *Resolver) resolveContentManagerWrapper() *ContentManagerWrapper {

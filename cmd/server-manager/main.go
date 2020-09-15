@@ -9,12 +9,8 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
-
-	"justapengu.in/acsm"
-	"justapengu.in/acsm/cmd/server-manager/static"
-	"justapengu.in/acsm/cmd/server-manager/views"
-	"justapengu.in/acsm/internal/changelog"
-	"justapengu.in/acsm/pkg/udp"
+	"time"
+	_ "time/tzdata"
 
 	"github.com/dustin/go-humanize"
 	"github.com/fatih/color"
@@ -22,12 +18,17 @@ import (
 	_ "github.com/mjibson/esc/embed"
 	"github.com/pkg/browser"
 	"github.com/sirupsen/logrus"
+
+	"justapengu.in/acsm"
+	"justapengu.in/acsm/cmd/server-manager/static"
+	"justapengu.in/acsm/cmd/server-manager/views"
+	"justapengu.in/acsm/internal/changelog"
 )
 
 var defaultAddress = "0.0.0.0:8772"
 
 const (
-	udpRealtimePosRefreshIntervalMin = 100
+	udpRealtimePosRefreshIntervalMin = 50
 )
 
 func init() {
@@ -91,9 +92,9 @@ func main() {
 
 	if config.LiveMap.IsEnabled() {
 		if config.LiveMap.IntervalMs < udpRealtimePosRefreshIntervalMin {
-			udp.RealtimePosIntervalMs = udpRealtimePosRefreshIntervalMin
+			acsm.RealtimePosInterval = time.Duration(udpRealtimePosRefreshIntervalMin) * time.Millisecond
 		} else {
-			udp.RealtimePosIntervalMs = config.LiveMap.IntervalMs
+			acsm.RealtimePosInterval = time.Duration(config.LiveMap.IntervalMs) * time.Millisecond
 		}
 
 		if runtime.GOOS == "linux" {

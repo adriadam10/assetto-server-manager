@@ -7,10 +7,9 @@ import (
 	"os/signal"
 
 	"github.com/sirupsen/logrus"
-	"gopkg.in/yaml.v2"
 
-	"justapengu.in/acsm/internal/acServer"
-	"justapengu.in/acsm/internal/acServer/plugins"
+	"justapengu.in/acsm/internal/acserver"
+	"justapengu.in/acsm/internal/acserver/plugins"
 )
 
 var configPath string
@@ -35,7 +34,7 @@ func main() {
 		logger.WithError(err).Fatal("Could not read config at ./config.yml")
 	}
 
-	var plugin acServer.Plugin
+	var plugin acserver.Plugin
 
 	if config.ServerConfig.UDPPluginLocalPort > 0 && config.ServerConfig.UDPPluginAddress != "" {
 		plugin, err = plugins.NewUDPPlugin(config.ServerConfig.UDPPluginLocalPort, config.ServerConfig.UDPPluginAddress)
@@ -45,7 +44,7 @@ func main() {
 		}
 	}
 
-	server, err := acServer.NewServer(context.Background(), ".", config.ServerConfig, config.RaceConfig, config.EntryList, config.CustomChecksums, logger, plugin)
+	server, err := acserver.NewServer(context.Background(), ".", config.ServerConfig, config.RaceConfig, config.EntryList, config.CustomChecksums, logger, plugin)
 
 	if err != nil {
 		logger.WithError(err).Fatal("Could not initialise server")
@@ -75,28 +74,29 @@ func main() {
 
 // TempConfig is temporary until we do server manager integration
 type TempConfig struct {
-	ServerConfig    *acServer.ServerConfig        `json:"server_config" yaml:"server_config"`
-	RaceConfig      *acServer.EventConfig         `json:"race_config" yaml:"race_config"`
-	EntryList       acServer.EntryList            `json:"entry_list" yaml:"entry_list"`
-	CustomChecksums []acServer.CustomChecksumFile `json:"checksums" yaml:"checksums"`
+	ServerConfig    *acserver.ServerConfig        `json:"server_config" yaml:"server_config"`
+	RaceConfig      *acserver.EventConfig         `json:"race_config" yaml:"race_config"`
+	EntryList       acserver.EntryList            `json:"entry_list" yaml:"entry_list"`
+	CustomChecksums []acserver.CustomChecksumFile `json:"checksums" yaml:"checksums"`
 }
 
 func readConfig() (*TempConfig, error) {
 	return readLegacyConfigs()
+	/*
+		var conf *TempConfig
 
-	var conf *TempConfig
+		f, err := os.Open(configPath)
 
-	f, err := os.Open(configPath)
+		if err != nil {
+			return nil, err
+		}
 
-	if err != nil {
-		return nil, err
-	}
+		defer f.Close()
 
-	defer f.Close()
+		if err := yaml.NewDecoder(f).Decode(&conf); err != nil {
+			return nil, err
+		}
 
-	if err := yaml.NewDecoder(f).Decode(&conf); err != nil {
-		return nil, err
-	}
-
-	return conf, nil
+		return conf, nil
+	*/
 }

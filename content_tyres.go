@@ -51,7 +51,6 @@ func ListTyres() (Tyres, error) {
 		tyres, err := loadTyresFromFile(file)
 
 		if os.IsNotExist(err) {
-			logrus.Debugf("Skipping loading tyre data from %s, file does not exist", file)
 			continue
 		} else if err != nil {
 			return nil, err

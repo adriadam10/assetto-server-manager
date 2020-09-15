@@ -17,9 +17,8 @@ import (
 	"sync"
 	"time"
 
-	"justapengu.in/acsm/internal/acServer"
-	"justapengu.in/acsm/internal/acServer/plugins"
-	"justapengu.in/acsm/pkg/udp"
+	"justapengu.in/acsm/internal/acserver"
+	"justapengu.in/acsm/internal/acserver/plugins"
 
 	"github.com/sirupsen/logrus"
 )
@@ -32,8 +31,7 @@ type ServerProcess interface {
 	Restart() error
 	IsRunning() bool
 	Event() RaceEvent
-	UDPCallback(message udp.Message)
-	SendUDPMessage(message udp.Message) error
+	SetPlugin(acserver.Plugin)
 	NotifyDone(chan struct{})
 	Logs() string
 }
@@ -47,7 +45,8 @@ type AssettoServerProcess struct {
 	startMutex            sync.Mutex
 	started, stopped, run chan error
 	notifyDoneChs         []chan struct{}
-	server                *acServer.Server
+	server                *acserver.Server
+	plugin                acserver.Plugin
 
 	ctx context.Context
 	cfn context.CancelFunc
@@ -59,44 +58,22 @@ type AssettoServerProcess struct {
 	extraProcesses []*exec.Cmd
 
 	logFile io.WriteCloser
-
-	// udp
-	callbackFunc udp.CallbackFunc
-
-	sessionStartedChan chan struct{}
 }
 
-func NewAssettoServerProcess(callbackFunc udp.CallbackFunc, store Store, contentManagerWrapper *ContentManagerWrapper) *AssettoServerProcess {
+func NewAssettoServerProcess(store Store, contentManagerWrapper *ContentManagerWrapper) *AssettoServerProcess {
 	sp := &AssettoServerProcess{
 		start:                 make(chan RaceEvent),
 		started:               make(chan error),
 		stopped:               make(chan error),
 		run:                   make(chan error),
 		logBuffer:             newLogBuffer(MaxLogSizeBytes),
-		callbackFunc:          callbackFunc,
 		store:                 store,
 		contentManagerWrapper: contentManagerWrapper,
-		sessionStartedChan:    make(chan struct{}),
 	}
 
 	go sp.loop()
 
 	return sp
-}
-
-func (sp *AssettoServerProcess) UDPCallback(message udp.Message) {
-	panicCapture(func() {
-		sp.callbackFunc(message)
-
-		if config.Server.PersistMidSessionResults && message.Event() == udp.EventNewSession {
-			// on new session, push down the sessionStartedChan so that if server stop is waiting to hear about
-			// a new session (so results files have been persisted correctly), it can then stop the server.
-			select {
-			case sp.sessionStartedChan <- struct{}{}:
-			default:
-			}
-		}
-	})
 }
 
 func (sp *AssettoServerProcess) Start(event RaceEvent) error {
@@ -120,36 +97,18 @@ func (sp *AssettoServerProcess) IsRunning() bool {
 	sp.mutex.Lock()
 	defer sp.mutex.Unlock()
 
-	return sp.raceEvent != nil
+	return sp.raceEvent != nil && sp.server != nil
 }
 
 var ErrServerProcessTimeout = errors.New("servermanager: server process did not stop even after manual kill. please check your server configuration")
 
 func (sp *AssettoServerProcess) Stop() error {
-	if !sp.IsRunning() {
+	if !sp.IsRunning() || sp.server == nil {
 		return nil
 	}
 
 	if config.Server.PersistMidSessionResults {
-		nextSessionTimeout := time.After(time.Second * 2)
-
-		go func() {
-			logrus.Info("Attempting to advance to next session to force acServer to persist results file")
-
-			if err := sp.SendUDPMessage(&udp.NextSession{}); err != nil {
-				logrus.WithError(err).Errorf("Tried to send NextSession message to ensure results persistence, but an error occurred")
-			}
-		}()
-
-		select {
-		case <-sp.sessionStartedChan:
-			logrus.Info("Session advanced, shutting down server")
-		case <-nextSessionTimeout:
-			logrus.Info("Session timeout reached, shutting down server")
-		case err := <-sp.stopped:
-			logrus.Info("Server stopped of its own accord - likely was the last session in a non loop mode race")
-			return err
-		}
+		sp.server.NextSession()
 	}
 
 	timeout := time.After(time.Second * 10)
@@ -201,6 +160,10 @@ func (sp *AssettoServerProcess) loop() {
 	}
 }
 
+func (sp *AssettoServerProcess) SetPlugin(plugin acserver.Plugin) {
+	sp.plugin = plugin
+}
+
 func (sp *AssettoServerProcess) startRaceEvent(raceEvent RaceEvent) error {
 	sp.mutex.Lock()
 	defer sp.mutex.Unlock()
@@ -217,13 +180,8 @@ func (sp *AssettoServerProcess) startRaceEvent(raceEvent RaceEvent) error {
 
 	if serverOptions.LogACServerOutputToFile {
 		logDirectory := filepath.Join(ServerInstallPath, "logs", "session")
-		errorDirectory := filepath.Join(ServerInstallPath, "logs", "error")
 
 		if err := os.MkdirAll(logDirectory, 0755); err != nil {
-			return err
-		}
-
-		if err := os.MkdirAll(errorDirectory, 0755); err != nil {
 			return err
 		}
 
@@ -231,7 +189,7 @@ func (sp *AssettoServerProcess) startRaceEvent(raceEvent RaceEvent) error {
 			return err
 		}
 
-		timestamp := time.Now().Format("2006-02-01_15-04-05")
+		timestamp := time.Now().Format("2006-01-02_15-04-05")
 
 		sp.logFile, err = os.Create(filepath.Join(logDirectory, "output_"+timestamp+".log"))
 
@@ -261,17 +219,19 @@ func (sp *AssettoServerProcess) startRaceEvent(raceEvent RaceEvent) error {
 
 	udpPluginPortsSetup := serverOptions.UDPPluginLocalPort >= 0 && serverOptions.UDPPluginAddress != "" || strings.Contains(serverOptions.UDPPluginAddress, ":")
 
-	var plugin acServer.Plugin
+	plugin := sp.plugin
 
 	if udpPluginPortsSetup {
-		plugin, err = plugins.NewUDPPlugin(serverOptions.UDPPluginLocalPort, serverOptions.UDPPluginAddress)
+		udpPlugin, err := plugins.NewUDPPlugin(serverOptions.UDPPluginLocalPort, serverOptions.UDPPluginAddress)
 
 		if err != nil {
 			return err
 		}
+
+		plugin = acserver.MultiPlugin(plugin, udpPlugin)
 	}
 
-	sp.server, err = acServer.NewServer(
+	sp.server, err = acserver.NewServer(
 		sp.ctx,
 		ServerInstallPath,
 		serverOptions.ToACServerConfig(),
@@ -281,6 +241,10 @@ func (sp *AssettoServerProcess) startRaceEvent(raceEvent RaceEvent) error {
 		logger,
 		plugin,
 	)
+
+	if err != nil {
+		return err
+	}
 
 	go func() {
 		sp.run <- sp.server.Run()
@@ -299,9 +263,6 @@ func (sp *AssettoServerProcess) startRaceEvent(raceEvent RaceEvent) error {
 
 	strackerOptions, err := sp.store.LoadStrackerOptions()
 	strackerEnabled := err == nil && strackerOptions.EnableStracker && IsStrackerInstalled()
-
-	// if stracker is enabled we need to let it set the interval
-	udp.PosIntervalModifierEnabled = !strackerEnabled
 
 	kissMyRankOptions, err := sp.store.LoadKissMyRankOptions()
 	kissMyRankEnabled := err == nil && kissMyRankOptions.EnableKissMyRank && IsKissMyRankInstalled()
@@ -575,10 +536,6 @@ func (sp *AssettoServerProcess) Event() RaceEvent {
 }
 
 var ErrNoOpenUDPConnection = errors.New("servermanager: no open UDP connection found")
-
-func (sp *AssettoServerProcess) SendUDPMessage(message udp.Message) error {
-	return nil // @TODO plugin
-}
 
 func (sp *AssettoServerProcess) NotifyDone(ch chan struct{}) {
 	sp.mutex.Lock()

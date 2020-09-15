@@ -16,11 +16,10 @@ import (
 	"justapengu.in/acsm/pkg/udp"
 	"justapengu.in/acsm/pkg/when"
 
-	"4d63.com/tz"
-	"github.com/etcd-io/bbolt"
 	"github.com/go-chi/chi"
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
+	"go.etcd.io/bbolt"
 )
 
 var ErrCustomRaceNotFound = errors.New("servermanager: custom race not found")
@@ -854,7 +853,7 @@ func (rm *RaceManager) SetupCustomRace(r *http.Request) error {
 		timeString := r.FormValue("CustomRaceScheduledTime")
 		timezone := r.FormValue("CustomRaceScheduledTimezone")
 
-		location, err := tz.LoadLocation(timezone)
+		location, err := time.LoadLocation(timezone)
 
 		if err != nil {
 			logrus.WithError(err).Errorf("could not find location: %s", location)
@@ -1102,7 +1101,7 @@ func (rm *RaceManager) BuildRaceOpts(r *http.Request) (*RaceTemplateVars, error)
 	return opts, nil
 }
 
-const maxRecentRaces = 30
+const maxRecentRaces = 40
 
 func (rm *RaceManager) ListCustomRaces() (recent, starred, looped, scheduled []*CustomRace, err error) {
 	recent, err = rm.store.ListCustomRaces()
@@ -1116,8 +1115,6 @@ func (rm *RaceManager) ListCustomRaces() (recent, starred, looped, scheduled []*
 	sort.Slice(recent, func(i, j int) bool {
 		return recent[i].Updated.After(recent[j].Updated)
 	})
-
-	var filteredRecent []*CustomRace
 
 	for _, race := range recent {
 		if race.IsLooping() {
@@ -1149,17 +1146,13 @@ func (rm *RaceManager) ListCustomRaces() (recent, starred, looped, scheduled []*
 		if race.Scheduled.After(time.Now()) && race.ScheduledServerID == serverID {
 			scheduled = append(scheduled, race)
 		}
-
-		if !race.Starred && !race.IsLooping() && !race.Scheduled.After(time.Now()) {
-			filteredRecent = append(filteredRecent, race)
-		}
 	}
 
-	if len(filteredRecent) > maxRecentRaces {
-		filteredRecent = filteredRecent[:maxRecentRaces]
+	if len(recent) > maxRecentRaces {
+		recent = recent[:maxRecentRaces]
 	}
 
-	return filteredRecent, starred, looped, scheduled, nil
+	return recent, starred, looped, scheduled, nil
 }
 
 func (rm *RaceManager) SaveEntrantsForAutoFill(entryList EntryList) error {

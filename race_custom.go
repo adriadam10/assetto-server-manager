@@ -5,7 +5,6 @@ import (
 	"net/http"
 	"time"
 
-	"4d63.com/tz"
 	"github.com/go-chi/chi"
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
@@ -311,7 +310,7 @@ func (crh *CustomRaceHandler) schedule(w http.ResponseWriter, r *http.Request) {
 	timeString := r.FormValue("event-schedule-time")
 	timezone := r.FormValue("event-schedule-timezone")
 
-	location, err := tz.LoadLocation(timezone)
+	location, err := time.LoadLocation(timezone)
 
 	if err != nil {
 		logrus.WithError(err).Errorf("could not find location: %s", location)
