@@ -35,7 +35,7 @@ func (t *TCP) initMessageHandlers(server *Server) {
 	votingManager := NewVotingManager(server.state, server.sessionManager, server.logger)
 
 	messageHandlers := []TCPMessageHandler{
-		NewHandshakeMessageHandler(server.state, server.sessionManager, server.entryListManager, server.plugin, server.logger),
+		NewHandshakeMessageHandler(server.state, server.sessionManager, server.entryListManager, server.weatherManager, server.plugin, server.logger),
 		NewEntryListMessageHandler(server.state, server.logger),
 		NewCarIDMessageHandler(server.state, server.logger),
 		NewChecksumMessageHandler(server.state, server.logger),

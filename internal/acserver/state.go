@@ -41,10 +41,8 @@ type ServerState struct {
 	baseDirectory string
 
 	// modifiable
-	sunAngle   float32
 	randomSeed uint32
 
-	currentWeather      *CurrentWeather
 	currentSessionIndex uint8
 	currentSession      SessionConfig
 
@@ -77,7 +75,6 @@ func NewServerState(baseDirectory string, serverConfig *ServerConfig, raceConfig
 		customChecksums: checksums,
 		plugin:          plugin,
 		logger:          logger,
-		sunAngle:        raceConfig.SunAngle,
 		randomSeed:      rand.Uint32(),
 		noJoinList:      make(map[string]bool),
 		baseDirectory:   baseDirectory,
@@ -420,34 +417,6 @@ func (ss *ServerState) initBlockList() error {
 	}
 
 	return nil
-}
-
-func (ss *ServerState) ChangeWeather(weatherConfig *WeatherConfig) {
-	ss.currentWeather = &CurrentWeather{
-		Ambient:       uint8(weatherConfig.BaseTemperatureAmbient),
-		Road:          uint8(weatherConfig.BaseTemperatureAmbient + weatherConfig.BaseTemperatureRoad),
-		GraphicsName:  weatherConfig.Graphics,
-		WindSpeed:     int16(weatherConfig.WindSpeed),
-		WindDirection: int16(weatherConfig.WindDirection),
-	}
-
-	for _, car := range ss.entryList {
-		if !car.IsConnected() {
-			continue
-		}
-
-		if err := ss.SendWeather(car); err != nil {
-			ss.logger.WithError(err).Errorf("Could not send weather to car: %s", car.String())
-		}
-	}
-
-	go func() {
-		err := ss.plugin.OnWeatherChange(*ss.currentWeather)
-
-		if err != nil {
-			ss.logger.WithError(err).Error("On weather change plugin returned an error")
-		}
-	}()
 }
 
 func (ss *ServerState) GetCarByName(name string) *Car {
@@ -796,30 +765,6 @@ func (ss *ServerState) CompleteLap(carID CarID, lap *LapCompleted, target *Car) 
 	ss.BroadcastAllTCP(bw)
 
 	return nil
-}
-
-func (ss *ServerState) SendWeather(entrant *Car) error {
-	ss.logger.Infof("Sending Weather (%s), to entrant: %s", ss.currentWeather.String(), entrant.String())
-
-	bw := NewPacket(nil)
-	bw.Write(TCPSendWeather)
-	bw.Write(ss.currentWeather.Ambient)
-	bw.Write(ss.currentWeather.Road)
-	bw.WriteUTF32String(ss.currentWeather.GraphicsName)
-	bw.Write(ss.currentWeather.WindSpeed)
-	bw.Write(ss.currentWeather.WindDirection)
-
-	return bw.WriteTCP(entrant.Connection.tcpConn)
-}
-
-func (ss *ServerState) SendSunAngle() {
-	ss.logger.Debugf("Broadcasting Sun Angle (%.2f)", ss.sunAngle)
-
-	bw := NewPacket(nil)
-	bw.Write(TCPSendSunAngle)
-	bw.Write(ss.sunAngle)
-
-	ss.BroadcastAllTCP(bw)
 }
 
 func (ss *ServerState) CreateBoPPacket(entrants []*Car) *Packet {

@@ -30,7 +30,7 @@ func NewUDP(port uint16, server *Server) *UDP {
 func (u *UDP) initMessageHandlers(server *Server) {
 	messageHandlers := []UDPMessageHandler{
 		NewConnectionInitialisedMessageHandler(server.state),
-		NewPositionMessageHandler(server.state, server.plugin, server.logger),
+		NewPositionMessageHandler(server.state, server.weatherManager, server.plugin, server.logger),
 		NewAssociateMessageHandler(server.state),
 		NewPingMessageHandler(server.state),
 		NewSessionInfoHandler(server.state),

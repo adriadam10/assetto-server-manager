@@ -3,7 +3,6 @@ package acserver
 import (
 	"context"
 	"fmt"
-	"math/rand"
 	"time"
 
 	"github.com/sirupsen/logrus"
@@ -62,26 +61,25 @@ func (s SessionConfig) IsZero() bool {
 }
 
 type SessionManager struct {
-	state        *ServerState
-	lobby        *Lobby
-	plugin       Plugin
-	logger       Logger
-	serverStopFn func() error
+	state          *ServerState
+	lobby          *Lobby
+	plugin         Plugin
+	logger         Logger
+	weatherManager *WeatherManager
+	serverStopFn   func() error
 
-	nextWeatherUpdate   int64
-	currentWeatherIndex int
-	weatherProgression  bool
-	baseDirectory       string
+	baseDirectory string
 }
 
-func NewSessionManager(state *ServerState, lobby *Lobby, plugin Plugin, logger Logger, serverStopFn func() error, baseDirectory string) *SessionManager {
+func NewSessionManager(state *ServerState, weatherManager *WeatherManager, lobby *Lobby, plugin Plugin, logger Logger, serverStopFn func() error, baseDirectory string) *SessionManager {
 	return &SessionManager{
-		state:         state,
-		lobby:         lobby,
-		serverStopFn:  serverStopFn,
-		plugin:        plugin,
-		logger:        logger,
-		baseDirectory: baseDirectory,
+		state:          state,
+		lobby:          lobby,
+		weatherManager: weatherManager,
+		serverStopFn:   serverStopFn,
+		plugin:         plugin,
+		logger:         logger,
+		baseDirectory:  baseDirectory,
 	}
 }
 
@@ -179,46 +177,7 @@ func (sm *SessionManager) NextSession(force bool) {
 		}
 	}
 
-	sm.currentWeatherIndex = 0
-	sm.weatherProgression = false
-	sm.nextWeatherUpdate = 0
-
-	if len(sm.state.currentSession.Weather) != 0 {
-		sm.logger.Debugf("Session has weather info!")
-
-		if len(sm.state.currentSession.Weather) > 1 {
-			sm.logger.Debugf("Session has multiple weathers! Enabling weather progression.")
-			// multiple weathers for this session, move through them
-			sm.weatherProgression = true
-
-			sm.state.ChangeWeather(sm.state.currentSession.Weather[sm.currentWeatherIndex])
-			sm.nextWeatherUpdate = currentTimeMillisecond() + (sm.state.currentSession.Weather[sm.currentWeatherIndex].Duration * 60000)
-		} else {
-			sm.logger.Debugf("Session only has has one weather! Setting it now.")
-			// only one weather for this session, just set it
-			sm.state.ChangeWeather(sm.state.currentSession.Weather[0])
-		}
-	} else {
-		if len(sm.state.raceConfig.Weather) != 0 {
-			sm.logger.Debugf("Session does not have weather info! Falling back to legacy weather.")
-
-			sm.state.ChangeWeather(sm.state.raceConfig.Weather[rand.Intn(len(sm.state.raceConfig.Weather))])
-		} else {
-			sm.logger.Debugf("No weather defined! Falling back to sensible defaults.")
-
-			sm.state.ChangeWeather(&WeatherConfig{
-				Graphics:               "3_clear",
-				Duration:               0,
-				BaseTemperatureAmbient: 26,
-				BaseTemperatureRoad:    11,
-				VariationAmbient:       1,
-				VariationRoad:          1,
-				WindSpeed:              20,
-				WindDirection:          30,
-			})
-		}
-
-	}
+	sm.weatherManager.OnNewSession()
 
 	sm.logger.Infof("Advanced to next session: %s", sm.state.currentSession)
 
@@ -237,9 +196,9 @@ func (sm *SessionManager) NextSession(force bool) {
 			NumMinutes:      sm.state.currentSession.Time,
 			NumLaps:         sm.state.currentSession.Laps,
 			WaitTime:        sm.state.currentSession.WaitTime,
-			AmbientTemp:     sm.state.currentWeather.Ambient,
-			RoadTemp:        sm.state.currentWeather.Road,
-			WeatherGraphics: sm.state.currentWeather.GraphicsName,
+			AmbientTemp:     sm.weatherManager.currentWeather.Ambient,
+			RoadTemp:        sm.weatherManager.currentWeather.Road,
+			WeatherGraphics: sm.weatherManager.currentWeather.GraphicsName,
 			ElapsedTime:     sm.ElapsedSessionTime(),
 			SessionType:     sm.state.currentSession.SessionType,
 		})
@@ -248,19 +207,6 @@ func (sm *SessionManager) NextSession(force bool) {
 			sm.logger.WithError(err).Error("On new session plugin returned an error")
 		}
 	}()
-}
-
-func (sm *SessionManager) NextWeather(currentTime int64) {
-	sm.currentWeatherIndex++
-
-	if sm.currentWeatherIndex == len(sm.state.currentSession.Weather) {
-		sm.currentWeatherIndex = 0
-	}
-
-	sm.logger.Debugf("Moving weather to %s", sm.state.currentSession.Weather[sm.currentWeatherIndex].Graphics)
-
-	sm.state.ChangeWeather(sm.state.currentSession.Weather[sm.currentWeatherIndex])
-	sm.nextWeatherUpdate = currentTime + (sm.state.currentSession.Weather[sm.currentWeatherIndex].Duration * 60000)
 }
 
 func (sm *SessionManager) loop(ctx context.Context) {
@@ -324,7 +270,7 @@ func (sm *SessionManager) loop(ctx context.Context) {
 
 func (sm *SessionManager) RestartSession() {
 	sm.state.currentSessionIndex--
-	sm.NextSession(false)
+	sm.NextSession(true)
 }
 
 func (sm *SessionManager) CurrentSessionHasFinished() bool {

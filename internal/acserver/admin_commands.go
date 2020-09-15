@@ -9,13 +9,15 @@ import (
 type AdminCommandManager struct {
 	state          *ServerState
 	sessionManager *SessionManager
+	weatherManager *WeatherManager
 	logger         Logger
 }
 
-func NewAdminCommandManager(state *ServerState, sessionManager *SessionManager, logger Logger) *AdminCommandManager {
+func NewAdminCommandManager(state *ServerState, sessionManager *SessionManager, weatherManager *WeatherManager, logger Logger) *AdminCommandManager {
 	return &AdminCommandManager{
 		state:          state,
 		sessionManager: sessionManager,
+		weatherManager: weatherManager,
 		logger:         logger,
 	}
 }
@@ -206,10 +208,10 @@ func (a *AdminCommandManager) Command(entrant *Car, command string) error {
 			return a.state.SendChat(ServerCarID, entrant.CarID, "Only admins can use the /next_weather command! Use /admin to get permission")
 		}
 
-		if a.sessionManager.weatherProgression {
+		if a.weatherManager.weatherProgression {
 			a.state.BroadcastChat(ServerCarID, fmt.Sprintf("%s has changed the weather to the next configured weather!", entrant.Driver.Name))
 
-			a.sessionManager.NextWeather(currentTimeMillisecond())
+			a.weatherManager.NextWeather(currentTimeMillisecond())
 		} else {
 			return a.state.SendChat(ServerCarID, entrant.CarID, "This session does not have weather progression enabled! Look at the readme for more info+")
 		}

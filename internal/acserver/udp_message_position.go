@@ -6,16 +6,18 @@ import (
 )
 
 type PositionMessageHandler struct {
-	state  *ServerState
-	plugin Plugin
-	logger Logger
+	state          *ServerState
+	weatherManager *WeatherManager
+	plugin         Plugin
+	logger         Logger
 }
 
-func NewPositionMessageHandler(state *ServerState, plugin Plugin, logger Logger) *PositionMessageHandler {
+func NewPositionMessageHandler(state *ServerState, weatherManager *WeatherManager, plugin Plugin, logger Logger) *PositionMessageHandler {
 	ph := &PositionMessageHandler{
-		state:  state,
-		plugin: plugin,
-		logger: logger,
+		state:          state,
+		weatherManager: weatherManager,
+		plugin:         plugin,
+		logger:         logger,
 	}
 
 	return ph
@@ -131,7 +133,7 @@ func (pm *PositionMessageHandler) SendFirstUpdate(entrant *Car) error {
 	}
 
 	// send weather to car
-	if err := pm.state.SendWeather(entrant); err != nil {
+	if err := pm.weatherManager.SendWeather(entrant); err != nil {
 		return err
 	}
 

@@ -191,14 +191,3 @@ func (o OpenRule) String() string {
 		return "Unknown Openness"
 	}
 }
-
-type WeatherConfig struct {
-	Graphics               string `json:"graphics" yaml:"graphics"`
-	Duration               int64  `json:"duration" yaml:"duration"`
-	BaseTemperatureAmbient int    `json:"base_temperature_ambient" yaml:"base_temperature_ambient"`
-	BaseTemperatureRoad    int    `json:"base_temperature_road" yaml:"base_temperature_road"`
-	VariationAmbient       int    `json:"variation_ambient" yaml:"variation_ambient"`
-	VariationRoad          int    `json:"variation_road" help:"variation_road"`
-	WindSpeed              int    `json:"wind_speed" yaml:"wind_speed"`
-	WindDirection          int    `json:"wind_direction" yaml:"wind_direction"`
-}
