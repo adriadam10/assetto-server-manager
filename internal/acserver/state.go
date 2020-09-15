@@ -41,7 +41,6 @@ type ServerState struct {
 	baseDirectory string
 
 	// modifiable
-	sunAngle   float32
 	randomSeed uint32
 
 	currentSessionIndex uint8
@@ -76,7 +75,6 @@ func NewServerState(baseDirectory string, serverConfig *ServerConfig, raceConfig
 		customChecksums: checksums,
 		plugin:          plugin,
 		logger:          logger,
-		sunAngle:        raceConfig.SunAngle,
 		randomSeed:      rand.Uint32(),
 		noJoinList:      make(map[string]bool),
 		baseDirectory:   baseDirectory,
@@ -767,16 +765,6 @@ func (ss *ServerState) CompleteLap(carID CarID, lap *LapCompleted, target *Car) 
 	ss.BroadcastAllTCP(bw)
 
 	return nil
-}
-
-func (ss *ServerState) SendSunAngle() {
-	ss.logger.Debugf("Broadcasting Sun Angle (%.2f)", ss.sunAngle)
-
-	bw := NewPacket(nil)
-	bw.Write(TCPSendSunAngle)
-	bw.Write(ss.sunAngle)
-
-	ss.BroadcastAllTCP(bw)
 }
 
 func (ss *ServerState) CreateBoPPacket(entrants []*Car) *Packet {

@@ -19,7 +19,7 @@ test:
 	mkdir -p cmd/server-manager/assetto/cfg
 	mkdir -p cmd/server-manager/assetto/results
 	cp -R fixtures/results/*.json cmd/server-manager/assetto/results
-	go test -race
+	go test -cover -race ./...
 
 vet: install-linter generate
 	go vet ./...

@@ -35,14 +35,30 @@ type WeatherManager struct {
 	plugin Plugin
 	logger Logger
 
-	currentWeather *CurrentWeather
+	currentWeather      *CurrentWeather
+	nextWeatherUpdate   int64
+	currentWeatherIndex int
+	weatherProgression  bool
+
+	sunAngle               float32
+	sunAngleUpdateInterval int64
+	lastSunUpdate          int64
 }
 
 func NewWeatherManager(state *ServerState, plugin Plugin, logger Logger) *WeatherManager {
+	sunAngleUpdateInterval := int64(60000)
+
+	if state.raceConfig.TimeOfDayMultiplier > 0 {
+		// @TODO what is the performance impact of this? Turn off when CSP/Sol enabled (probably)
+		sunAngleUpdateInterval = int64(float32(60000) / float32(state.raceConfig.TimeOfDayMultiplier))
+	}
+
 	return &WeatherManager{
-		state:  state,
-		plugin: plugin,
-		logger: logger,
+		state:                  state,
+		plugin:                 plugin,
+		logger:                 logger,
+		sunAngle:               state.raceConfig.SunAngle,
+		sunAngleUpdateInterval: sunAngleUpdateInterval,
 	}
 }
 
@@ -135,4 +151,98 @@ func (wm *WeatherManager) SendWeather(entrant *Car) error {
 	bw.Write(wm.currentWeather.WindDirection)
 
 	return bw.WriteTCP(entrant.Connection.tcpConn)
+}
+
+func (wm *WeatherManager) SendSunAngle() {
+	wm.logger.Debugf("Broadcasting Sun Angle (%.2f)", wm.sunAngle)
+
+	bw := NewPacket(nil)
+	bw.Write(TCPSendSunAngle)
+	bw.Write(wm.sunAngle)
+
+	wm.state.BroadcastAllTCP(bw)
+}
+
+func (wm *WeatherManager) OnNewSession() {
+	wm.currentWeatherIndex = 0
+	wm.weatherProgression = false
+	wm.nextWeatherUpdate = 0
+
+	if len(wm.state.currentSession.Weather) != 0 {
+		wm.logger.Debugf("Session has weather info!")
+
+		if len(wm.state.currentSession.Weather) > 1 {
+			wm.logger.Debugf("Session has multiple weathers! Enabling weather progression.")
+			// multiple weathers for this session, move through them
+			wm.weatherProgression = true
+
+			wm.ChangeWeather(wm.state.currentSession.Weather[wm.currentWeatherIndex])
+			wm.nextWeatherUpdate = currentTimeMillisecond() + (wm.state.currentSession.Weather[wm.currentWeatherIndex].Duration * 60000)
+		} else {
+			wm.logger.Debugf("Session only has has one weather! Setting it now.")
+			// only one weather for this session, just set it
+			wm.ChangeWeather(wm.state.currentSession.Weather[0])
+		}
+	} else {
+		if len(wm.state.raceConfig.Weather) != 0 {
+			wm.logger.Debugf("Session does not have weather info! Falling back to legacy weather.")
+
+			wm.ChangeWeather(wm.state.raceConfig.Weather[rand.Intn(len(wm.state.raceConfig.Weather))])
+		} else {
+			wm.logger.Debugf("No weather defined! Falling back to sensible defaults.")
+
+			wm.ChangeWeather(&WeatherConfig{
+				Graphics:               "3_clear",
+				Duration:               0,
+				BaseTemperatureAmbient: 26,
+				BaseTemperatureRoad:    11,
+				VariationAmbient:       1,
+				VariationRoad:          1,
+				WindBaseSpeedMin:       3,
+				WindBaseSpeedMax:       15,
+				WindBaseDirection:      30,
+				WindVariationDirection: 15,
+			})
+		}
+	}
+}
+
+const (
+	minSunAngle = -80
+	maxSunAngle = 80
+)
+
+func (wm *WeatherManager) Step(currentTime int64) {
+	// @TODO (improvement) at 1x this loses between 0.5 and 1s evey 60s
+	if currentTime-wm.lastSunUpdate > wm.sunAngleUpdateInterval || wm.lastSunUpdate == 0 {
+		// @TODO with CSP exceeding -80 and 80 works fine, and you can loop!
+		wm.sunAngle = wm.state.raceConfig.SunAngle + float32(wm.state.raceConfig.TimeOfDayMultiplier)*(0.0044*(float32(currentTime)/1000.0))
+
+		if wm.sunAngle < minSunAngle {
+			wm.sunAngle = minSunAngle
+		} else if wm.sunAngle > maxSunAngle {
+			wm.sunAngle = maxSunAngle
+		}
+
+		wm.SendSunAngle()
+
+		wm.lastSunUpdate = currentTime
+	}
+
+	if wm.weatherProgression && wm.nextWeatherUpdate < currentTime {
+		wm.NextWeather(currentTime)
+	}
+}
+
+func (wm *WeatherManager) NextWeather(currentTime int64) {
+	wm.currentWeatherIndex++
+
+	if wm.currentWeatherIndex == len(wm.state.currentSession.Weather) {
+		wm.currentWeatherIndex = 0
+	}
+
+	wm.logger.Debugf("Moving weather to %s", wm.state.currentSession.Weather[wm.currentWeatherIndex].Graphics)
+
+	wm.ChangeWeather(wm.state.currentSession.Weather[wm.currentWeatherIndex])
+	wm.nextWeatherUpdate = currentTime + (wm.state.currentSession.Weather[wm.currentWeatherIndex].Duration * 60000)
 }

@@ -74,7 +74,7 @@ func NewServer(ctx context.Context, baseDirectory string, serverConfig *ServerCo
 
 	server.weatherManager = NewWeatherManager(state, plugin, logger)
 	server.sessionManager = NewSessionManager(state, server.weatherManager, lobby, plugin, logger, server.Stop, baseDirectory)
-	server.adminCommandManager = NewAdminCommandManager(state, server.sessionManager, logger)
+	server.adminCommandManager = NewAdminCommandManager(state, server.sessionManager, server.weatherManager, logger)
 	server.entryListManager = NewEntryListManager(state, logger)
 
 	return server, nil
@@ -164,15 +164,6 @@ func (s *Server) Run() error {
 
 func (s *Server) loop() {
 	lastSendTime := int64(0)
-	lastSunUpdate := int64(0)
-
-	// @TODO what is the performance impact of this? Turn off when CSP/Sol enabled (probably)
-
-	sunAngleUpdateInterval := int64(60000)
-
-	if s.state.raceConfig.TimeOfDayMultiplier > 0 {
-		sunAngleUpdateInterval = int64(float32(60000) / float32(s.state.raceConfig.TimeOfDayMultiplier))
-	}
 
 	if s.state.serverConfig.SleepTime < 1 {
 		s.state.serverConfig.SleepTime = 1
@@ -221,28 +212,8 @@ func (s *Server) loop() {
 				}
 			}
 
-			// update sun angle
-			// @TODO (improvement) at 1x this loses between 0.5 and 1s evey 60s
-			if (sleepTime != idleSleepTime) && currentTime-lastSunUpdate > sunAngleUpdateInterval || lastSunUpdate == 0 {
-				// @TODO with CSP exceeding -80 and 80 works fine, and you can loop!
-				s.state.sunAngle = s.state.raceConfig.SunAngle + float32(s.state.raceConfig.TimeOfDayMultiplier)*(0.0044*(float32(currentTime)/1000.0))
-
-				if s.state.sunAngle < -80 {
-					s.state.sunAngle = -80
-				}
-
-				if s.state.sunAngle > 80 {
-					s.state.sunAngle = 80
-				}
-
-				s.state.SendSunAngle()
-
-				lastSunUpdate = currentTime
-			}
-
-			// update weather
-			if s.sessionManager.weatherProgression && (sleepTime != idleSleepTime) && s.sessionManager.nextWeatherUpdate < currentTime {
-				s.sessionManager.NextWeather(currentTime)
+			if sleepTime != idleSleepTime {
+				s.weatherManager.Step(currentTime)
 			}
 
 			if s.state.entryList.NumConnected() == 0 {

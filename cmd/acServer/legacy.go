@@ -312,8 +312,10 @@ func readLegacyConfigs() (*TempConfig, error) {
 			BaseTemperatureRoad:    weather.BaseTemperatureRoad,
 			VariationAmbient:       weather.VariationAmbient,
 			VariationRoad:          weather.VariationRoad,
-			WindSpeed:              weather.WindBaseSpeedMin,
-			WindDirection:          weather.WindBaseDirection,
+			WindBaseSpeedMin:       weather.WindBaseSpeedMin,
+			WindBaseSpeedMax:       weather.WindBaseSpeedMax,
+			WindBaseDirection:      weather.WindBaseDirection,
+			WindVariationDirection: weather.WindVariationDirection,
 		})
 	}
 

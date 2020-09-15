@@ -12,17 +12,20 @@ const (
 type HandshakeMessageHandler struct {
 	state            *ServerState
 	sessionManager   *SessionManager
-	plugin           Plugin
 	entryListManager *EntryListManager
-	logger           Logger
+	weatherManager   *WeatherManager
+
+	plugin Plugin
+	logger Logger
 }
 
-func NewHandshakeMessageHandler(state *ServerState, sessionManager *SessionManager, entryListManager *EntryListManager, plugin Plugin, logger Logger) *HandshakeMessageHandler {
+func NewHandshakeMessageHandler(state *ServerState, sessionManager *SessionManager, entryListManager *EntryListManager, weatherManager *WeatherManager, plugin Plugin, logger Logger) *HandshakeMessageHandler {
 	return &HandshakeMessageHandler{
 		state:            state,
 		sessionManager:   sessionManager,
-		plugin:           plugin,
 		entryListManager: entryListManager,
+		weatherManager:   weatherManager,
+		plugin:           plugin,
 		logger:           logger,
 	}
 }
@@ -115,7 +118,7 @@ func (m HandshakeMessageHandler) OnMessage(conn net.Conn, p *Packet) error {
 	w.WriteString(m.state.raceConfig.TrackLayout)
 	w.WriteString(entrant.Model)
 	w.WriteString(entrant.Skin)
-	w.Write(m.state.sunAngle)
+	w.Write(m.weatherManager.sunAngle)
 	w.Write(m.state.raceConfig.AllowedTyresOut)
 	w.Write(m.state.raceConfig.TyreBlanketsAllowed)
 	w.Write(m.state.raceConfig.TractionControlAllowed)
