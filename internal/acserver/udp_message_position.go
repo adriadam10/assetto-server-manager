@@ -64,6 +64,7 @@ func (pm *PositionMessageHandler) OnMessage(_ net.PacketConn, addr net.Addr, p *
 	}
 
 	car.Status.Timestamp += car.Connection.TimeOffset
+	car.PluginStatus = carUpdate
 	car.HasUpdateToBroadcast = true
 
 	diff := int(car.Connection.TargetTimeOffset) - int(car.Connection.TimeOffset)

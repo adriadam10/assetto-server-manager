@@ -33,6 +33,10 @@ type Car struct {
 	Connection  Connection
 	Status      CarUpdate
 	SessionData SessionData
+
+	// PluginStatus is sent only to the plugin. It is used so that positional
+	// updates work even when a Qualifying session is in Solo mode
+	PluginStatus CarUpdate
 }
 
 type Driver struct {

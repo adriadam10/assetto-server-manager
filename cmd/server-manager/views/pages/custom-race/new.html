@@ -372,6 +372,31 @@
 
                                 {{ end }}
 
+                                {{ if eq $sessionType "QUALIFY" }}
+                                    <div class="form-group row">
+                                        <label for="{{ $sessionType }}.IsSolo" class="col-sm-3 col-form-label">
+                                            Solo Qualifying
+                                        </label>
+
+                                        <div class="col-sm-9">
+                                            <input
+                                                    type="checkbox"
+                                                    id="{{ $sessionType }}.IsSolo"
+                                                    name="{{ $sessionType }}.IsSolo"
+                                                    {{ if $session.IsSolo }}
+                                                        checked="checked"
+                                                    {{ end }}
+                                            ><br>
+
+                                            <small>
+                                                Solo Qualifying means drivers cannot see other drivers on track for the
+                                                duration of the qualifying session. Other drivers will appear in their pitbox
+                                                and will not move. Drivers will be able to see lap times for all drivers in the session.
+                                            </small>
+                                        </div>
+                                    </div>
+                                {{ end }}
+
                                 {{ if and (ne $sessionType "BOOK") (not $.IsRaceWeekend) }}
 
                                     <div class="form-group row">

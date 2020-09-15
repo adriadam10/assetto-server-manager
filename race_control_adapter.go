@@ -69,6 +69,7 @@ func convertSessionInfoToUDP(eventType udp.Event, session acserver.SessionInfo) 
 		RoadTemp:            session.RoadTemp,
 		WeatherGraphics:     session.WeatherGraphics,
 		ElapsedMilliseconds: int32(session.ElapsedTime.Milliseconds()),
+		IsSolo:              session.IsSolo,
 		EventType:           eventType,
 	}
 }
@@ -147,11 +148,11 @@ func (r *UDPPluginAdapter) OnLapCompleted(carID acserver.CarID, lap acserver.Lap
 func (r *UDPPluginAdapter) OnCarUpdate(carUpdate acserver.Car) error {
 	r.UDPCallback(udp.CarUpdate{
 		CarID:               carUpdate.CarID,
-		Pos:                 carUpdate.Status.Position,
-		Velocity:            carUpdate.Status.Velocity,
-		Gear:                carUpdate.Status.GearIndex,
-		EngineRPM:           carUpdate.Status.EngineRPM,
-		NormalisedSplinePos: carUpdate.Status.NormalisedSplinePos,
+		Pos:                 carUpdate.PluginStatus.Position,
+		Velocity:            carUpdate.PluginStatus.Velocity,
+		Gear:                carUpdate.PluginStatus.GearIndex,
+		EngineRPM:           carUpdate.PluginStatus.EngineRPM,
+		NormalisedSplinePos: carUpdate.PluginStatus.NormalisedSplinePos,
 	})
 
 	return nil

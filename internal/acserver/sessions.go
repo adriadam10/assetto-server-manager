@@ -53,7 +53,7 @@ func (s SessionConfig) String() string {
 		sessionLength = fmt.Sprintf("%d minutes", s.Time)
 	}
 
-	return fmt.Sprintf("%s - Name: %s, Length: %s, Wait Time: %ds, Open Rule: %s", s.SessionType, s.Name, sessionLength, s.WaitTime, s.IsOpen)
+	return fmt.Sprintf("%s - Name: %s, Length: %s, Wait Time: %ds, Open Rule: %s, Solo: %t", s.SessionType, s.Name, sessionLength, s.WaitTime, s.IsOpen, s.Solo)
 }
 
 func (s SessionConfig) IsZero() bool {
@@ -201,6 +201,7 @@ func (sm *SessionManager) NextSession(force bool) {
 			WeatherGraphics: sm.weatherManager.currentWeather.GraphicsName,
 			ElapsedTime:     sm.ElapsedSessionTime(),
 			SessionType:     sm.state.currentSession.SessionType,
+			IsSolo:          sm.state.currentSession.Solo,
 		})
 
 		if err != nil {

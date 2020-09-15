@@ -668,7 +668,7 @@ func (rm *RaceManager) BuildCustomRaceFromForm(r *http.Request) (*CurrentRaceCon
 		disabled := r.FormValue(sessName+".Enabled") != "1"
 
 		if timeAttack {
-			if sessName != SessionTypePractice.String() {
+			if session != SessionTypePractice {
 				continue
 			} else {
 				disabled = false
@@ -685,6 +685,7 @@ func (rm *RaceManager) BuildCustomRaceFromForm(r *http.Request) (*CurrentRaceCon
 			Laps:     formValueAsInt(r.FormValue(sessName + ".Laps")),
 			IsOpen:   SessionOpenness(formValueAsInt(r.FormValue(sessName + ".IsOpen"))),
 			WaitTime: formValueAsInt(r.FormValue(sessName + ".WaitTime")),
+			IsSolo:   session == SessionTypeQualifying && formValueAsInt(r.FormValue(sessName+".IsSolo")) == 1,
 		})
 	}
 

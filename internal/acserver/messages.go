@@ -128,6 +128,7 @@ type SessionInfo struct {
 	WeatherGraphics string        `json:"WeatherGraphics"`
 	ElapsedTime     time.Duration `json:"ElapsedTime"`
 	SessionType     SessionType   `json:"EventType"`
+	IsSolo          bool          `json:"IsSolo"`
 }
 
 type KickReason uint8
