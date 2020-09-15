@@ -35,7 +35,7 @@ type RaceControl struct {
 	SessionStartTime           time.Time       `json:"SessionStartTime"`
 
 	ChatMessages      []udp.Chat
-	ChatMessagesMutex sync.Mutex
+	chatMessagesMutex sync.Mutex
 
 	ConnectedDrivers    *DriverMap `json:"ConnectedDrivers"`
 	DisconnectedDrivers *DriverMap `json:"DisconnectedDrivers"`
@@ -192,9 +192,9 @@ func (rc *RaceControl) OnVersion(version udp.Version) error {
 	go panicCapture(rc.requestSessionInfo)
 
 	// clear chat messages on new server start
-	rc.ChatMessagesMutex.Lock()
+	rc.chatMessagesMutex.Lock()
 	rc.ChatMessages = []udp.Chat{}
-	rc.ChatMessagesMutex.Unlock()
+	rc.chatMessagesMutex.Unlock()
 
 	_, err := rc.broadcaster.Send(version)
 
@@ -1059,7 +1059,7 @@ func (rc *RaceControl) OnChatMessage(chat udp.Chat) error {
 		return err
 	}
 
-	rc.ChatMessagesMutex.Lock()
+	rc.chatMessagesMutex.Lock()
 
 	rc.ChatMessages = append(rc.ChatMessages, chat)
 
@@ -1067,7 +1067,7 @@ func (rc *RaceControl) OnChatMessage(chat udp.Chat) error {
 		rc.ChatMessages = rc.ChatMessages[len(rc.ChatMessages)-chatMessageLimit:]
 	}
 
-	rc.ChatMessagesMutex.Unlock()
+	rc.chatMessagesMutex.Unlock()
 
 	if config.Lua.Enabled {
 		go func() {

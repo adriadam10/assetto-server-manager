@@ -207,19 +207,6 @@ class RaceControlChat {
     }
 }
 
-// struct2ts:sync.RaceControlMutex
-class RaceControlMutex {
-
-    constructor(data?: any) {
-        const d: any = (data && typeof data === 'object') ? ToObject(data) : {};
-    }
-
-    toObject(): any {
-        const cfg: any = {};
-        return ToObject(this, cfg);
-    }
-}
-
 // struct2ts:justapengu.in/acsm/pkg/udp.RaceControlDriverMapRaceControlDriverSessionCarInfo
 class RaceControlDriverMapRaceControlDriverSessionCarInfo {
     CarID: number;
@@ -399,7 +386,6 @@ class RaceControl {
     TrackInfo: RaceControlTrackInfo;
     SessionStartTime: Date;
     ChatMessages: RaceControlChat[];
-    ChatMessagesMutex: RaceControlMutex;
     ConnectedDrivers: RaceControlDriverMap | null;
     DisconnectedDrivers: RaceControlDriverMap | null;
     CarIDToGUID: { [key: number]: string };
@@ -412,7 +398,6 @@ class RaceControl {
         this.TrackInfo = new RaceControlTrackInfo(d.TrackInfo);
         this.SessionStartTime = ('SessionStartTime' in d) ? ParseDate(d.SessionStartTime) : new Date();
         this.ChatMessages = Array.isArray(d.ChatMessages) ? d.ChatMessages.map((v: any) => new RaceControlChat(v)) : [];
-        this.ChatMessagesMutex = new RaceControlMutex(d.ChatMessagesMutex);
         this.ConnectedDrivers = ('ConnectedDrivers' in d) ? new RaceControlDriverMap(d.ConnectedDrivers) : null;
         this.DisconnectedDrivers = ('DisconnectedDrivers' in d) ? new RaceControlDriverMap(d.DisconnectedDrivers) : null;
         this.CarIDToGUID = ('CarIDToGUID' in d) ? d.CarIDToGUID as { [key: number]: string } : {};
@@ -432,7 +417,6 @@ export {
     RaceControlTrackMapData,
     RaceControlTrackInfo,
     RaceControlChat,
-    RaceControlMutex,
     RaceControlDriverMapRaceControlDriverSessionCarInfo,
     RaceControlDriverMapRaceControlDriverVector3F,
     RaceControlDriverMapRaceControlDriverCollision,
