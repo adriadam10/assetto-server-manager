@@ -279,11 +279,7 @@ class RaceSetup {
         $parent.find(".collapser").click(function (e) {
             let $this = $(this);
 
-            if ($this.hasClass("rotate-180")) {
-                $this.removeClass("rotate-180");
-            } else {
-                $this.addClass("rotate-180");
-            }
+            $this.toggleClass("rotate-180");
         })
 
         this.$weatherSessionsSelectTemplate.change(function (e) {
