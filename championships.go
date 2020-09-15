@@ -1512,6 +1512,14 @@ func (cr *ChampionshipEvent) GetRaceSetup() CurrentRaceConfig {
 	return cr.RaceSetup
 }
 
+func (cr *ChampionshipEvent) HasSoloQualifying() bool {
+	if event, ok := cr.RaceSetup.Sessions[SessionTypeQualifying]; ok {
+		return event.IsSolo
+	}
+
+	return false
+}
+
 func (cr *ChampionshipEvent) Cars(c *Championship) []string {
 	if cr.Completed() {
 		cars := make(map[string]bool)
