@@ -300,11 +300,10 @@ class RaceSetup {
             let sessionsForWeather = $sessionsWrapper.find(".SessionsForWeather").text();
 
             $sessionsWrapper.append($onLoadWeatherSessionSelects);
+            $onLoadWeatherSessionSelects.find('option').prop('selected', false);
             $onLoadWeatherSessionSelects.multiSelect();
 
             // only select sessions in sessionsForWeather
-            $onLoadWeatherSessionSelects.multiSelect("deselect_all");
-
             sessionsForWeather.split(",").forEach(function (weather, index) {
                 $onLoadWeatherSessionSelects.multiSelect("select", weather);
             });

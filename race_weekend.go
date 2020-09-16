@@ -625,6 +625,14 @@ func (rws *RaceWeekendSession) HasSignUpForm() bool {
 	return false
 }
 
+func (rws *RaceWeekendSession) IsSoloQualifying() bool {
+	if s, ok := rws.RaceConfig.Sessions[SessionTypeQualifying]; ok {
+		return s.IsSolo
+	}
+
+	return false
+}
+
 func (rws *RaceWeekendSession) ReadOnlyEntryList() EntryList {
 	rwe, err := rws.GetRaceWeekendEntryList(rws.raceWeekend, nil, "")
 

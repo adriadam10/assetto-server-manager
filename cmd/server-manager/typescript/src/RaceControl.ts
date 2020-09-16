@@ -4,7 +4,7 @@ import {
     RaceControlDriverMapRaceControlDriverSessionCarInfo as SessionCarInfo
 } from "./models/RaceControl";
 
-import {CarUpdate, CarUpdateVec} from "./models/UDP";
+import {CarUpdate, CarUpdateVector3F} from "./models/UDP";
 import {randomColor} from "randomcolor/randomColor";
 import {msToTime, prettifyName} from "./utils";
 import moment from "moment";
@@ -36,7 +36,7 @@ const EventCollisionWithCar = 10,
 ;
 
 interface SimpleCollision {
-    WorldPos: CarUpdateVec
+    WorldPos: CarUpdateVector3F
 }
 
 interface WebsocketHandler {
@@ -54,6 +54,7 @@ export class RaceControl {
 
     private track: string = "";
     private trackLayout: string = "";
+    private weatherGraphics: string = "";
 
     constructor() {
         this.$eventTitle = $("#event-title");
@@ -102,7 +103,12 @@ export class RaceControl {
                     this.onTrackChange(this.track, this.trackLayout);
                 }
 
-                this.$eventTitle.text(RaceControl.getSessionType(this.status.SessionInfo.Type) + " at " + this.status.TrackInfo!.name);
+                if (this.status.SessionInfo.WeatherGraphics !== this.weatherGraphics) {
+                    this.weatherGraphics = this.status.SessionInfo.WeatherGraphics;
+                    this.showTrackWeatherImage();
+                }
+
+                this.$eventTitle.text((this.status.SessionInfo.IsSolo ? "Solo " : "") + RaceControl.getSessionType(this.status.SessionInfo.Type) + " at " + this.status.TrackInfo!.name);
                 $("#track-location").text(this.status.TrackInfo.city + ", " + this.status.TrackInfo.country);
 
                 this.buildSessionInfo();
@@ -114,6 +120,7 @@ export class RaceControl {
                 this.firstLoad = false;
                 break;
             case EventNewSession:
+            case EventSessionInfo:
                 this.showTrackWeatherImage();
                 break;
             case EventChat:
@@ -275,7 +282,10 @@ export class RaceControl {
             $currentWeather.hide();
         });
 
-        $currentWeather.attr("alt", "Current Weather: " + prettifyName(this.status.SessionInfo.WeatherGraphics, false));
+        const weatherName = "Current Weather: " + prettifyName(pathFinal, false);
+
+        $currentWeather.attr("data-original-title", weatherName);
+        $currentWeather.attr("alt", weatherName);
     }
 
     private getTrackImageURL(): string {
@@ -375,7 +385,7 @@ class LiveMap implements WebsocketHandler {
                     if (!this.dots.has(driver.CarInfo.DriverGUID)) {
                         // in the event that a user just loaded the race control page, place the
                         // already loaded dots onto the map
-                        let $driverDot = this.buildDriverDot(driver.CarInfo, driver.LastPos as CarUpdateVec).show();
+                        let $driverDot = this.buildDriverDot(driver.CarInfo, driver.LastPos as CarUpdateVector3F).show();
                         this.dots.set(driver.CarInfo.DriverGUID, $driverDot);
                     }
                 }
@@ -488,8 +498,8 @@ class LiveMap implements WebsocketHandler {
         this.loadTrackMapImage();
     }
 
-    private translateToTrackCoordinate(vec: CarUpdateVec): CarUpdateVec {
-        const out = new CarUpdateVec();
+    private translateToTrackCoordinate(vec: CarUpdateVector3F): CarUpdateVector3F {
+        const out = new CarUpdateVector3F();
 
         out.X = ((vec.X + this.trackXOffset + this.trackMargin) / this.trackScale) * this.mapScaleMultiplier;
         out.Z = ((vec.Z + this.trackZOffset + this.trackMargin) / this.trackScale) * this.mapScaleMultiplier;
@@ -497,7 +507,7 @@ class LiveMap implements WebsocketHandler {
         return out;
     }
 
-    private buildDriverDot(driverData: SessionCarInfo, lastPos?: CarUpdateVec): JQuery<HTMLElement> {
+    private buildDriverDot(driverData: SessionCarInfo, lastPos?: CarUpdateVector3F): JQuery<HTMLElement> {
         if (this.dots.has(driverData.DriverGUID)) {
             return this.dots.get(driverData.DriverGUID)!;
         }

@@ -73,5 +73,5 @@ probably more things too.
 * [ ] client crash register disconnect
 * [x] collision info
 * [x] graceful server shutdown not using os.Exit()
-* [ ] check wind speed - we're not using min/max values, and it seems that acServer has them?
+* [x] check wind speed - we're not using min/max values, and it seems that acServer has them?
 * [ ] what happens re results if two drivers share a car in a pickup=1,locked=0 session? do all lap times get shown? our system won't work with that right now.

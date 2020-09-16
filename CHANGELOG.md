@@ -1,7 +1,19 @@
 v2.0.0
 ------
 
+Added:
 
+v2.0.0 of Server Manager now has its own version of the acServer embedded within it. Our server is completely compatible with
+Kunos' acServer, and also provides the following advantages, exclusive to Server Manager owners:
+
+* Improved weather - You can now specify different weather setups for different sessions, or even multiple weathers for one session!
+* Solo Qualifying - turn on Solo Qualifying for any event, and each driver will be able to set their qualifying time without seeing any other cars on track!
+* Custom Plugin enforcement - use Server Manager's new checksum feature to require drivers to have plugins installed. If they don't have the plugins you need installed, they won't be allowed in the server!
+* Tighter integration into Server Manager. As our server and server manager share the same codebase, we have absolute control over the entire server.
+  - Live Timings and the Live Map have been rewritten to utilise a direct connection to the server - so they're faster and more responsive than ever!
+  - @TODO add a thing about race weekend session management in here.
+* More platform support - run server manager on anything you like. We've been testing it on a Raspberry Pi!
+* Active development - expect fixes for any issues, and further feature development!
 
 Removed:
 

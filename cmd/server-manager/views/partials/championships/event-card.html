@@ -68,6 +68,10 @@
                                             {{ end }}
 
                                             {{ $sessionName.String }}
+
+                                            {{ if $session.IsSolo }}
+                                                (Solo)
+                                            {{ end }}
                                         </strong>:
 
                                         {{ if ne $session.Time 0 }}
@@ -450,6 +454,10 @@
                                                 1st Race
                                             {{ else }}
                                                 {{ $sessionName.String }}
+
+                                                {{ if and (eq $sessionName "QUALIFY") $event.HasSoloQualifying }}
+                                                    (Solo)
+                                                {{ end }}
                                             {{ end }}
                                         </a>
                                     </li>

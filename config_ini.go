@@ -488,7 +488,7 @@ func (c CurrentRaceConfig) ToACConfig() *acserver.EventConfig {
 			Time:        uint16(session.Time),
 			Laps:        uint16(session.Laps),
 			IsOpen:      acserver.OpenRule(session.IsOpen),
-			Solo:        false, // @TODO solo sessions
+			Solo:        session.IsSolo,
 			WaitTime:    session.WaitTime,
 			Weather:     weathers,
 		})
@@ -617,6 +617,7 @@ type SessionConfig struct {
 	WaitTime int             `ini:"WAIT_TIME" help:"seconds before the start of the session"`
 
 	// custom ac server
+	IsSolo  bool             `ini:"-"`
 	Weather []*WeatherConfig `ini:"-"`
 }
 

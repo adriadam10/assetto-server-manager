@@ -191,6 +191,7 @@ type SessionInfo struct {
 	RoadTemp            uint8                `json:"RoadTemp"`
 	WeatherGraphics     string               `json:"WeatherGraphics"`
 	ElapsedMilliseconds int32                `json:"ElapsedMilliseconds"`
+	IsSolo              bool                 `json:"IsSolo"`
 
 	EventType Event `json:"EventType"`
 }

@@ -120,7 +120,7 @@
                     <div class="card-header">
                         {{ $acSession := $session.SessionInfo }}
 
-                        <strong>{{ $acSession.Name }}</strong>
+                        <strong>{{ $acSession.Name }} {{ if $session.IsSoloQualifying }}(Solo){{ end }}</strong>
 
                         <div class="float-right">
                             {{ if ne $acSession.Time 0 }}
@@ -335,7 +335,7 @@
                             {{ $trackInfo := trackInfo $session.RaceConfig.Track $session.RaceConfig.TrackLayout }}
 
                             <strong>
-                                {{ $acSession.Name }}
+                                {{ $acSession.Name }} {{ if $session.IsSoloQualifying }}(Solo){{ end }}
                             </strong>
 
                             at

@@ -82,6 +82,10 @@
                                                 <br>Wait Time: {{ $session.WaitTime }} seconds
                                             {{ end }}
 
+                                            {{ if and (eq $sessionType "QUALIFY") $session.IsSolo }}
+                                                <br><strong>Solo Qualifying</strong>
+                                            {{ end }}
+
                                             {{ if eq $sessionType "RACE" }}
                                                 {{ if or (gt $.EventConfig.RacePitWindowStart 0) (gt $.EventConfig.RacePitWindowEnd 0) }}
                                                     <br>

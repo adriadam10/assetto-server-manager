@@ -261,6 +261,7 @@ func (s *Server) GetSessionInfo() SessionInfo {
 		WeatherGraphics: s.weatherManager.currentWeather.GraphicsName,
 		ElapsedTime:     s.sessionManager.ElapsedSessionTime(),
 		SessionType:     s.state.currentSession.SessionType,
+		IsSolo:          s.state.currentSession.Solo,
 	}
 }
 

@@ -54,7 +54,7 @@ function ToObject(o: any, typeOrCfg: any = {}, child = false): any {
 }
 
 // classes
-// struct2ts:github.com/JustaPenguin/assetto-server-manager/pkg/udp.SessionInfo
+// struct2ts:justapengu.in/acsm/pkg/udp.SessionInfo
 class SessionInfo {
     Version: number;
     SessionIndex: number;
@@ -72,6 +72,7 @@ class SessionInfo {
     RoadTemp: number;
     WeatherGraphics: string;
     ElapsedMilliseconds: number;
+    IsSolo: boolean;
     EventType: number;
 
     constructor(data?: any) {
@@ -92,6 +93,7 @@ class SessionInfo {
         this.RoadTemp = ('RoadTemp' in d) ? d.RoadTemp as number : 0;
         this.WeatherGraphics = ('WeatherGraphics' in d) ? d.WeatherGraphics as string : '';
         this.ElapsedMilliseconds = ('ElapsedMilliseconds' in d) ? d.ElapsedMilliseconds as number : 0;
+        this.IsSolo = ('IsSolo' in d) ? d.IsSolo as boolean : false;
         this.EventType = ('EventType' in d) ? d.EventType as number : 0;
     }
 
@@ -113,8 +115,8 @@ class SessionInfo {
     }
 }
 
-// struct2ts:github.com/JustaPenguin/assetto-server-manager/pkg/udp.CarUpdateVec
-class CarUpdateVec {
+// struct2ts:justapengu.in/acsm/internal/acserver.CarUpdateVector3F
+class CarUpdateVector3F {
     X: number;
     Y: number;
     Z: number;
@@ -135,11 +137,11 @@ class CarUpdateVec {
     }
 }
 
-// struct2ts:github.com/JustaPenguin/assetto-server-manager/pkg/udp.CarUpdate
+// struct2ts:justapengu.in/acsm/pkg/udp.CarUpdate
 class CarUpdate {
     CarID: number;
-    Pos: CarUpdateVec;
-    Velocity: CarUpdateVec;
+    Pos: CarUpdateVector3F;
+    Velocity: CarUpdateVector3F;
     Gear: number;
     EngineRPM: number;
     NormalisedSplinePos: number;
@@ -147,8 +149,8 @@ class CarUpdate {
     constructor(data?: any) {
         const d: any = (data && typeof data === 'object') ? ToObject(data) : {};
         this.CarID = ('CarID' in d) ? d.CarID as number : 0;
-        this.Pos = new CarUpdateVec(d.Pos);
-        this.Velocity = new CarUpdateVec(d.Velocity);
+        this.Pos = new CarUpdateVector3F(d.Pos);
+        this.Velocity = new CarUpdateVector3F(d.Velocity);
         this.Gear = ('Gear' in d) ? d.Gear as number : 0;
         this.EngineRPM = ('EngineRPM' in d) ? d.EngineRPM as number : 0;
         this.NormalisedSplinePos = ('NormalisedSplinePos' in d) ? d.NormalisedSplinePos as number : 0;
@@ -164,7 +166,7 @@ class CarUpdate {
     }
 }
 
-// struct2ts:github.com/JustaPenguin/assetto-server-manager/pkg/udp.LapCompletedLapCompletedCar
+// struct2ts:justapengu.in/acsm/pkg/udp.LapCompletedLapCompletedCar
 class LapCompletedLapCompletedCar {
     CarID: number;
     LapTime: number;
@@ -189,7 +191,7 @@ class LapCompletedLapCompletedCar {
     }
 }
 
-// struct2ts:github.com/JustaPenguin/assetto-server-manager/pkg/udp.LapCompleted
+// struct2ts:justapengu.in/acsm/pkg/udp.LapCompleted
 class LapCompleted {
     CarID: number;
     LapTime: number;
@@ -216,19 +218,19 @@ class LapCompleted {
     }
 }
 
-// struct2ts:github.com/JustaPenguin/assetto-server-manager/pkg/udp.CollisionWithEnvironment
+// struct2ts:justapengu.in/acsm/pkg/udp.CollisionWithEnvironment
 class CollisionWithEnvironment {
     CarID: number;
     ImpactSpeed: number;
-    WorldPos: CarUpdateVec;
-    RelPos: CarUpdateVec;
+    WorldPos: CarUpdateVector3F;
+    RelPos: CarUpdateVector3F;
 
     constructor(data?: any) {
         const d: any = (data && typeof data === 'object') ? ToObject(data) : {};
         this.CarID = ('CarID' in d) ? d.CarID as number : 0;
         this.ImpactSpeed = ('ImpactSpeed' in d) ? d.ImpactSpeed as number : 0;
-        this.WorldPos = new CarUpdateVec(d.WorldPos);
-        this.RelPos = new CarUpdateVec(d.RelPos);
+        this.WorldPos = new CarUpdateVector3F(d.WorldPos);
+        this.RelPos = new CarUpdateVector3F(d.RelPos);
     }
 
     toObject(): any {
@@ -239,21 +241,21 @@ class CollisionWithEnvironment {
     }
 }
 
-// struct2ts:github.com/JustaPenguin/assetto-server-manager/pkg/udp.CollisionWithCar
+// struct2ts:justapengu.in/acsm/pkg/udp.CollisionWithCar
 class CollisionWithCar {
     CarID: number;
     OtherCarID: number;
     ImpactSpeed: number;
-    WorldPos: CarUpdateVec;
-    RelPos: CarUpdateVec;
+    WorldPos: CarUpdateVector3F;
+    RelPos: CarUpdateVector3F;
 
     constructor(data?: any) {
         const d: any = (data && typeof data === 'object') ? ToObject(data) : {};
         this.CarID = ('CarID' in d) ? d.CarID as number : 0;
         this.OtherCarID = ('OtherCarID' in d) ? d.OtherCarID as number : 0;
         this.ImpactSpeed = ('ImpactSpeed' in d) ? d.ImpactSpeed as number : 0;
-        this.WorldPos = new CarUpdateVec(d.WorldPos);
-        this.RelPos = new CarUpdateVec(d.RelPos);
+        this.WorldPos = new CarUpdateVector3F(d.WorldPos);
+        this.RelPos = new CarUpdateVector3F(d.RelPos);
     }
 
     toObject(): any {
@@ -265,20 +267,27 @@ class CollisionWithCar {
     }
 }
 
-// struct2ts:github.com/JustaPenguin/assetto-server-manager/pkg/udp.Chat
+// struct2ts:justapengu.in/acsm/pkg/udp.Chat
 class Chat {
     CarID: number;
     Message: string;
+    DriverGUID: string;
+    DriverName: string;
+    Time: Date;
 
     constructor(data?: any) {
         const d: any = (data && typeof data === 'object') ? ToObject(data) : {};
         this.CarID = ('CarID' in d) ? d.CarID as number : 0;
         this.Message = ('Message' in d) ? d.Message as string : '';
+        this.DriverGUID = ('DriverGUID' in d) ? d.DriverGUID as string : '';
+        this.DriverName = ('DriverName' in d) ? d.DriverName as string : '';
+        this.Time = ('Time' in d) ? ParseDate(d.Time) : new Date();
     }
 
     toObject(): any {
         const cfg: any = {};
         cfg.CarID = 'number';
+        cfg.Time = 'string';
         return ToObject(this, cfg);
     }
 }
@@ -286,7 +295,7 @@ class Chat {
 // exports
 export {
     SessionInfo,
-    CarUpdateVec,
+    CarUpdateVector3F,
     CarUpdate,
     LapCompletedLapCompletedCar,
     LapCompleted,

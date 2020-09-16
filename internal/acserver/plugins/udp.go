@@ -221,11 +221,11 @@ func (u *UDPPlugin) OnCarUpdate(car acserver.Car) error {
 	p := acserver.NewPacket(nil)
 	p.Write(EventCarUpdate)
 	p.Write(car.CarID)
-	p.Write(car.Status.Position)
-	p.Write(car.Status.Velocity)
-	p.Write(car.Status.GearIndex)
-	p.Write(car.Status.EngineRPM)
-	p.Write(car.Status.NormalisedSplinePos)
+	p.Write(car.PluginStatus.Position)
+	p.Write(car.PluginStatus.Velocity)
+	p.Write(car.PluginStatus.GearIndex)
+	p.Write(car.PluginStatus.EngineRPM)
+	p.Write(car.PluginStatus.NormalisedSplinePos)
 
 	return p.WriteToUDPConn(u.packetConn)
 }
