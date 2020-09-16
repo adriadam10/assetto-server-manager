@@ -42,12 +42,12 @@ func (cch *CustomChecksumHandler) index(w http.ResponseWriter, r *http.Request) 
 	data, err := cch.store.LoadCustomChecksums()
 
 	if err != nil {
-		logrus.Errorf("couldn't load required apps, err: %s", err)
+		logrus.WithError(err).Error("couldn't load required apps")
 	}
 
 	if r.Method == http.MethodPost {
 		if err := r.ParseForm(); err != nil {
-			logrus.Errorf("required apps: couldn't parse form, err: %s", err)
+			logrus.WithError(err).Error("required apps: couldn't parse form")
 		}
 
 		length := formValueAsInt(r.FormValue("Entries.NumEntries"))
@@ -84,10 +84,10 @@ func (cch *CustomChecksumHandler) index(w http.ResponseWriter, r *http.Request) 
 		err = cch.store.UpsertCustomChecksums(data)
 
 		if err != nil {
-			logrus.Errorf("Couldn't update required apps, err: %s", err)
+			logrus.WithError(err).Error("Couldn't update required apps")
 			AddErrorFlash(w, r, "Failed to update required apps")
 		} else {
-			logrus.Debugf("Required apps successfully updated!")
+			logrus.Debug("Required apps successfully updated!")
 			AddFlash(w, r, "Required apps successfully updated!")
 		}
 	}

@@ -15,6 +15,7 @@ export class CustomChecksums {
         let $tmplApp = this.$parent.find("#appTemplate");
 
         let $appTemplate = $tmplApp.prop("id", "").clone(true, true);
+        $appTemplate.removeClass("d-none");
 
         $tmplApp.remove();
 
@@ -53,12 +54,12 @@ export class CustomChecksums {
         function deleteApp(e) {
             e.preventDefault();
 
-            let $app = $(e.currentTarget).closest(".custom-checksum");
+            let $currentCustomChecksum = $(e.target).closest(".custom-checksum");
 
-            $(e.currentTarget).closest(".app-entry").remove();
+            $(e.target).closest(".app-entry").remove();
 
-            let $savedNumBOPs = $app.find(".numEntries");
-            $savedNumBOPs.val($app.find(".bop-entry:visible").length);
+            let $savedNumEntries = $currentCustomChecksum.find(".numEntries");
+            $savedNumEntries.val($currentCustomChecksum.find(".app-entry:visible").length);
         }
     }
 }
