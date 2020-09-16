@@ -81,7 +81,6 @@ func (cch *CustomChecksumHandler) index(w http.ResponseWriter, r *http.Request) 
 			Entries: entries,
 		}
 
-		// save the config
 		err = cch.store.UpsertCustomChecksums(data)
 
 		if err != nil {
