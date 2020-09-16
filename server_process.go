@@ -231,13 +231,38 @@ func (sp *AssettoServerProcess) startRaceEvent(raceEvent RaceEvent) error {
 		plugin = acserver.MultiPlugin(plugin, udpPlugin)
 	}
 
+	raceConfig := raceEvent.GetRaceConfig()
+
+	forcedApps, err := sp.store.LoadCustomChecksums()
+
+	if err != nil {
+		logrus.WithError(err).Errorf("Could not load forced plugins")
+	}
+
+	var checksums []acserver.CustomChecksumFile
+
+	if forcedApps != nil {
+		for _, appID := range raceConfig.ForcedApps {
+			for _, app := range forcedApps.Entries {
+				if app.ID.String() == appID {
+					// apply this custom forced app
+					checksums = append(checksums, acserver.CustomChecksumFile{
+						Name:     app.Name,
+						Filename: app.Filepath,
+						MD5:      app.Checksum,
+					})
+				}
+			}
+		}
+	}
+
 	sp.server, err = acserver.NewServer(
 		sp.ctx,
 		ServerInstallPath,
 		serverOptions.ToACServerConfig(),
 		raceEvent.GetRaceConfig().ToACConfig(),
 		raceEvent.GetEntryList().ToACServerConfig(),
-		nil, // @TODO checksums
+		checksums,
 		logger,
 		plugin,
 	)

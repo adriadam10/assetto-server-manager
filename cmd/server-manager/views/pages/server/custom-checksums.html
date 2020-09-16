@@ -1,0 +1,114 @@
+{{ define "title" }}Required Apps{{ end }}
+
+{{ define "app-entry" }}
+
+    {{ $entry := .Entry }}
+
+    <div class="card mt-2 mb-2 border-warning">
+        <div class="card-header">
+            <div class="row">
+
+                <div class="col-10"></div>
+
+                <div class="col-2">
+                    <div class="float-right">
+                        <a class="text-danger btn-delete-app" href="#"><i class="fas fa-trash"></i></a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card-body">
+
+            <div class="row">
+
+                <div class="col-sm-12">
+
+                    <input class="d-none" name="Entries.ID" id="Entries.ID" {{ with $entry }}value="{{ $entry.ID.String }}"{{ end }}>
+
+                    <div class="row">
+                        <div class="form-group col-md-6">
+                            <label for="Entries.Name" class="col-md-3 col-form-label">
+                                Name
+                            </label>
+
+                            <div class="col-md-12">
+                                <input class="form-control" type="text" name="Entries.Name" id="Entries.Name" required="required"
+                                       placeholder="e.g. Helicorsa" {{ with $entry }}value="{{ $entry.Name }}"{{ end }}
+                                >
+                            </div>
+                        </div>
+
+                        <div class="form-group col-md-6">
+                            <label for="Entries.Filepath" class="col-sm-3 col-form-label">
+                                Filepath
+                            </label>
+
+                            <div class="col-md-12">
+                                <input class="form-control" type="text" name="Entries.Filepath" id="Entries.Filepath" required="required"
+                                       placeholder="e.g. apps/Helicorsa" {{ with $entry }}value="{{ $entry.Filepath }}"{{ end }}
+                                >
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row">
+
+                    </div>
+
+                    <div class="row">
+                        <div class="form-group col-md-12">
+                            <label for="Entries.Checksum" class="col-sm-3 col-form-label">
+                                Checksum
+                            </label>
+
+                            <div class="col-sm-12">
+                                <input class="form-control" type="text" name="Entries.Checksum" id="Entries.Checksum"
+                                       placeholder="e.g. " {{ with $entry }}value="{{ $entry.Checksum }}"{{ end }}
+                                >
+
+                                <small>If left blank the file will be checked to exist at the filepath defined but the
+                                contents of the file will not be checked.</small>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    </div>
+{{ end }}
+
+{{ define "content" }}
+    <h1 class="text-center">Required Apps</h1>
+
+    <p>Drivers will only be able to join the server if the following apps/mods etc. are installed. You can toggle these
+    on/off in Custom Race/Race Weekend creation forms, but they are always off for Quick Races.</p>
+
+    <form method="post" action="/required-apps" class="custom-checksum">
+
+        <input type="hidden" class="numEntries" name="Entries.NumEntries" value="{{ len .CustomChecksums.Entries }}">
+
+        <div id="appTemplate" class="app-entry">
+            {{ template "app-entry" }}
+        </div>
+
+        <div class="app-block">
+            {{ range $index, $entry := .CustomChecksums.Entries }}
+                <div class="app-entry">
+                    {{ template "app-entry" dict "Entry" $entry }}
+                </div>
+            {{ end }}
+        </div>
+
+        <div class="col-12 text-right pr-0 mb-2">
+            <input class="form-control numEntriesToAdd d-inline" style="width: auto!important;" type="number" name="numEntriesToAdd" value="1" min="0">
+
+            <button class="btn btn-info addEntries d-inline">Add Forced App Entries</button>
+        </div>
+
+        <button class="btn btn-success float-right" type="submit">Save</button>
+
+        <div class="clearfix"></div>
+    </form>
+{{ end }}

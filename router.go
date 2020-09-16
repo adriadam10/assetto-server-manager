@@ -61,6 +61,7 @@ func Router(
 	raceControlHandler *RaceControlHandler,
 	scheduledRacesHandler *ScheduledRacesHandler,
 	raceWeekendHandler *RaceWeekendHandler,
+	customChecksumHandler *CustomChecksumHandler,
 	strackerHandler *StrackerHandler,
 	healthCheck *HealthCheck,
 	kissMyRankHandler *KissMyRankHandler,
@@ -335,6 +336,7 @@ func Router(
 		r.HandleFunc("/accounts/toggle-open", accountHandler.toggleServerOpenStatus)
 		r.HandleFunc("/accounts", accountHandler.manageAccounts)
 		r.HandleFunc("/search-index", carsHandler.rebuildSearchIndex)
+		r.HandleFunc("/required-apps", customChecksumHandler.index)
 
 		r.HandleFunc("/restart-session", raceControlHandler.restartSession)
 		r.HandleFunc("/next-session", raceControlHandler.nextSession)

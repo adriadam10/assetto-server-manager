@@ -23,6 +23,7 @@ import {CustomRace} from "./CustomRace"
 import {Results} from "./Results";
 import {RaceList} from "./RaceList";
 import {SpectatorCar} from "./SpectatorCar";
+import {CustomChecksums} from "./CustomChecksums";
 
 $(() => {
     new RaceControl();
@@ -39,6 +40,7 @@ $(() => {
     new Results();
     new RaceList();
     new SpectatorCar();
+    new CustomChecksums();
 
     $(".race-setup").each(function (index, elem) {
         new CarSearch($(elem));

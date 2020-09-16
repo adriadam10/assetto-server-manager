@@ -642,6 +642,7 @@ func (rm *RaceManager) BuildCustomRaceFromForm(r *http.Request) (*CurrentRaceCon
 		RaceExtraLap:              formValueAsInt(r.FormValue("RaceExtraLap")),
 		MaxContactsPerKilometer:   formValueAsInt(r.FormValue("MaxContactsPerKilometer")),
 		ResultScreenTime:          formValueAsInt(r.FormValue("ResultScreenTime")),
+		ForcedApps:                r.Form["ForcedApps"],
 		DisableDRSZones:           formValueAsInt(r.FormValue("DisableDRSZones")) == 1,
 
 		TimeAttack: timeAttack,
@@ -949,6 +950,7 @@ type RaceTemplateVars struct {
 	ReplacementPassword string
 	Tyres               Tyres
 	DeselectedTyres     map[string]bool
+	ForcedApps          *CustomChecksums
 
 	ForceStopTime        int
 	ForceStopWithDrivers bool
@@ -1002,6 +1004,12 @@ func (rm *RaceManager) BuildRaceOpts(r *http.Request) (*RaceTemplateVars, error)
 
 		race.CurrentRaceConfig = customRace.RaceConfig
 		entrants = customRace.EntryList
+	}
+
+	forcedApps, err := rm.store.LoadCustomChecksums()
+
+	if err != nil {
+		return nil, err
 	}
 
 	templateIDForEditing := chi.URLParam(r, "uuid")
@@ -1077,6 +1085,7 @@ func (rm *RaceManager) BuildRaceOpts(r *http.Request) (*RaceTemplateVars, error)
 		ShowOverridePasswordCard: true,
 		ForceStopTime:            forceStopTime,
 		ForceStopWithDrivers:     forceStopWithDrivers,
+		ForcedApps:               forcedApps,
 	}
 
 	err = rm.applyCurrentRaceSetupToOptions(opts, race.CurrentRaceConfig)

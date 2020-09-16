@@ -374,6 +374,8 @@ type CurrentRaceConfig struct {
 
 	IsSol int `ini:"-" help:"Allows for 24 hour time cycles. The server treats time differently if enabled. Clients also require Sol and Content Manager"`
 
+	ForcedApps []string `ini:"-"`
+
 	DisableDRSZones bool `ini:"-"`
 
 	TimeAttack bool `ini:"-"` // time attack races will force loop ON and merge all results files (practice only)
