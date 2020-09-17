@@ -87,6 +87,7 @@ var (
 		addCorrectCarNameToLiveTimingsData,
 		addDefaultACSRGateOptionsToChampionships,
 		addSplitTypeToRaceWeekends,
+		addDefaultCustomChecksums,
 	}
 )
 
@@ -1091,4 +1092,37 @@ func addSplitTypeToRaceWeekends(s Store) error {
 	}
 
 	return nil
+}
+
+func addDefaultCustomChecksums(s Store) error {
+	logrus.Info("Running migration: Add Default Custom Checksums")
+
+	customChecksums := &CustomChecksums{Entries: []CustomChecksumEntries{
+		{
+			ID:       uuid.New(),
+			Name:     "Helicorsa",
+			Filepath: "apps/python/helicorsa/helicorsa.py",
+			Checksum: "",
+		},
+		{
+			ID:       uuid.New(),
+			Name:     "Custom Shaders Patch",
+			Filepath: "dwrite.dll",
+			Checksum: "",
+		},
+		{
+			ID:       uuid.New(),
+			Name:     "Sol",
+			Filepath: "apps/python/sol_weather/sol_weather.py",
+			Checksum: "",
+		},
+		{
+			ID:       uuid.New(),
+			Name:     "Crew Chief",
+			Filepath: "apps/python/CrewChiefEx/CrewChiefEx.py",
+			Checksum: "",
+		},
+	}}
+
+	return s.UpsertCustomChecksums(customChecksums)
 }

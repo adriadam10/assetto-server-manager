@@ -46,7 +46,7 @@
 
                             <div class="col-md-12">
                                 <input class="form-control" type="text" name="Entries.Filepath" id="Entries.Filepath" required="required"
-                                       placeholder="e.g. apps/Helicorsa" {{ with $entry }}value="{{ $entry.Filepath }}"{{ end }}
+                                       placeholder="e.g. apps/python/helicorsa/helicorsa.py" {{ with $entry }}value="{{ $entry.Filepath }}"{{ end }}
                                 >
                             </div>
                         </div>
@@ -64,7 +64,7 @@
 
                             <div class="col-sm-12">
                                 <input class="form-control" type="text" name="Entries.Checksum" id="Entries.Checksum"
-                                       placeholder="e.g. " {{ with $entry }}value="{{ $entry.Checksum }}"{{ end }}
+                                       placeholder="e.g. b7de0a25a5fde7be33ffe5a212688206" {{ with $entry }}value="{{ $entry.Checksum }}"{{ end }}
                                 >
 
                                 <small>If left blank the file will be checked to exist at the filepath defined but the
@@ -84,6 +84,12 @@
 
     <p>Drivers will only be able to join the server if the following apps/mods etc. are installed. You can toggle these
     on/off in Custom Race/Race Weekend creation forms, but they are always off for Quick Races.</p>
+
+    <strong>To get the checksum of a file on Windows</strong> open the <code>cmd</code> terminal,
+    <code>cd</code> to the location of the file you want to checksum then run:
+
+    <p><code>CertUtil -hashfile yourFileName MD5</code></p>
+
 
     <form method="post" action="/required-apps" class="custom-checksum">
 
