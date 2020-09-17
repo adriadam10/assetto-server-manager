@@ -1776,6 +1776,26 @@
                 </div>
 
                 <div class="form-group row">
+                    <label for="ForcedApps" class="col-sm-3 col-form-label">Required Apps</label>
+
+                    <div class="col-sm-9">
+                        <select multiple class="form-control" id="ForcedApps" name="ForcedApps">
+                            {{ range $index, $app := .ForcedApps.Entries }}
+                                {{ $selected := false }}
+
+                                {{ range $i, $appID := $f.ForcedApps }}
+                                    {{ if eq $appID $app.ID.String }}
+                                        {{ $selected = true }}
+                                    {{ end }}
+                                {{ end }}
+
+                                <option value="{{ $app.ID.String }}" {{ if $selected }}selected="selected"{{ end }}>{{ $app.Name }}</option>
+                            {{ end }}
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-group row">
                     <label for="DisableDRSZones" class="col-sm-3 col-form-label">Disable DRS Zones</label>
 
                     <div class="col-sm-9">

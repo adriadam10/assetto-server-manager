@@ -261,6 +261,8 @@ class RaceSetup {
             }
         }
 
+        $parent.find("#ForcedApps").multiSelect();
+
         this.$addWeatherButton.click(this.addWeather.bind(this));
 
         let that = this;

@@ -20,6 +20,7 @@ const (
 	frameLinksFile         = "frame_links.json"
 	serverMetaDir          = "meta"
 	auditFile              = "audit.json"
+	customChecksumFile     = "custom_checksums.json"
 	strackerOptionsFile    = "stracker_options.json"
 	kissMyRankOptionsFile  = "kissmyrank_options.json"
 	realPenaltyOptionsFile = "realpenalty_options.json"
@@ -550,6 +551,24 @@ func (rs *JSONStore) DeleteRaceWeekend(id string) error {
 	rw.Deleted = time.Now()
 
 	return rs.UpsertRaceWeekend(rw)
+}
+
+func (rs *JSONStore) UpsertCustomChecksums(customChecksums *CustomChecksums) error {
+	return rs.encodeFile(rs.base, customChecksumFile, customChecksums)
+}
+
+func (rs *JSONStore) LoadCustomChecksums() (*CustomChecksums, error) {
+	var out *CustomChecksums
+
+	err := rs.decodeFile(rs.base, customChecksumFile, &out)
+
+	if os.IsNotExist(err) {
+		return DefaultCustomChecksums(), nil
+	} else if err != nil {
+		return nil, err
+	}
+
+	return out, err
 }
 
 func (rs *JSONStore) UpsertStrackerOptions(sto *StrackerConfiguration) error {

@@ -45,6 +45,7 @@ type Resolver struct {
 	raceControlHandler          *RaceControlHandler
 	serverAdministrationHandler *ServerAdministrationHandler
 	raceWeekendHandler          *RaceWeekendHandler
+	customChecksumHandler       *CustomChecksumHandler
 	strackerHandler             *StrackerHandler
 	healthCheck                 *HealthCheck
 	kissMyRankHandler           *KissMyRankHandler
@@ -456,6 +457,16 @@ func (r *Resolver) resolveRaceWeekendHandler() *RaceWeekendHandler {
 	return r.raceWeekendHandler
 }
 
+func (r *Resolver) resolveCustomChecksumHandler() *CustomChecksumHandler {
+	if r.customChecksumHandler != nil {
+		return r.customChecksumHandler
+	}
+
+	r.customChecksumHandler = NewCustomChecksumHandler(r.resolveBaseHandler(), r.ResolveStore())
+
+	return r.customChecksumHandler
+}
+
 func (r *Resolver) resolveDiscordManager() *DiscordManager {
 	if r.discordManager != nil {
 		return r.discordManager
@@ -541,6 +552,7 @@ func (r *Resolver) ResolveRouter(fs http.FileSystem) http.Handler {
 		r.resolveRaceControlHandler(),
 		r.resolveScheduledRacesHandler(),
 		r.resolveRaceWeekendHandler(),
+		r.resolveCustomChecksumHandler(),
 		r.resolveStrackerHandler(),
 		r.resolveHealthCheck(),
 		r.resolveKissMyRankHandler(),
