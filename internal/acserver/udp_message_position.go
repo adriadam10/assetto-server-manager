@@ -51,6 +51,13 @@ func (pm *PositionMessageHandler) OnMessage(_ net.PacketConn, addr net.Addr, p *
 		return nil
 	}
 
+	// Packet of of order
+	if carUpdate.Sequence <= car.Status.Sequence {
+		pm.logger.Warnf("Position packet out of order for %s previous: %d received: %d", car.Driver.Name, car.Status.Sequence, carUpdate.Sequence)
+
+		return nil
+	}
+
 	if !car.Connection.HasSentFirstUpdate || (pm.state.currentSession.SessionType != SessionTypeQualifying || (pm.state.currentSession.SessionType == SessionTypeQualifying && !pm.state.currentSession.Solo)) {
 		car.Status = carUpdate
 
