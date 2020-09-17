@@ -1497,6 +1497,8 @@ let serverLogs = {
                     lines[i] = '<span class="text-muted">' + lines[i] + '</span>';
                 } else if (lines[i].indexOf("level=error") !== -1) {
                     lines[i] = '<span class="text-danger">' + lines[i] + '</span>';
+                } else if (lines[i].indexOf("level=warn") !== -1) {
+                    lines[i] = '<span class="text-warning">' + lines[i] + '</span>';
                 }
             }
 
