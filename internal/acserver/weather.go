@@ -48,6 +48,10 @@ type WeatherManager struct {
 func NewWeatherManager(state *ServerState, plugin Plugin, logger Logger) *WeatherManager {
 	sunAngleUpdateInterval := int64(60000)
 
+	if state.raceConfig.TimeOfDayMultiplier == 0 {
+		state.raceConfig.TimeOfDayMultiplier = 1
+	}
+
 	if state.raceConfig.TimeOfDayMultiplier > 0 {
 		// @TODO what is the performance impact of this? Turn off when CSP/Sol enabled (probably)
 		sunAngleUpdateInterval = int64(float32(60000) / float32(state.raceConfig.TimeOfDayMultiplier))
@@ -163,6 +167,14 @@ func (wm *WeatherManager) SendSunAngle() {
 	wm.state.BroadcastAllTCP(bw)
 }
 
+func (wm *WeatherManager) SendSunAngleToCar(car *Car) error {
+	bw := NewPacket(nil)
+	bw.Write(TCPSendSunAngle)
+	bw.Write(wm.sunAngle)
+
+	return bw.WriteTCP(car.Connection.tcpConn)
+}
+
 func (wm *WeatherManager) OnNewSession() {
 	wm.currentWeatherIndex = 0
 	wm.weatherProgression = false
@@ -241,7 +253,7 @@ func (wm *WeatherManager) NextWeather(currentTime int64) {
 		wm.currentWeatherIndex = 0
 	}
 
-	wm.logger.Debugf("Moving weather to %s", wm.state.currentSession.Weather[wm.currentWeatherIndex].Graphics)
+	wm.logger.Infof("Moving weather to %s", wm.state.currentSession.Weather[wm.currentWeatherIndex].Graphics)
 
 	wm.ChangeWeather(wm.state.currentSession.Weather[wm.currentWeatherIndex])
 	wm.nextWeatherUpdate = currentTime + (wm.state.currentSession.Weather[wm.currentWeatherIndex].Duration * 60000)
