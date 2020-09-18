@@ -5,7 +5,6 @@ import (
 	"encoding/binary"
 	"io"
 	"net"
-	"unicode/utf8"
 
 	"github.com/sirupsen/logrus"
 	"golang.org/x/text/encoding/unicode/utf32"
@@ -35,7 +34,7 @@ func (p *Packet) Write(val interface{}) {
 }
 
 func (p *Packet) WriteString(s string) {
-	p.Write(uint8(utf8.RuneCountInString(s)))
+	p.Write(uint8(len(s)))
 	p.Write([]byte(s))
 }
 
@@ -45,8 +44,7 @@ func (p *Packet) WriteUTF32String(s string) {
 	if err != nil {
 		logrus.WithError(err).Error("Could not EncodeString")
 	}
-
-	p.Write(uint8(utf8.RuneCountInString(s)))
+	p.Write(uint8(len([]rune(s))))
 	p.Write(encoded)
 }
 
@@ -59,7 +57,7 @@ func (p *Packet) WriteBigUTF32String(s string) {
 		logrus.WithError(err).Error("Could not EncodeString")
 	}
 
-	p.Write(uint16(utf8.RuneCountInString(s)))
+	p.Write(uint16(len([]rune(s))))
 	p.Write(encoded)
 }
 

@@ -99,6 +99,7 @@ func (u *UDP) handleConnection(addr net.Addr, b []byte) error {
 		}
 	} else {
 		u.logger.Errorf("Unknown UDP message: 0x%x %d (len: %d)", messageType, messageType, len(b))
+		u.logger.Printf("%x", b)
 	}
 
 	return nil

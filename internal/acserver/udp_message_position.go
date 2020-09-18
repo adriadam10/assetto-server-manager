@@ -51,9 +51,8 @@ func (pm *PositionMessageHandler) OnMessage(_ net.PacketConn, addr net.Addr, p *
 		return nil
 	}
 
-	// Packet of of order
-	if carUpdate.Sequence <= car.Status.Sequence {
-		pm.logger.Warnf("Position packet out of order for %s previous: %d received: %d", car.Driver.Name, car.Status.Sequence, carUpdate.Sequence)
+	if car.Connection.HasSentFirstUpdate && carUpdate.Timestamp < car.PluginStatus.Timestamp {
+		pm.logger.Warnf("Position packet out of order for %s previous: %d received: %d", car.Driver.Name, car.PluginStatus.Timestamp, carUpdate.Timestamp)
 
 		return nil
 	}
@@ -124,8 +123,8 @@ func (pm *PositionMessageHandler) OnMessage(_ net.PacketConn, addr net.Addr, p *
 	return nil
 }
 
-func (pm *PositionMessageHandler) SendFirstUpdate(entrant *Car) error {
-	pm.logger.Infof("Sending first update to client: %s", entrant.String())
+func (pm *PositionMessageHandler) SendFirstUpdate(car *Car) error {
+	pm.logger.Infof("Sending first update to client: %s", car.String())
 
 	bw := NewPacket(nil)
 	bw.Write(TCPConnectedEntrants)
@@ -136,22 +135,22 @@ func (pm *PositionMessageHandler) SendFirstUpdate(entrant *Car) error {
 		bw.WriteUTF32String(entrant.Driver.Name)
 	}
 
-	if err := bw.WriteTCP(entrant.Connection.tcpConn); err != nil {
+	if err := bw.WriteTCP(car.Connection.tcpConn); err != nil {
 		return err
 	}
 
 	// send weather to car
-	if err := pm.weatherManager.SendWeather(entrant); err != nil {
+	if err := pm.weatherManager.SendWeather(car); err != nil {
 		return err
 	}
 
 	// send a lap completed message for car ID 0xFF to broadcast all other lap times to the connecting user.
-	if err := pm.state.CompleteLap(ServerCarID, &LapCompleted{}, entrant); err != nil {
+	if err := pm.state.CompleteLap(ServerCarID, &LapCompleted{}, car); err != nil {
 		return err
 	}
 
 	for _, otherEntrant := range pm.state.entryList {
-		if entrant.CarID == otherEntrant.CarID {
+		if car.CarID == otherEntrant.CarID {
 			continue
 		}
 
@@ -160,7 +159,7 @@ func (pm *PositionMessageHandler) SendFirstUpdate(entrant *Car) error {
 		bw.Write(otherEntrant.CarID)
 		bw.WriteString(otherEntrant.Tyres)
 
-		if err := bw.WriteTCP(entrant.Connection.tcpConn); err != nil {
+		if err := bw.WriteTCP(car.Connection.tcpConn); err != nil {
 			return err
 		}
 
@@ -171,7 +170,7 @@ func (pm *PositionMessageHandler) SendFirstUpdate(entrant *Car) error {
 		bw.Write(otherEntrant.SessionData.P2PCount)
 		bw.Write(uint8(0))
 
-		if err := bw.WriteTCP(entrant.Connection.tcpConn); err != nil {
+		if err := bw.WriteTCP(car.Connection.tcpConn); err != nil {
 			return err
 		}
 
@@ -185,30 +184,34 @@ func (pm *PositionMessageHandler) SendFirstUpdate(entrant *Car) error {
 			bw.Write(uint8(0x00))
 		}
 
-		if err := bw.WriteTCP(entrant.Connection.tcpConn); err != nil {
+		if err := bw.WriteTCP(car.Connection.tcpConn); err != nil {
 			return err
 		}
 
-		entrant.Driver.LoadTime = time.Now()
+		car.Driver.LoadTime = time.Now()
 	}
 
 	// send bop for car
-	if err := pm.state.SendBoP(entrant); err != nil {
+	if err := pm.state.SendBoP(car); err != nil {
 		return err
 	}
 
 	// send MOTD to the newly connected car
-	if err := pm.state.SendMOTD(entrant); err != nil {
+	if err := pm.state.SendMOTD(car); err != nil {
 		return err
 	}
 
 	// send fixed setup too
-	if err := pm.state.SendSetup(entrant); err != nil {
+	if err := pm.state.SendSetup(car); err != nil {
 		return err
 	}
 
 	// if there are drs zones, send them too
-	if err := pm.state.SendDRSZones(entrant); err != nil {
+	if err := pm.state.SendDRSZones(car); err != nil {
+		return err
+	}
+
+	if err := pm.weatherManager.SendSunAngleToCar(car); err != nil {
 		return err
 	}
 

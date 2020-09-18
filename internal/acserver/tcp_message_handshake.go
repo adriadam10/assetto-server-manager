@@ -77,9 +77,11 @@ func (m HandshakeMessageHandler) OnMessage(conn net.Conn, p *Packet) error {
 		return closeTCPConnectionWithError(conn, TCPHandshakeBlockListed)
 	}
 
-	if (m.state.serverConfig.Password != "" && password != m.state.serverConfig.Password) && (m.state.serverConfig.AdminPassword != "" && password != m.state.serverConfig.AdminPassword) {
-		m.logger.Infof("Driver: %s (%s) got the server password wrong", driverName, guid)
-		return closeTCPConnectionWithError(conn, TCPHandshakeWrongPassword)
+	if m.state.serverConfig.Password != "" {
+		if password != m.state.serverConfig.Password && password != m.state.serverConfig.AdminPassword {
+			m.logger.Infof("Driver: %s (%s) got the server password wrong", driverName, guid)
+			return closeTCPConnectionWithError(conn, TCPHandshakeWrongPassword)
+		}
 	}
 
 	if !m.sessionManager.JoinIsAllowed(guid) {
