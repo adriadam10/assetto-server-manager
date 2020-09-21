@@ -305,6 +305,16 @@ func (wm *WeatherManager) NextWeather() {
 		}
 	}
 
+	if nextWeatherIndex <= 0 {
+		// see if we can loop back
+		for weatherIndex, weather := range wm.state.raceConfig.Weather {
+			if weather.AppliesToSession(wm.state.currentSession.SessionType) {
+				nextWeatherIndex = weatherIndex
+				break
+			}
+		}
+	}
+
 	if nextWeatherIndex >= 0 {
 		nextWeather := wm.state.raceConfig.Weather[nextWeatherIndex]
 
