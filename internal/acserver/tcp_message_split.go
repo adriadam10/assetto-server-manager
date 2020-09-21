@@ -49,6 +49,9 @@ func (t SectorSplitMessageHandler) OnMessage(conn net.Conn, p *Packet) error {
 	t.state.BroadcastOthersTCP(bw, entrant.CarID)
 
 	go func() {
+		// @TODO I think this is the first time we get told about cuts
+		// @TODO if we decide to do ballast for cut this might be the best place
+
 		err := t.plugin.OnSectorCompleted(Split{
 			Car:   *entrant,
 			Index: splitIndex,

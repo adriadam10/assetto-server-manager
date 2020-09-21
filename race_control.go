@@ -59,6 +59,8 @@ type RaceControl struct {
 	driverSwapTimers         map[int]*time.Timer
 	driverSwapPenaltiesMutex sync.Mutex
 	driverSwapPenalties      map[udp.DriverGUID]*driverSwapPenalty
+
+	bestSplits map[uint8]RaceControlCarSplit
 }
 
 // RaceControl piggybacks on the udp.Message interface so that the entire data can be sent to newly connected clients.
@@ -91,6 +93,7 @@ func NewRaceControl(broadcaster Broadcaster, trackDataGateway TrackDataGateway, 
 		driverSwapTimers:     make(map[int]*time.Timer),
 		penaltiesManager:     penaltiesManager,
 		serverProcessStopped: make(chan struct{}),
+		bestSplits:           make(map[uint8]RaceControlCarSplit),
 	}
 
 	process.NotifyDone(rc.serverProcessStopped)
@@ -142,6 +145,10 @@ func (rc *RaceControl) UDPCallback(message udp.Message) {
 		sendUpdatedRaceControlStatus = true
 	case udp.LapCompleted:
 		err = rc.OnLapCompleted(m)
+
+		sendUpdatedRaceControlStatus = true
+	case udp.SplitCompleted:
+		err = rc.OnSplitComplete(m)
 
 		sendUpdatedRaceControlStatus = true
 	case udp.Chat:
@@ -988,6 +995,7 @@ func (rc *RaceControl) OnLapCompleted(lap udp.LapCompleted) error {
 	}
 
 	currentCar.TopSpeedThisLap = 0
+	currentCar.CurrentLapSplits = make(map[uint8]RaceControlCarSplit)
 
 	rc.ConnectedDrivers.sort()
 
@@ -1039,6 +1047,58 @@ func (rc *RaceControl) OnLapCompleted(lap udp.LapCompleted) error {
 	}
 
 	rc.persistTimingData()
+
+	return nil
+}
+
+func (rc *RaceControl) OnSplitComplete(split udp.SplitCompleted) error {
+	driver, err := rc.findConnectedDriverByCarID(split.CarID)
+
+	if err != nil {
+		return err
+	}
+
+	splitDuration := lapToDuration(int(split.Time))
+
+	driver.mutex.Lock()
+	defer driver.mutex.Unlock()
+
+	currentCar := driver.CurrentCar()
+
+	if currentCar.CurrentLapSplits == nil || split.Index == 0 {
+		currentCar.CurrentLapSplits = make(map[uint8]RaceControlCarSplit)
+	}
+
+	if currentCar.BestSplits == nil {
+		currentCar.BestSplits = make(map[uint8]RaceControlCarSplit)
+	}
+
+	newSplit := RaceControlCarSplit{
+		SplitTime: splitDuration,
+		Cuts:      split.Cuts,
+	}
+
+	if bestSplit, ok := currentCar.BestSplits[split.Index]; ok {
+		if split.Cuts == 0 && splitDuration < bestSplit.SplitTime {
+			newSplit.IsDriversBest = true
+			currentCar.BestSplits[split.Index] = newSplit
+		}
+	} else {
+		newSplit.IsDriversBest = true
+		currentCar.BestSplits[split.Index] = newSplit
+	}
+
+	if bestSplit, ok := rc.bestSplits[split.Index]; ok {
+		if split.Cuts == 0 && splitDuration < bestSplit.SplitTime {
+			newSplit.IsBest = true
+			rc.bestSplits[split.Index] = newSplit
+		}
+	} else {
+		newSplit.IsBest = true
+		rc.bestSplits[split.Index] = newSplit
+	}
+
+	currentCar.CurrentLapSplits[split.Index] = newSplit
 
 	return nil
 }

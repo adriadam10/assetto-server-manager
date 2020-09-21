@@ -70,6 +70,16 @@ type RaceControlCarLapInfo struct {
 	LastLapCompletedTime time.Time     `json:"LastLapCompletedTime" ts:"date"`
 	TotalLapTime         time.Duration `json:"TotalLapTime"`
 	CarName              string        `json:"CarName"`
+
+	CurrentLapSplits map[uint8]RaceControlCarSplit `json:"CurrentLapSplits"`
+	BestSplits       map[uint8]RaceControlCarSplit `json:"BestLapSplits"`
+}
+
+type RaceControlCarSplit struct {
+	SplitTime     time.Duration `json:"SplitTime"`
+	Cuts          uint8         `json:"Cuts"`
+	IsDriversBest bool          `json:"IsDriversBest"`
+	IsBest        bool          `json:"IsBest"`
 }
 
 type DriverMap struct {

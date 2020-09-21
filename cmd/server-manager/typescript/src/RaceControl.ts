@@ -856,6 +856,8 @@ class LiveTimings implements WebsocketHandler {
             return;
         }
 
+        console.log(carInfo.CurrentLapSplits)
+
         let $tr = $table.find("[data-guid='" + driver.CarInfo.DriverGUID + "'][data-car-model='"+ driver.CarInfo.CarModel + "']");
 
         let addTrToTable = false;
@@ -881,7 +883,38 @@ class LiveTimings implements WebsocketHandler {
                 currentLapTimeText = msToTime(moment().utc().diff(moment(carInfo.LastLapCompletedTime).utc()), false);
             }
 
-            $tr.find(".current-lap").text(currentLapTimeText);
+            let $currentLap = $tr.find(".current-lap")
+
+            $currentLap.text(currentLapTimeText);
+
+            for (const splitIndex in carInfo.CurrentLapSplits) {
+                let split = carInfo.CurrentLapSplits[splitIndex]
+
+                let $tag = $("<span/>");
+                $tag.attr("id", splitIndex);
+
+                let badgeColour = " badge-primary";
+
+                if (split.IsDriversBest) {
+                    badgeColour = " badge-success";
+                }
+
+                if (split.IsBest) {
+                    badgeColour = " badge-info";
+                }
+
+                if (split.Cuts !== 0 && split.Cuts !== undefined) {
+                    badgeColour = " badge-danger";
+                }
+
+                $tag.attr({'class': 'badge ml-2 mt-1' + badgeColour});
+
+                $tag.text(
+                    splitIndex + ": " + msToTime(split.SplitTime / 1000000)
+                );
+
+                $currentLap.append($tag);
+            }
         }
 
         if (addingDriverToConnectedTable) {
