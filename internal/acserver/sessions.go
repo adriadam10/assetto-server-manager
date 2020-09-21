@@ -24,8 +24,6 @@ type SessionConfig struct {
 	IsOpen      OpenRule    `json:"is_open" yaml:"is_open"`
 	Solo        bool        `json:"solo" yaml:"solo"`
 	WaitTime    int         `json:"wait_time" yaml:"wait_time"`
-
-	Weather []*WeatherConfig `json:"weather"`
 }
 
 type sessionParams struct {
