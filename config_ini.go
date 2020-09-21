@@ -57,6 +57,16 @@ func (s SessionType) String() string {
 	}
 }
 
+func SessionNameToSessionType(name string) SessionType {
+	for _, t := range AvailableSessions {
+		if t.String() == name {
+			return t
+		}
+	}
+
+	return ""
+}
+
 func (s SessionType) ACServerType() acserver.SessionType {
 	switch s {
 	case SessionTypeBooking:
@@ -438,28 +448,25 @@ func (c CurrentRaceConfig) ToACConfig() *acserver.EventConfig {
 			break
 		}
 
-		if len(weather.Sessions) > 0 {
-			for sessionName, session := range c.Sessions {
-				for _, weatherSession := range weather.Sessions {
-					if weatherSession == sessionName.String() {
-						session.Weather = append(session.Weather, weather)
-					}
-				}
-			}
-		} else {
-			eventConfig.Weather = append(eventConfig.Weather, &acserver.WeatherConfig{
-				Graphics:               weather.Graphics,
-				Duration:               weather.Duration,
-				BaseTemperatureAmbient: weather.BaseTemperatureAmbient,
-				BaseTemperatureRoad:    weather.BaseTemperatureRoad,
-				VariationAmbient:       weather.VariationAmbient,
-				VariationRoad:          weather.VariationRoad,
-				WindBaseSpeedMin:       weather.WindBaseSpeedMin,
-				WindBaseSpeedMax:       weather.WindBaseSpeedMax,
-				WindVariationDirection: weather.WindVariationDirection,
-				WindBaseDirection:      weather.WindBaseDirection,
-			})
+		var sessions []acserver.SessionType
+
+		for _, sess := range weather.Sessions {
+			sessions = append(sessions, sess.ACServerType())
 		}
+
+		eventConfig.Weather = append(eventConfig.Weather, &acserver.WeatherConfig{
+			Graphics:               weather.Graphics,
+			Duration:               weather.Duration,
+			Sessions:               sessions,
+			BaseTemperatureAmbient: weather.BaseTemperatureAmbient,
+			BaseTemperatureRoad:    weather.BaseTemperatureRoad,
+			VariationAmbient:       weather.VariationAmbient,
+			VariationRoad:          weather.VariationRoad,
+			WindBaseSpeedMin:       weather.WindBaseSpeedMin,
+			WindBaseSpeedMax:       weather.WindBaseSpeedMax,
+			WindVariationDirection: weather.WindVariationDirection,
+			WindBaseDirection:      weather.WindBaseDirection,
+		})
 
 		i++
 	}
@@ -467,23 +474,6 @@ func (c CurrentRaceConfig) ToACConfig() *acserver.EventConfig {
 	sessions, sessionTypes := c.Sessions.AsSliceWithSessionTypes()
 
 	for sessionIndex, session := range sessions {
-		var weathers []*acserver.WeatherConfig
-
-		for _, weather := range session.Weather {
-			weathers = append(weathers, &acserver.WeatherConfig{
-				Graphics:               weather.Graphics,
-				Duration:               weather.Duration,
-				BaseTemperatureAmbient: weather.BaseTemperatureAmbient,
-				BaseTemperatureRoad:    weather.BaseTemperatureRoad,
-				VariationAmbient:       weather.VariationAmbient,
-				VariationRoad:          weather.VariationRoad,
-				WindBaseSpeedMin:       weather.WindBaseSpeedMin,
-				WindBaseSpeedMax:       weather.WindBaseSpeedMax,
-				WindVariationDirection: weather.WindVariationDirection,
-				WindBaseDirection:      weather.WindBaseDirection,
-			})
-		}
-
 		eventConfig.Sessions = append(eventConfig.Sessions, &acserver.SessionConfig{
 			SessionType: sessionTypes[sessionIndex].ACServerType(),
 			Name:        session.Name,
@@ -492,7 +482,6 @@ func (c CurrentRaceConfig) ToACConfig() *acserver.EventConfig {
 			IsOpen:      acserver.OpenRule(session.IsOpen),
 			Solo:        session.IsSolo,
 			WaitTime:    session.WaitTime,
-			Weather:     weathers,
 		})
 	}
 
@@ -619,8 +608,7 @@ type SessionConfig struct {
 	WaitTime int             `ini:"WAIT_TIME" help:"seconds before the start of the session"`
 
 	// custom ac server
-	IsSolo  bool             `ini:"-"`
-	Weather []*WeatherConfig `ini:"-"`
+	IsSolo bool `ini:"-"`
 }
 
 type DynamicTrackConfig struct {
@@ -651,8 +639,8 @@ type WeatherConfig struct {
 	ChampionshipPracticeWeather string `ini:"-"`
 
 	// custom ac server
-	Duration int64    `ini:"DURATION" help:"The duration of a weather if dynamic weather changes are enabled"`
-	Sessions []string `ini:"SESSIONS"`
+	Duration int64         `ini:"DURATION" help:"The duration of a weather if dynamic weather changes are enabled"`
+	Sessions []SessionType `ini:"SESSIONS"`
 
 	CMGraphics          string `ini:"__CM_GRAPHICS" help:"Graphics folder name"`
 	CMWFXType           int    `ini:"__CM_WFX_TYPE" help:"Weather ini file number, inside weather.ini"`
@@ -665,7 +653,13 @@ type WeatherConfig struct {
 }
 
 func (w WeatherConfig) SessionsCSV() string {
-	return strings.Join(w.Sessions, ",")
+	var sessionTypes []string
+
+	for _, sess := range w.Sessions {
+		sessionTypes = append(sessionTypes, sess.String())
+	}
+
+	return strings.Join(sessionTypes, ", ")
 }
 
 func (w WeatherConfig) UnixToTime(unix int) time.Time {

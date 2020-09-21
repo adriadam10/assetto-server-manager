@@ -15,6 +15,10 @@ Kunos' acServer, and also provides the following advantages, exclusive to Server
 * More platform support - run server manager on anything you like. We've been testing it on a Raspberry Pi!
 * Active development - expect fixes for any issues, and further feature development!
 
+We've also changed the following things in Server Manager itself:
+
+* Significantly improved startup times - we've optimised some of Server Manager's startup logic.
+
 Removed:
 
 * Support for starting plugins using the old 'run_on_start' method in config.yml has been removed.

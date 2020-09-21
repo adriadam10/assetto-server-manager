@@ -2,6 +2,7 @@ package acsm
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -23,6 +24,7 @@ import (
 	"github.com/go-chi/chi"
 	"github.com/mattn/go-zglob"
 	"github.com/sirupsen/logrus"
+	"golang.org/x/sync/errgroup"
 )
 
 // BuildVersion is the time Server Manager was built at
@@ -64,21 +66,36 @@ func (fs *filesystemTemplateLoader) Init() error {
 }
 
 func (fs *filesystemTemplateLoader) Templates(funcs template.FuncMap) (map[string]*template.Template, error) {
+	var mutex sync.Mutex
 	templates := make(map[string]*template.Template)
 
+	errGroup, _ := errgroup.WithContext(context.Background())
+
 	for _, page := range fs.pages {
-		var templateList []string
-		templateList = append(templateList, filepath.Join(fs.dir, "layout", "base.html"))
-		templateList = append(templateList, fs.partials...)
-		templateList = append(templateList, page)
+		page := page
 
-		t, err := template.New(page).Funcs(funcs).ParseFiles(templateList...)
+		errGroup.Go(func() error {
+			var templateList []string
+			templateList = append(templateList, filepath.Join(fs.dir, "layout", "base.html"))
+			templateList = append(templateList, fs.partials...)
+			templateList = append(templateList, page)
 
-		if err != nil {
-			return nil, err
-		}
+			t, err := template.New(page).Funcs(funcs).ParseFiles(templateList...)
 
-		templates[strings.TrimPrefix(filepath.ToSlash(page), filepath.ToSlash(fs.dir)+"/pages/")] = t
+			if err != nil {
+				return err
+			}
+
+			mutex.Lock()
+			templates[strings.TrimPrefix(filepath.ToSlash(page), filepath.ToSlash(fs.dir)+"/pages/")] = t
+			mutex.Unlock()
+
+			return nil
+		})
+	}
+
+	if err := errGroup.Wait(); err != nil {
+		return nil, err
 	}
 
 	return templates, nil

@@ -6,16 +6,31 @@ import (
 )
 
 type WeatherConfig struct {
-	Graphics               string `json:"graphics" yaml:"graphics"`
-	Duration               int64  `json:"duration" yaml:"duration"`
-	BaseTemperatureAmbient int    `json:"base_temperature_ambient" yaml:"base_temperature_ambient"`
-	BaseTemperatureRoad    int    `json:"base_temperature_road" yaml:"base_temperature_road"`
-	VariationAmbient       int    `json:"variation_ambient" yaml:"variation_ambient"`
-	VariationRoad          int    `json:"variation_road" help:"variation_road"`
-	WindBaseSpeedMin       int    `json:"wind_base_speed_min" yaml:"wind_base_speed_min"`
-	WindBaseSpeedMax       int    `json:"wind_base_speed_max" yaml:"wind_base_speed_max"`
-	WindBaseDirection      int    `json:"wind_base_direction" yaml:"wind_base_direction"`
-	WindVariationDirection int    `json:"wind_variation_direction" yaml:"wind_variation_direction"`
+	Graphics               string        `json:"graphics" yaml:"graphics"`
+	Duration               int64         `json:"duration" yaml:"duration"`
+	Sessions               []SessionType `json:"sessions" yaml:"sessions"`
+	BaseTemperatureAmbient int           `json:"base_temperature_ambient" yaml:"base_temperature_ambient"`
+	BaseTemperatureRoad    int           `json:"base_temperature_road" yaml:"base_temperature_road"`
+	VariationAmbient       int           `json:"variation_ambient" yaml:"variation_ambient"`
+	VariationRoad          int           `json:"variation_road" help:"variation_road"`
+	WindBaseSpeedMin       int           `json:"wind_base_speed_min" yaml:"wind_base_speed_min"`
+	WindBaseSpeedMax       int           `json:"wind_base_speed_max" yaml:"wind_base_speed_max"`
+	WindBaseDirection      int           `json:"wind_base_direction" yaml:"wind_base_direction"`
+	WindVariationDirection int           `json:"wind_variation_direction" yaml:"wind_variation_direction"`
+}
+
+func (w *WeatherConfig) AppliesToSession(s SessionType) bool {
+	if len(w.Sessions) == 0 {
+		return true
+	}
+
+	for _, sess := range w.Sessions {
+		if s == sess {
+			return true
+		}
+	}
+
+	return false
 }
 
 type CurrentWeather struct {
@@ -76,6 +91,15 @@ func (wm *WeatherManager) ChangeWeather(weatherConfig *WeatherConfig) {
 		GraphicsName:  weatherConfig.Graphics,
 		WindSpeed:     windSpeed,
 		WindDirection: windDirection,
+	}
+
+	wm.logger.Infof("Changed weather to: %s", wm.currentWeather.String())
+
+	if weatherConfig.Duration > 0 {
+		wm.nextWeatherUpdate = currentTimeMillisecond() + (weatherConfig.Duration * 60000)
+	} else {
+		wm.logger.Infof("Weather progression completed.")
+		wm.weatherProgression = false
 	}
 
 	for _, car := range wm.state.entryList {
@@ -144,7 +168,7 @@ func (wm *WeatherManager) calculateWind(weatherConfig *WeatherConfig) (speed, di
 }
 
 func (wm *WeatherManager) SendWeather(entrant *Car) error {
-	wm.logger.Infof("Sending Weather (%s), to entrant: %s", wm.currentWeather.String(), entrant.String())
+	wm.logger.Infof("Sending weather (%s), to entrant: %s", wm.currentWeather.String(), entrant.String())
 
 	bw := NewPacket(nil)
 	bw.Write(TCPSendWeather)
@@ -179,43 +203,66 @@ func (wm *WeatherManager) OnNewSession() {
 	wm.currentWeatherIndex = 0
 	wm.weatherProgression = false
 	wm.nextWeatherUpdate = 0
+	wm.sunAngle = wm.state.raceConfig.SunAngle
 
-	if len(wm.state.currentSession.Weather) != 0 {
-		wm.logger.Debugf("Session has weather info!")
+	sessionWeatherIndex := -1
 
-		if len(wm.state.currentSession.Weather) > 1 {
-			wm.logger.Debugf("Session has multiple weathers! Enabling weather progression.")
-			// multiple weathers for this session, move through them
-			wm.weatherProgression = true
+	allWeathersForSessionHaveZeroDuration := true
+	var weathersForCurrentSession []*WeatherConfig
 
-			wm.ChangeWeather(wm.state.currentSession.Weather[wm.currentWeatherIndex])
-			wm.nextWeatherUpdate = currentTimeMillisecond() + (wm.state.currentSession.Weather[wm.currentWeatherIndex].Duration * 60000)
-		} else {
-			wm.logger.Debugf("Session only has has one weather! Setting it now.")
-			// only one weather for this session, just set it
-			wm.ChangeWeather(wm.state.currentSession.Weather[0])
+	for _, weather := range wm.state.raceConfig.Weather {
+		if weather.AppliesToSession(wm.state.currentSession.SessionType) {
+			weathersForCurrentSession = append(weathersForCurrentSession, weather)
+			allWeathersForSessionHaveZeroDuration = allWeathersForSessionHaveZeroDuration && weather.Duration == 0
+		}
+	}
+
+	if allWeathersForSessionHaveZeroDuration {
+		if len(weathersForCurrentSession) > 0 {
+			wm.logger.Infof("Randomly choosing a weather for the current session")
+			randomWeather := weathersForCurrentSession[rand.Intn(len(weathersForCurrentSession))]
+
+			// find the right index in our original list for the randomly selected weather
+			for weatherIndex, weather := range wm.state.raceConfig.Weather {
+				if weather == randomWeather {
+					sessionWeatherIndex = weatherIndex
+				}
+			}
 		}
 	} else {
-		if len(wm.state.raceConfig.Weather) != 0 {
-			wm.logger.Debugf("Session does not have weather info! Falling back to legacy weather.")
+		for weatherIndex, weather := range wm.state.raceConfig.Weather {
+			if weather.AppliesToSession(wm.state.currentSession.SessionType) && sessionWeatherIndex < 0 {
+				sessionWeatherIndex = weatherIndex
+				continue
+			}
 
-			wm.ChangeWeather(wm.state.raceConfig.Weather[rand.Intn(len(wm.state.raceConfig.Weather))])
-		} else {
-			wm.logger.Debugf("No weather defined! Falling back to sensible defaults.")
-
-			wm.ChangeWeather(&WeatherConfig{
-				Graphics:               "3_clear",
-				Duration:               0,
-				BaseTemperatureAmbient: 26,
-				BaseTemperatureRoad:    11,
-				VariationAmbient:       1,
-				VariationRoad:          1,
-				WindBaseSpeedMin:       3,
-				WindBaseSpeedMax:       15,
-				WindBaseDirection:      30,
-				WindVariationDirection: 15,
-			})
+			if weather.AppliesToSession(wm.state.currentSession.SessionType) && sessionWeatherIndex >= 0 {
+				wm.logger.Debugf("Session has multiple weathers. Enabling weather progression.")
+				wm.weatherProgression = true
+				break
+			}
 		}
+	}
+
+	if sessionWeatherIndex >= 0 {
+		wm.currentWeatherIndex = sessionWeatherIndex
+
+		wm.ChangeWeather(wm.state.raceConfig.Weather[wm.currentWeatherIndex])
+	} else if sessionWeatherIndex < 0 {
+		wm.logger.Debugf("No weather defined for session. Falling back to sensible defaults.")
+
+		wm.ChangeWeather(&WeatherConfig{
+			Graphics:               "3_clear",
+			Duration:               0,
+			BaseTemperatureAmbient: 26,
+			BaseTemperatureRoad:    11,
+			VariationAmbient:       1,
+			VariationRoad:          1,
+			WindBaseSpeedMin:       3,
+			WindBaseSpeedMax:       15,
+			WindBaseDirection:      30,
+			WindVariationDirection: 15,
+		})
 	}
 }
 
@@ -242,19 +289,39 @@ func (wm *WeatherManager) Step(currentTime int64) {
 	}
 
 	if wm.weatherProgression && wm.nextWeatherUpdate < currentTime {
-		wm.NextWeather(currentTime)
+		wm.NextWeather()
 	}
 }
 
-func (wm *WeatherManager) NextWeather(currentTime int64) {
-	wm.currentWeatherIndex++
+func (wm *WeatherManager) NextWeather() {
+	nextWeatherIndex := -1
 
-	if wm.currentWeatherIndex == len(wm.state.currentSession.Weather) {
-		wm.currentWeatherIndex = 0
+	for i := wm.currentWeatherIndex + 1; i < len(wm.state.raceConfig.Weather); i++ {
+		weather := wm.state.raceConfig.Weather[i]
+
+		if weather.AppliesToSession(wm.state.currentSession.SessionType) {
+			nextWeatherIndex = i
+			break
+		}
 	}
 
-	wm.logger.Infof("Moving weather to %s", wm.state.currentSession.Weather[wm.currentWeatherIndex].Graphics)
+	if nextWeatherIndex <= 0 {
+		// see if we can loop back
+		for weatherIndex, weather := range wm.state.raceConfig.Weather {
+			if weather.AppliesToSession(wm.state.currentSession.SessionType) {
+				nextWeatherIndex = weatherIndex
+				break
+			}
+		}
+	}
 
-	wm.ChangeWeather(wm.state.currentSession.Weather[wm.currentWeatherIndex])
-	wm.nextWeatherUpdate = currentTime + (wm.state.currentSession.Weather[wm.currentWeatherIndex].Duration * 60000)
+	if nextWeatherIndex >= 0 {
+		nextWeather := wm.state.raceConfig.Weather[nextWeatherIndex]
+
+		wm.currentWeatherIndex = nextWeatherIndex
+		wm.ChangeWeather(nextWeather)
+	} else {
+		wm.logger.Infof("Weather progression completed.")
+		wm.weatherProgression = false
+	}
 }

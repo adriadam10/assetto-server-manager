@@ -124,6 +124,10 @@ func (p *Packet) ReadCarID() CarID {
 }
 
 func (p *Packet) WriteTCP(w io.Writer) error {
+	if w == nil {
+		return nil
+	}
+
 	out := make([]byte, 2)
 
 	b := p.buf.Bytes()
@@ -140,6 +144,10 @@ type writerTo interface {
 }
 
 func (p *Packet) WriteUDP(conn writerTo, addr net.Addr) error {
+	if addr == nil {
+		return nil
+	}
+
 	b := p.buf.Bytes()
 
 	_, err := conn.WriteTo(b, addr)
