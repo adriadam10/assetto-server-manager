@@ -169,6 +169,17 @@
                                                     Multiplier: {{ $weather.CMWFXTimeMulti }}x<br>
                                                 {{ end }}
 
+                                                {{ if gt $weather.Duration 0 }}
+                                                    Duration: {{ $weather.Duration }} minutes<br>
+                                                {{ end }}
+
+                                                {{ if gt (len $weather.Sessions) 0 }}
+                                                    Sessions: {{ $weather.SessionsCSV }}
+                                                {{ else }}
+                                                    Applies to all sessions.
+                                                {{ end }}
+                                                <br>
+
                                                 Ambient: {{ $weather.BaseTemperatureAmbient }}&deg;C (variation {{ $weather.VariationAmbient }})<br>
                                                 Road: {{ add $weather.BaseTemperatureAmbient $weather.BaseTemperatureRoad }}&deg;C (variation {{ $weather.VariationRoad }})<br>
 

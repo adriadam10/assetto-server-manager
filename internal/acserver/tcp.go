@@ -186,8 +186,7 @@ func (t *TCP) handleConnection(conn net.Conn, messageLength uint16) error {
 		}
 	} else {
 		t.logger.Errorf("Unknown TCP message type: 0x%x (len: %d)", messageType, n)
-
-		fmt.Printf("%x\n", buf[:n])
+		t.logger.Printf("%x", buf[:n])
 	}
 
 	return nil

@@ -5,7 +5,6 @@ import (
 	"encoding/binary"
 	"io"
 	"net"
-	"unicode/utf8"
 
 	"github.com/sirupsen/logrus"
 	"golang.org/x/text/encoding/unicode/utf32"
@@ -35,7 +34,7 @@ func (p *Packet) Write(val interface{}) {
 }
 
 func (p *Packet) WriteString(s string) {
-	p.Write(uint8(utf8.RuneCountInString(s)))
+	p.Write(uint8(len(s)))
 	p.Write([]byte(s))
 }
 
@@ -45,8 +44,7 @@ func (p *Packet) WriteUTF32String(s string) {
 	if err != nil {
 		logrus.WithError(err).Error("Could not EncodeString")
 	}
-
-	p.Write(uint8(utf8.RuneCountInString(s)))
+	p.Write(uint8(len([]rune(s))))
 	p.Write(encoded)
 }
 
@@ -59,7 +57,7 @@ func (p *Packet) WriteBigUTF32String(s string) {
 		logrus.WithError(err).Error("Could not EncodeString")
 	}
 
-	p.Write(uint16(utf8.RuneCountInString(s)))
+	p.Write(uint16(len([]rune(s))))
 	p.Write(encoded)
 }
 
@@ -126,6 +124,10 @@ func (p *Packet) ReadCarID() CarID {
 }
 
 func (p *Packet) WriteTCP(w io.Writer) error {
+	if w == nil {
+		return nil
+	}
+
 	out := make([]byte, 2)
 
 	b := p.buf.Bytes()
@@ -142,6 +144,10 @@ type writerTo interface {
 }
 
 func (p *Packet) WriteUDP(conn writerTo, addr net.Addr) error {
+	if addr == nil {
+		return nil
+	}
+
 	b := p.buf.Bytes()
 
 	_, err := conn.WriteTo(b, addr)

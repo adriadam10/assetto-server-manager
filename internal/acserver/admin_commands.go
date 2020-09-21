@@ -211,7 +211,7 @@ func (a *AdminCommandManager) Command(entrant *Car, command string) error {
 		if a.weatherManager.weatherProgression {
 			a.state.BroadcastChat(ServerCarID, fmt.Sprintf("%s has changed the weather to the next configured weather!", entrant.Driver.Name))
 
-			a.weatherManager.NextWeather(currentTimeMillisecond())
+			a.weatherManager.NextWeather()
 		} else {
 			return a.state.SendChat(ServerCarID, entrant.CarID, "This session does not have weather progression enabled! Look at the readme for more info+")
 		}

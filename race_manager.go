@@ -694,16 +694,20 @@ func (rm *RaceManager) BuildCustomRaceFromForm(r *http.Request) (*CurrentRaceCon
 	for i := 0; i < len(r.Form["Graphics"]); i++ {
 		weatherName := r.Form["Graphics"][i]
 
-		sessions := r.Form[fmt.Sprintf("WeatherSessions-%d", i)]
+		var sessions []SessionType
+
+		for _, session := range r.Form[fmt.Sprintf("WeatherSessions-%d", i)] {
+			sessions = append(sessions, SessionNameToSessionType(session))
+		}
 
 		if len(sessions) == 0 {
 			// Either Race Weekend or no sessions selected, either way apply to all
 			for sessionType := range raceConfig.Sessions {
-				sessions = append(sessions, sessionType.String())
+				sessions = append(sessions, sessionType)
 			}
 		}
 
-		WFXType, err := getWeatherType(weatherName)
+		wfxType, err := getWeatherType(weatherName)
 
 		// if WFXType can't be found due to an error, default to non-sol weather.
 		if !isSol || err != nil {
@@ -742,7 +746,7 @@ func (rm *RaceManager) BuildCustomRaceFromForm(r *http.Request) (*CurrentRaceCon
 			}
 
 			raceConfig.AddWeather(&WeatherConfig{
-				Graphics: weatherName + "_type=" + strconv.Itoa(WFXType) + "_time=0_mult=" +
+				Graphics: weatherName + "_type=" + strconv.Itoa(wfxType) + "_time=0_mult=" +
 					timeMulti + "_start=" + strconv.Itoa(int(startTimeFinal.Unix())),
 				BaseTemperatureAmbient: formValueAsInt(r.Form["BaseTemperatureAmbient"][i]),
 				BaseTemperatureRoad:    formValueAsInt(r.Form["BaseTemperatureRoad"][i]),
@@ -758,7 +762,7 @@ func (rm *RaceManager) BuildCustomRaceFromForm(r *http.Request) (*CurrentRaceCon
 				ChampionshipPracticeWeather: r.Form["ChampionshipPracticeWeather"][i],
 
 				CMGraphics:          weatherName,
-				CMWFXType:           WFXType,
+				CMWFXType:           wfxType,
 				CMWFXUseCustomTime:  1,
 				CMWFXTime:           0,
 				CMWFXTimeMulti:      timeMultiInt,

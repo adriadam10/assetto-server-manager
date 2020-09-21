@@ -81,6 +81,7 @@ func main() {
 		ServeHTTPWithError(config.HTTP.Hostname, "Initialise resolver (internal error)", err)
 		return
 	}
+
 	acsm.SetAssettoInstallPath(config.Steam.InstallPath)
 
 	err = acsm.InstallAssettoCorsaServer(config.Steam.Username, config.Steam.Password, config.Steam.ForceUpdate)
