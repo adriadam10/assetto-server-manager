@@ -60,7 +60,8 @@ type RaceControl struct {
 	driverSwapPenaltiesMutex sync.Mutex
 	driverSwapPenalties      map[udp.DriverGUID]*driverSwapPenalty
 
-	bestSplits map[uint8]RaceControlCarSplit
+	// @TODO convert to a slice
+	bestSplits []RaceControlCarSplit
 }
 
 // RaceControl piggybacks on the udp.Message interface so that the entire data can be sent to newly connected clients.
@@ -93,7 +94,6 @@ func NewRaceControl(broadcaster Broadcaster, trackDataGateway TrackDataGateway, 
 		driverSwapTimers:     make(map[int]*time.Timer),
 		penaltiesManager:     penaltiesManager,
 		serverProcessStopped: make(chan struct{}),
-		bestSplits:           make(map[uint8]RaceControlCarSplit),
 	}
 
 	process.NotifyDone(rc.serverProcessStopped)
@@ -254,6 +254,8 @@ func (rc *RaceControl) OnNewSession(sessionInfo udp.SessionInfo) error {
 	rc.driverSwapPenaltiesMutex.Lock()
 	rc.driverSwapPenalties = make(map[udp.DriverGUID]*driverSwapPenalty)
 	rc.driverSwapPenaltiesMutex.Unlock()
+
+	rc.bestSplits = []RaceControlCarSplit{}
 
 	if (rc.ConnectedDrivers.Len() > 0 || rc.DisconnectedDrivers.Len() > 0) && sessionInfo.Type == acserver.SessionTypePractice {
 		if oldSessionInfo.Type == sessionInfo.Type && oldSessionInfo.Track == sessionInfo.Track && oldSessionInfo.TrackConfig == sessionInfo.TrackConfig && oldSessionInfo.Name == sessionInfo.Name {
@@ -1074,8 +1076,9 @@ func (rc *RaceControl) OnSplitComplete(split udp.SplitCompleted) error {
 	}
 
 	newSplit := RaceControlCarSplit{
-		SplitTime: splitDuration,
-		Cuts:      split.Cuts,
+		SplitIndex: split.Index,
+		SplitTime:  splitDuration,
+		Cuts:       split.Cuts,
 	}
 
 	if bestSplit, ok := currentCar.BestSplits[split.Index]; ok {
@@ -1088,14 +1091,11 @@ func (rc *RaceControl) OnSplitComplete(split udp.SplitCompleted) error {
 		currentCar.BestSplits[split.Index] = newSplit
 	}
 
-	if bestSplit, ok := rc.bestSplits[split.Index]; ok {
-		if split.Cuts == 0 && splitDuration < bestSplit.SplitTime {
+	for _, bestSplit := range rc.bestSplits {
+		if split.Index == bestSplit.SplitIndex && split.Cuts == 0 && splitDuration < bestSplit.SplitTime {
 			newSplit.IsBest = true
-			rc.bestSplits[split.Index] = newSplit
+			rc.bestSplits = append(rc.bestSplits, newSplit)
 		}
-	} else {
-		newSplit.IsBest = true
-		rc.bestSplits[split.Index] = newSplit
 	}
 
 	currentCar.CurrentLapSplits[split.Index] = newSplit
