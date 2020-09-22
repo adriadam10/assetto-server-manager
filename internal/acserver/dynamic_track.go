@@ -12,7 +12,7 @@ type DynamicTrack struct {
 	LapGain         int `json:"lap_gain" yaml:"lap_gain"`
 
 	startingGrip      float32
-	CurrentGrip       float32
+	CurrentGrip       float32 `json:"-"`
 	numLapsBeforeGain int
 	numSessions       int
 
