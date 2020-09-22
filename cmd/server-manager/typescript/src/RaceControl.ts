@@ -856,8 +856,6 @@ class LiveTimings implements WebsocketHandler {
             return;
         }
 
-        console.log(carInfo.CurrentLapSplits)
-
         let $tr = $table.find("[data-guid='" + driver.CarInfo.DriverGUID + "'][data-car-model='"+ driver.CarInfo.CarModel + "']");
 
         let addTrToTable = false;
@@ -891,7 +889,6 @@ class LiveTimings implements WebsocketHandler {
                 let split = carInfo.CurrentLapSplits[splitIndex]
 
                 let $tag = $("<span/>");
-                $tag.attr("id", splitIndex);
 
                 let badgeColour = " badge-primary";
 
@@ -907,7 +904,7 @@ class LiveTimings implements WebsocketHandler {
                     badgeColour = " badge-danger";
                 }
 
-                $tag.attr({'class': 'badge ml-2 mt-1' + badgeColour});
+                $tag.attr({'id': `split-` + splitIndex, 'class': 'badge ml-2 mt-1' + badgeColour});
 
                 $tag.text(
                     splitIndex + ": " + msToTime(split.SplitTime / 1000000)
