@@ -25,7 +25,7 @@ const (
 	EventSessionInfo      Event = 59
 	EventError            Event = 60
 	EventLapCompleted     Event = 73
-	EventSplitCompleted   Event = 200 // I propose we start at 200 to avoid clashes
+	EventSplitCompleted   Event = 100
 )
 
 type Message interface {
