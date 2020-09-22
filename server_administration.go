@@ -1,6 +1,7 @@
 package acsm
 
 import (
+	"bytes"
 	"encoding/json"
 	"html/template"
 	"io/ioutil"
@@ -10,10 +11,17 @@ import (
 	"strings"
 	"time"
 
+	"github.com/alecthomas/chroma/formatters"
+	"github.com/alecthomas/chroma/formatters/html"
+	"github.com/alecthomas/chroma/quick"
 	"github.com/go-chi/chi"
 	"github.com/mitchellh/go-wordwrap"
 	"github.com/sirupsen/logrus"
 )
+
+func init() {
+	formatters.Register("htmlshort", html.New(html.Standalone(false), html.WithClasses(false)))
+}
 
 type ServerAdministrationHandler struct {
 	*BaseHandler
@@ -131,33 +139,41 @@ func (sah *ServerAdministrationHandler) motd(w http.ResponseWriter, r *http.Requ
 type currentCFGTemplateVars struct {
 	BaseTemplateVars
 
-	ConfigText    string
-	EntryListText string
+	ConfigText    template.HTML
+	EntryListText template.HTML
+}
+
+func (sah *ServerAdministrationHandler) encodeConfigFile(file interface{}) template.HTML {
+	buf := new(bytes.Buffer)
+	e := json.NewEncoder(buf)
+	e.SetIndent("", "    ")
+
+	if err := e.Encode(file); err != nil {
+		logrus.WithError(err).Errorf("Could not JSON encode config file")
+		return ""
+	}
+
+	out := new(bytes.Buffer)
+
+	err := quick.Highlight(out, buf.String(), "json", "htmlshort", "friendly")
+
+	if err != nil {
+		logrus.WithError(err).Errorf("Could not syntax highlight config file")
+		return template.HTML(buf.String())
+	}
+
+	return template.HTML(out.String())
 }
 
 func (sah *ServerAdministrationHandler) currentConfig(w http.ResponseWriter, r *http.Request) {
-	config := &ServerConfig{}
-	entryList := &EntryList{}
+	event := sah.process.Event()
 
-	configText, err := config.ReadString()
-
-	if err != nil {
-		logrus.WithError(err).Error("Couldn't load server config")
-		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-		return
-	}
-
-	entryListText, err := entryList.ReadString()
-
-	if err != nil {
-		logrus.WithError(err).Error("Couldn't load entry list")
-		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-		return
-	}
+	entryList := event.GetEntryList().ToACServerConfig()
+	config := event.GetRaceConfig().ToACConfig()
 
 	sah.viewRenderer.MustLoadTemplate(w, r, "server/current-config.html", &currentCFGTemplateVars{
-		ConfigText:    configText,
-		EntryListText: entryListText,
+		ConfigText:    sah.encodeConfigFile(config),
+		EntryListText: sah.encodeConfigFile(entryList),
 	})
 }
 

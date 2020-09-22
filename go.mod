@@ -6,6 +6,7 @@ require (
 	github.com/Masterminds/semver v1.5.0
 	github.com/Masterminds/sprig v2.22.0+incompatible
 	github.com/RoaringBitmap/roaring v0.5.1 // indirect
+	github.com/alecthomas/chroma v0.8.1
 	github.com/blevesearch/bleve v1.0.10
 	github.com/bwmarrin/discordgo v0.22.0
 	github.com/certifi/gocertifi v0.0.0-20200211180108-c7c1fbc02894 // indirect
@@ -39,8 +40,6 @@ require (
 	github.com/jmhodges/levigo v1.0.0 // indirect
 	github.com/kahlys/proxy v0.0.0-20190107154630-55f25d8735f4
 	github.com/lorenzosaino/go-sysctl v0.1.0
-	github.com/mattn/go-colorable v0.1.4 // indirect
-	github.com/mattn/go-isatty v0.0.10 // indirect
 	github.com/mattn/go-runewidth v0.0.9 // indirect
 	github.com/mattn/go-zglob v0.0.3
 	github.com/mitchellh/copystructure v1.0.0 // indirect

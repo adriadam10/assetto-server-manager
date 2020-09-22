@@ -22,30 +22,30 @@ type Car struct {
 	Restrictor float32 `json:"restrictor" yaml:"restrictor"`
 	FixedSetup string  `json:"fixed_setup" yaml:"fixed_setup"`
 
-	SpectatorMode uint8
-	IsAdmin       bool
+	SpectatorMode uint8 `json:"-"`
+	IsAdmin       bool  `json:"-"`
 
-	Tyres       string
-	DamageZones [5]float32
+	Tyres       string     `json:"-"`
+	DamageZones [5]float32 `json:"-"`
 
-	HasUpdateToBroadcast bool
+	HasUpdateToBroadcast bool `json:"-"`
 
-	Connection  Connection
-	Status      CarUpdate
-	SessionData SessionData
+	Connection  Connection  `json:"-"`
+	Status      CarUpdate   `json:"-"`
+	SessionData SessionData `json:"-"`
 
 	// PluginStatus is sent only to the plugin. It is used so that positional
 	// updates work even when a Qualifying session is in Solo mode
-	PluginStatus CarUpdate
+	PluginStatus CarUpdate `json:"-"`
 }
 
 type Driver struct {
-	Name     string `json:"name" yaml:"name"`
-	Team     string `json:"team" yaml:"team"`
-	GUID     string `json:"guid" yaml:"guid"`
-	JoinTime int64
-	LoadTime time.Time
-	Nation   string
+	Name     string    `json:"name" yaml:"name"`
+	Team     string    `json:"team" yaml:"team"`
+	GUID     string    `json:"guid" yaml:"guid"`
+	JoinTime int64     `json:"-"`
+	LoadTime time.Time `json:"-"`
+	Nation   string    `json:"-"`
 }
 
 type Connection struct {
