@@ -1080,24 +1080,35 @@ func (rc *RaceControl) OnSplitComplete(split udp.SplitCompleted) error {
 		Cuts:       split.Cuts,
 	}
 
-	if bestSplit, ok := currentCar.BestSplits[split.Index]; ok {
-		if split.Cuts == 0 && splitDuration < bestSplit.SplitTime {
+	if bestSplit, ok := currentCar.BestSplits[newSplit.SplitIndex]; ok {
+		if newSplit.Cuts == 0 && splitDuration < bestSplit.SplitTime {
 			newSplit.IsDriversBest = true
-			currentCar.BestSplits[split.Index] = newSplit
+			currentCar.BestSplits[newSplit.SplitIndex] = newSplit
 		}
 	} else {
 		newSplit.IsDriversBest = true
-		currentCar.BestSplits[split.Index] = newSplit
+		currentCar.BestSplits[newSplit.SplitIndex] = newSplit
 	}
 
+	hasSplit := false
+
 	for _, bestSplit := range rc.bestSplits {
-		if split.Index == bestSplit.SplitIndex && split.Cuts == 0 && splitDuration < bestSplit.SplitTime {
-			newSplit.IsBest = true
-			rc.bestSplits = append(rc.bestSplits, newSplit)
+		if newSplit.SplitIndex == bestSplit.SplitIndex {
+			hasSplit = true
+
+			if newSplit.Cuts == 0 && splitDuration < bestSplit.SplitTime {
+				newSplit.IsBest = true
+				rc.bestSplits = append(rc.bestSplits, newSplit)
+			}
 		}
 	}
 
-	currentCar.CurrentLapSplits[split.Index] = newSplit
+	if !hasSplit && newSplit.Cuts == 0 {
+		newSplit.IsBest = true
+		rc.bestSplits = append(rc.bestSplits, newSplit)
+	}
+
+	currentCar.CurrentLapSplits[newSplit.SplitIndex] = newSplit
 
 	return nil
 }
