@@ -14,17 +14,19 @@ type HandshakeMessageHandler struct {
 	sessionManager   *SessionManager
 	entryListManager *EntryListManager
 	weatherManager   *WeatherManager
+	checksumManager  *ChecksumManager
 
 	plugin Plugin
 	logger Logger
 }
 
-func NewHandshakeMessageHandler(state *ServerState, sessionManager *SessionManager, entryListManager *EntryListManager, weatherManager *WeatherManager, plugin Plugin, logger Logger) *HandshakeMessageHandler {
+func NewHandshakeMessageHandler(state *ServerState, sessionManager *SessionManager, entryListManager *EntryListManager, weatherManager *WeatherManager, checksumManager *ChecksumManager, plugin Plugin, logger Logger) *HandshakeMessageHandler {
 	return &HandshakeMessageHandler{
 		state:            state,
 		sessionManager:   sessionManager,
 		entryListManager: entryListManager,
 		weatherManager:   weatherManager,
+		checksumManager:  checksumManager,
 		plugin:           plugin,
 		logger:           logger,
 	}
@@ -172,12 +174,15 @@ func (m HandshakeMessageHandler) OnMessage(conn net.Conn, p *Packet) error {
 
 	entrant.Driver.JoinTime = currentTimeMillisecond()
 	w.Write(m.sessionManager.ElapsedSessionTime().Milliseconds())
-	w.Write(uint8(len(m.state.checkSummableFiles)))
+
+	checksumFiles := m.checksumManager.GetFiles()
+
+	w.Write(uint8(len(checksumFiles)))
 
 	m.logger.Infof("Sending checksum request to %s. If they cannot connect (checksum mismatch or cannot compare checksum) they are likely missing one of the following files:", entrant.Driver.Name)
 
-	for _, file := range m.state.checkSummableFiles {
-		m.logger.Infof(file.Filename)
+	for _, file := range checksumFiles {
+		m.logger.Infof("- %s", file.Filename)
 		w.WriteString(file.Filename)
 	}
 

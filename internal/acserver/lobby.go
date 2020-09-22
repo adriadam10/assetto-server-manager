@@ -1,6 +1,7 @@
 package acserver
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -13,15 +14,17 @@ import (
 type Lobby struct {
 	state  *ServerState
 	logger Logger
+	ctx    context.Context
 
 	mutex        sync.Mutex
 	isRegistered bool
 }
 
-func NewLobby(state *ServerState, logger Logger) *Lobby {
+func NewLobby(ctx context.Context, state *ServerState, logger Logger) *Lobby {
 	return &Lobby{
 		state:  state,
 		logger: logger,
+		ctx:    ctx,
 	}
 }
 
@@ -34,14 +37,19 @@ func (l *Lobby) Try(description string, fn func() error) error {
 	var err error
 
 	for i := 0; i < lobbyRegistrationAttempts; i++ {
-		err = fn()
-
-		if err == nil {
-			l.logger.Infof("%s succeeded (attempt %d of %d)", description, i+1, lobbyRegistrationAttempts)
+		select {
+		case <-l.ctx.Done():
 			return nil
-		}
+		default:
+			err = fn()
 
-		l.logger.WithError(err).Errorf("Could not: %s (attempt %d of %d)", description, i+1, lobbyRegistrationAttempts)
+			if err == nil {
+				l.logger.Infof("%s succeeded (attempt %d of %d)", description, i+1, lobbyRegistrationAttempts)
+				return nil
+			}
+
+			l.logger.WithError(err).Errorf("Could not: %s (attempt %d of %d)", description, i+1, lobbyRegistrationAttempts)
+		}
 	}
 
 	return err

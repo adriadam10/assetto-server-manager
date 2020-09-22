@@ -84,11 +84,15 @@ func main() {
 
 	acsm.SetAssettoInstallPath(config.Steam.InstallPath)
 
-	err = acsm.InstallAssettoCorsaServer(config.Steam.Username, config.Steam.Password, config.Steam.ForceUpdate)
+	err = acsm.InstallAssettoCorsaServerWithSteamCMD(config.Steam.Username, config.Steam.Password, config.Steam.ForceUpdate)
 
 	if err != nil {
-		ServeHTTPWithError(defaultAddress, "Install assetto corsa server with steamcmd. Likely you do not have steamcmd installed correctly.", err)
-		return
+		logrus.Warnf("Could not find or install Assetto Corsa Server using SteamCMD. Creating barebones install.")
+
+		if err := acsm.InstallBareBonesAssettoCorsaServer(); err != nil {
+			ServeHTTPWithError(defaultAddress, "Install assetto corsa server with steamcmd or using barebones install.", err)
+			return
+		}
 	}
 
 	if config.LiveMap.IsEnabled() {

@@ -17,6 +17,7 @@ type Server struct {
 	adminCommandManager *AdminCommandManager
 	entryListManager    *EntryListManager
 	weatherManager      *WeatherManager
+	checksumManager     *ChecksumManager
 
 	tcp  *TCP
 	udp  *UDP
@@ -48,15 +49,14 @@ func NewServer(ctx context.Context, baseDirectory string, serverConfig *ServerCo
 		raceConfig.PickupModeEnabled = false
 	}
 
-	state, err := NewServerState(baseDirectory, serverConfig, raceConfig, entryList, checksums, plugin, logger)
+	state, err := NewServerState(baseDirectory, serverConfig, raceConfig, entryList, plugin, logger)
 
 	if err != nil {
 		return nil, err
 	}
 
-	lobby := NewLobby(state, logger)
-
 	ctx, cfn := context.WithCancel(ctx)
+	lobby := NewLobby(ctx, state, logger)
 
 	server := &Server{
 		state:                state,
@@ -70,6 +70,12 @@ func NewServer(ctx context.Context, baseDirectory string, serverConfig *ServerCo
 		logger:               logger,
 		baseDirectory:        baseDirectory,
 		pluginUpdateInterval: make(chan time.Duration),
+	}
+
+	server.checksumManager, err = NewChecksumManager(baseDirectory, state, logger, checksums)
+
+	if err != nil {
+		return nil, err
 	}
 
 	server.weatherManager = NewWeatherManager(state, plugin, logger)

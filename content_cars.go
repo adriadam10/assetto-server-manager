@@ -623,7 +623,7 @@ func (cm *CarManager) UpdateTyres(car *Car) error {
 func (cm *CarManager) IndexCar(car *Car) error {
 	carNameCache.add(car)
 
-	if err := cm.UpdateTyres(car); err != nil {
+	if err := cm.UpdateTyres(car); err != nil && !os.IsNotExist(err) {
 		logrus.WithError(err).Errorf("Could not update tyres for car: %s", car.Name)
 	}
 
