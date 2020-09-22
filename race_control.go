@@ -60,7 +60,6 @@ type RaceControl struct {
 	driverSwapPenaltiesMutex sync.Mutex
 	driverSwapPenalties      map[udp.DriverGUID]*driverSwapPenalty
 
-	// @TODO convert to a slice
 	bestSplits []RaceControlCarSplit
 }
 
