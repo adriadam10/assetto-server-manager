@@ -153,7 +153,7 @@ export class RaceControl {
                     "style", "color: " + randomColorForDriver(message.Message.DriverGUID)
                 ).text(
                     hoursString + ":" + minutesString + " " + message.Message.DriverName + ": "
-                )
+                );
 
                 chatMessage.text(message.Message.Message);
                 chatMessage.addClass("chat-message");
@@ -881,12 +881,12 @@ class LiveTimings implements WebsocketHandler {
                 currentLapTimeText = msToTime(moment().utc().diff(moment(carInfo.LastLapCompletedTime).utc()), false);
             }
 
-            let $currentLap = $tr.find(".current-lap")
+            let $currentLap = $tr.find(".current-lap");
 
             $currentLap.text(currentLapTimeText);
 
             for (const splitIndex in carInfo.CurrentLapSplits) {
-                let split = carInfo.CurrentLapSplits[splitIndex]
+                let split = carInfo.CurrentLapSplits[splitIndex];
 
                 let $tag = $("<span/>");
 
