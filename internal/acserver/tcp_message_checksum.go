@@ -6,14 +6,16 @@ import (
 )
 
 type ChecksumMessageHandler struct {
-	state  *ServerState
-	logger Logger
+	state           *ServerState
+	checksumManager *ChecksumManager
+	logger          Logger
 }
 
-func NewChecksumMessageHandler(state *ServerState, logger Logger) *ChecksumMessageHandler {
+func NewChecksumMessageHandler(state *ServerState, checksumManager *ChecksumManager, logger Logger) *ChecksumMessageHandler {
 	return &ChecksumMessageHandler{
-		state:  state,
-		logger: logger,
+		state:           state,
+		checksumManager: checksumManager,
+		logger:          logger,
 	}
 }
 
@@ -26,8 +28,9 @@ func (c ChecksumMessageHandler) OnMessage(conn net.Conn, p *Packet) error {
 	}
 
 	entrant.Connection.FailedChecksum = false
+	checksumFiles := c.checksumManager.GetFiles()
 
-	for _, file := range c.state.checkSummableFiles {
+	for _, file := range checksumFiles {
 		p.Read(&checksum)
 
 		if len(file.MD5) == 0 {
@@ -41,11 +44,19 @@ func (c ChecksumMessageHandler) OnMessage(conn net.Conn, p *Packet) error {
 			c.logger.Infof("Car: %d failed checksum on file '%s'. Kicking from server.", entrant.CarID, file.Filename)
 
 			entrant.Connection.FailedChecksum = true
+
+			if entrant.Connection.HasSentFirstUpdate {
+				err := c.state.Kick(entrant.CarID, KickReasonChecksumFailed)
+
+				if err != nil {
+					return err
+				}
+			}
 			return nil
 		}
 	}
 
-	c.logger.Debugf("Car: %d passed checksum for %d files", entrant.CarID, len(c.state.checkSummableFiles))
+	c.logger.Debugf("Car: %d passed checksum for %d files", entrant.CarID, len(checksumFiles))
 
 	return nil
 }

@@ -1,18 +1,14 @@
 package acserver
 
 import (
-	"crypto/md5"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"io/ioutil"
 	"math/rand"
 	"net"
 	"os"
 	"path/filepath"
-	"regexp"
 	"sort"
 	"strings"
 	"time"
@@ -30,12 +26,11 @@ const (
 )
 
 type ServerState struct {
-	entryList       EntryList
-	raceConfig      *EventConfig
-	serverConfig    *ServerConfig
-	customChecksums []CustomChecksumFile
-	plugin          Plugin
-	logger          Logger
+	entryList    EntryList
+	raceConfig   *EventConfig
+	serverConfig *ServerConfig
+	plugin       Plugin
+	logger       Logger
 
 	udp           *UDP
 	baseDirectory string
@@ -47,12 +42,11 @@ type ServerState struct {
 	currentSession      SessionConfig
 
 	// fixed
-	drsZones           map[string]DRSZone
-	setups             map[string]Setup
-	checkSummableFiles []checksumFile
-	messageOfTheDay    string
-	blockList          []string
-	noJoinList         map[string]bool
+	drsZones        map[string]DRSZone
+	setups          map[string]Setup
+	messageOfTheDay string
+	blockList       []string
+	noJoinList      map[string]bool
 }
 
 type Setup struct {
@@ -67,17 +61,16 @@ type DRSZone struct {
 	end       float32
 }
 
-func NewServerState(baseDirectory string, serverConfig *ServerConfig, raceConfig *EventConfig, entryList EntryList, checksums []CustomChecksumFile, plugin Plugin, logger Logger) (*ServerState, error) {
+func NewServerState(baseDirectory string, serverConfig *ServerConfig, raceConfig *EventConfig, entryList EntryList, plugin Plugin, logger Logger) (*ServerState, error) {
 	ss := &ServerState{
-		serverConfig:    serverConfig,
-		raceConfig:      raceConfig,
-		entryList:       entryList,
-		customChecksums: checksums,
-		plugin:          plugin,
-		logger:          logger,
-		randomSeed:      rand.Uint32(),
-		noJoinList:      make(map[string]bool),
-		baseDirectory:   baseDirectory,
+		serverConfig:  serverConfig,
+		raceConfig:    raceConfig,
+		entryList:     entryList,
+		plugin:        plugin,
+		logger:        logger,
+		randomSeed:    rand.Uint32(),
+		noJoinList:    make(map[string]bool),
+		baseDirectory: baseDirectory,
 	}
 
 	if err := ss.init(); err != nil {
@@ -88,10 +81,6 @@ func NewServerState(baseDirectory string, serverConfig *ServerConfig, raceConfig
 }
 
 func (ss *ServerState) init() error {
-	if err := ss.initChecksums(); err != nil {
-		return err
-	}
-
 	if err := ss.initDRSZones(); err != nil {
 		ss.logger.WithError(err).Warnf("Could not load DRS zones, server will run without")
 	}
@@ -111,148 +100,6 @@ func (ss *ServerState) init() error {
 	ss.raceConfig.DynamicTrack.Init(ss.logger)
 
 	return nil
-}
-
-var systemDataSurfacesPath = filepath.Join("system", "data", "surfaces.ini")
-
-type checksumFile struct {
-	Filename string
-	MD5      []byte
-}
-
-type CustomChecksumFile struct {
-	Name     string `json:"name" yaml:"name"`
-	Filename string `json:"file_path" yaml:"file_path"`
-	MD5      string `json:"md5" yaml:"md5"`
-}
-
-func (ss *ServerState) initChecksums() error {
-	var trackSurfacesPath string
-	var trackModelsPath string
-
-	if ss.raceConfig.TrackLayout == "" {
-		trackSurfacesPath = filepath.Join(ss.baseDirectory, "content", "tracks", ss.raceConfig.Track, "data", "surfaces.ini")
-		trackModelsPath = filepath.Join(ss.baseDirectory, "content", "tracks", ss.raceConfig.Track, "models.ini")
-	} else {
-		trackSurfacesPath = filepath.Join(ss.baseDirectory, "content", "tracks", ss.raceConfig.Track, ss.raceConfig.TrackLayout, "data", "surfaces.ini")
-		trackModelsPath = filepath.Join(ss.baseDirectory, "content", "tracks", ss.raceConfig.Track, "models_"+ss.raceConfig.TrackLayout+".ini")
-	}
-
-	filesToChecksum := []string{
-		filepath.Join(ss.baseDirectory, systemDataSurfacesPath),
-		trackSurfacesPath,
-		trackModelsPath,
-	}
-
-	for _, car := range ss.raceConfig.Cars {
-		acdFilepath := filepath.Join(ss.baseDirectory, "content", "cars", car, "data.acd")
-
-		if _, err := os.Stat(acdFilepath); os.IsNotExist(err) {
-			// this car is likely using a data folder rather than an acd file. checksum all files within the data path
-			dataPath := filepath.Join(ss.baseDirectory, "content", "cars", car, "data")
-
-			files, err := ioutil.ReadDir(dataPath)
-
-			if err != nil {
-				return err
-			}
-
-			for _, file := range files {
-				filesToChecksum = append(filesToChecksum, dataPath+file.Name())
-			}
-		} else if err != nil {
-			return err
-		} else {
-			filesToChecksum = append(filesToChecksum, acdFilepath)
-		}
-	}
-
-	ss.logger.Debugf("Running checksum for %d files", len(filesToChecksum)+len(ss.customChecksums))
-
-	for _, file := range filesToChecksum {
-		checksum, err := md5File(file)
-
-		if os.IsNotExist(err) {
-			ss.logger.Warnf("Could not find checksum file: %s", file)
-			continue
-		} else if err != nil {
-			return err
-		}
-
-		relativePath, err := filepath.Rel(ss.baseDirectory, file)
-
-		if err != nil {
-			return err
-		}
-
-		relativePath = filepath.ToSlash(relativePath)
-
-		ss.logger.Debugf("Checksum added: md5(%s)=%s", relativePath, hex.EncodeToString(checksum))
-
-		ss.checkSummableFiles = append(ss.checkSummableFiles, checksumFile{Filename: relativePath, MD5: checksum})
-	}
-
-	for _, customChecksum := range ss.customChecksums {
-		if !sanitiseChecksumPath(customChecksum.Filename) {
-			continue
-		}
-
-		checksum, err := hex.DecodeString(customChecksum.MD5)
-
-		if err != nil {
-			ss.logger.WithError(err).Errorf("Couldn't decode checksum: %s", customChecksum.MD5)
-		} else {
-			ss.logger.Debugf("Checksum added from config: md5(%s)=%s", customChecksum.Filename, customChecksum.MD5)
-
-			ss.checkSummableFiles = append(ss.checkSummableFiles, checksumFile{customChecksum.Filename, checksum})
-		}
-	}
-
-	return nil
-}
-
-var absPathRegex = regexp.MustCompile(`[A-Z]:`)
-
-func sanitiseChecksumPath(path string) bool {
-	cleanPath := filepath.Clean(path)
-
-	if strings.HasPrefix(cleanPath, "..") {
-		return false
-	}
-
-	if strings.HasPrefix(cleanPath, "\\") {
-		return false
-	}
-
-	if filepath.IsAbs(cleanPath) {
-		return false
-	}
-
-	if absPathRegex.MatchString(cleanPath) {
-		return false
-	}
-
-	return true
-}
-
-func md5File(filepath string) ([]byte, error) {
-	f, err := os.Open(filepath)
-
-	if err != nil {
-		return nil, err
-	}
-
-	defer f.Close()
-
-	h := md5.New()
-
-	_, err = io.Copy(h, f)
-
-	if err != nil {
-		return nil, err
-	}
-
-	return h.Sum(nil), nil
 }
 
 func (ss *ServerState) initDRSZones() error {

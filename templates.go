@@ -10,6 +10,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"os"
 	"path"
 	"path/filepath"
 	"reflect"
@@ -426,7 +427,9 @@ func trackInfo(track, layout string) *TrackInfo {
 	t, err := GetTrackInfo(track, layout)
 
 	if err != nil {
-		logrus.WithError(err).Errorf("Could not get track info for %s (%s)", track, layout)
+		if !os.IsNotExist(err) {
+			logrus.WithError(err).Errorf("Could not get track info for %s (%s)", track, layout)
+		}
 		return nil
 	}
 

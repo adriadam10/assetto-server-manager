@@ -42,9 +42,9 @@ func IsAssettoInstalled() bool {
 	return err == nil
 }
 
-// InstallAssettoCorsaServer takes a steam login and password and runs steamcmd to install the assetto server.
+// InstallAssettoCorsaServerWithSteamCMD takes a steam login and password and runs steamcmd to install the assetto server.
 // If the "ServerInstallPath" exists, this function will exit without installing - unless force == true.
-func InstallAssettoCorsaServer(login, password string, force bool) error {
+func InstallAssettoCorsaServerWithSteamCMD(login, password string, force bool) error {
 	_, err := os.Stat(filepath.Join(ServerInstallPath, "system"))
 
 	if err != nil && !os.IsNotExist(err) {
@@ -98,4 +98,68 @@ func InstallAssettoCorsaServer(login, password string, force bool) error {
 func isCommandAvailable(name string) bool {
 	_, err := exec.LookPath(name)
 	return err == nil
+}
+
+func InstallBareBonesAssettoCorsaServer() error {
+	if IsAssettoInstalled() {
+		return nil
+	}
+
+	systemPath := filepath.Join(ServerInstallPath, "system", "data")
+
+	installPaths := []string{
+		systemPath,
+		filepath.Join(ServerInstallPath, "cfg"),
+		filepath.Join(ServerInstallPath, "results"),
+		filepath.Join(ServerInstallPath, "content", "cars"),
+		filepath.Join(ServerInstallPath, "content", "tracks"),
+		filepath.Join(ServerInstallPath, "content", "weather"),
+		filepath.Join(ServerInstallPath, "setups"),
+		filepath.Join(ServerInstallPath, "logs"),
+		filepath.Join(ServerInstallPath, "manager"),
+	}
+
+	for _, installPath := range installPaths {
+		if err := os.MkdirAll(installPath, 0755); err != nil {
+			return err
+		}
+	}
+
+	surfaces, err := os.Create(filepath.Join(systemPath, "surfaces.ini"))
+
+	if err != nil {
+		return err
+	}
+
+	defer surfaces.Close()
+
+	_, err = surfaces.Write(systemSurfacesFile)
+
+	if err != nil {
+		return err
+	}
+
+	for _, f := range defaultSkinsLayout {
+		err := os.MkdirAll(filepath.Join(ServerInstallPath, filepath.FromSlash(f)), 0755)
+
+		if err != nil {
+			return err
+		}
+	}
+
+	tyres, err := os.Create(filepath.Join(ServerInstallPath, "manager", "ks_tyres.ini"))
+
+	if err != nil {
+		return err
+	}
+
+	defer tyres.Close()
+
+	_, err = tyres.WriteString(defaultKSTyresIni)
+
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
