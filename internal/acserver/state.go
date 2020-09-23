@@ -642,7 +642,7 @@ func (ss *ServerState) CompleteLap(carID CarID, lap *LapCompleted, target *Car) 
 			bw.Write(uint32(leaderBoardLine.Time.Milliseconds()))
 		}
 
-		bw.Write(uint16(leaderBoardLine.Car.SessionData.LapCount))
+		bw.Write(uint16(leaderBoardLine.NumLaps))
 		bw.Write(leaderBoardLine.Car.SessionData.HasCompletedSession)
 	}
 
@@ -927,25 +927,30 @@ func (ss *ServerState) Leaderboard() []*LeaderboardLine {
 	for _, car := range ss.entryList {
 		var duration time.Duration
 
+		lapCount := 0
+
 		switch ss.currentSession.SessionType {
 		case SessionTypeRace:
 			for _, lap := range car.SessionData.Laps {
 				duration += lap.LapTime
 			}
+
+			lapCount = len(car.SessionData.Laps)
 		default:
 			bestLap := car.BestLap()
+			duration = bestLap.LapTime
 
-			if bestLap.Cuts > 0 {
-				duration = maximumLapTime
-			} else {
-				duration = bestLap.LapTime
+			for _, lap := range car.SessionData.Laps {
+				if lap.Cuts == 0 {
+					lapCount++
+				}
 			}
 		}
 
 		leaderboard = append(leaderboard, &LeaderboardLine{
 			Car:     car,
 			Time:    duration,
-			NumLaps: car.SessionData.LapCount,
+			NumLaps: lapCount,
 		})
 	}
 

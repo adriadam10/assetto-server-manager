@@ -187,13 +187,6 @@ func (rm *RaceManager) applyConfigAndStart(event RaceEvent) error {
 
 	config.CurrentRaceConfig.Cars = strings.Join(finalCars, ";")
 
-	// if password override turn the password off
-	if event.OverrideServerPassword() {
-		config.GlobalServerConfig.Password = event.ReplacementServerPassword()
-	} else {
-		config.GlobalServerConfig.Password = serverOpts.Password
-	}
-
 	if config.CurrentRaceConfig.HasSession(SessionTypeBooking) {
 		config.CurrentRaceConfig.PickupModeEnabled = 0
 	}
@@ -219,6 +212,13 @@ func (rm *RaceManager) applyConfigAndStart(event RaceEvent) error {
 
 	if err != nil {
 		return err
+	}
+
+	// if password override turn the password off
+	if event.OverrideServerPassword() {
+		config.GlobalServerConfig.Password = event.ReplacementServerPassword()
+	} else {
+		config.GlobalServerConfig.Password = serverOpts.Password
 	}
 
 	if config.GlobalServerConfig.ShowRaceNameInServerLobby == 1 {
@@ -259,7 +259,7 @@ func (rm *RaceManager) applyConfigAndStart(event RaceEvent) error {
 	rm.currentRace = &config
 	rm.currentEntryList = entryList
 
-	err = rm.process.Start(event)
+	err = rm.process.Start(event, &config.GlobalServerConfig)
 
 	if err != nil {
 		return err

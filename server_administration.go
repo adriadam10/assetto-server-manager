@@ -139,8 +139,9 @@ func (sah *ServerAdministrationHandler) motd(w http.ResponseWriter, r *http.Requ
 type currentCFGTemplateVars struct {
 	BaseTemplateVars
 
-	ConfigText    template.HTML
-	EntryListText template.HTML
+	EventConfigText  template.HTML
+	ServerConfigText template.HTML
+	EntryListText    template.HTML
 }
 
 func (sah *ServerAdministrationHandler) encodeConfigFile(file interface{}) template.HTML {
@@ -169,11 +170,13 @@ func (sah *ServerAdministrationHandler) currentConfig(w http.ResponseWriter, r *
 	event := sah.process.Event()
 
 	entryList := event.GetEntryList().ToACServerConfig()
-	config := event.GetRaceConfig().ToACConfig()
+	eventConfig := event.GetRaceConfig().ToACConfig()
+	serverConfig := sah.process.CurrentServerConfig().ToACServerConfig()
 
 	sah.viewRenderer.MustLoadTemplate(w, r, "server/current-config.html", &currentCFGTemplateVars{
-		ConfigText:    sah.encodeConfigFile(config),
-		EntryListText: sah.encodeConfigFile(entryList),
+		EventConfigText:  sah.encodeConfigFile(eventConfig),
+		EntryListText:    sah.encodeConfigFile(entryList),
+		ServerConfigText: sah.encodeConfigFile(serverConfig),
 	})
 }
 
