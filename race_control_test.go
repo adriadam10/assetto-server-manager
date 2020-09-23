@@ -18,8 +18,12 @@ type dummyServerProcess struct {
 	doneCh chan struct{}
 }
 
-func (dummyServerProcess) Start(event RaceEvent) error {
+func (d dummyServerProcess) Start(event RaceEvent, config *GlobalServerConfig) error {
 	return nil
+}
+
+func (d dummyServerProcess) CurrentServerConfig() *GlobalServerConfig {
+	return &GlobalServerConfig{}
 }
 
 func (dummyServerProcess) Logs() string {

@@ -242,16 +242,12 @@ func (c *Car) AddLap(lap *LapCompleted) *Lap {
 const maximumLapTime = 999999999 * time.Millisecond
 
 func (c *Car) BestLap() *Lap {
-	if len(c.SessionData.Laps) == 0 {
-		return &Lap{
-			LapTime: maximumLapTime,
-		}
+	bestLap := &Lap{
+		LapTime: maximumLapTime,
 	}
 
-	bestLap := c.SessionData.Laps[0]
-
 	for _, lap := range c.SessionData.Laps {
-		if lap.LapTime != 0 && lap.LapTime < bestLap.LapTime {
+		if lap.LapTime != 0 && lap.Cuts == 0 && lap.LapTime < bestLap.LapTime {
 			bestLap = lap
 		}
 	}

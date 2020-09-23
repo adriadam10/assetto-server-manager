@@ -26,14 +26,20 @@ import (
 const MaxLogSizeBytes = 1e6
 
 type ServerProcess interface {
-	Start(event RaceEvent) error
+	Start(event RaceEvent, config *GlobalServerConfig) error
 	Stop() error
 	Restart() error
 	IsRunning() bool
 	Event() RaceEvent
+	CurrentServerConfig() *GlobalServerConfig
 	SetPlugin(acserver.Plugin)
 	NotifyDone(chan struct{})
 	Logs() string
+}
+
+type eventStartPacket struct {
+	raceEvent RaceEvent
+	config    *GlobalServerConfig
 }
 
 // AssettoServerProcess manages the Assetto Corsa Server process.
@@ -41,7 +47,7 @@ type AssettoServerProcess struct {
 	store                 Store
 	contentManagerWrapper *ContentManagerWrapper
 
-	start                 chan RaceEvent
+	start                 chan eventStartPacket
 	startMutex            sync.Mutex
 	started, stopped, run chan error
 	notifyDoneChs         []chan struct{}
@@ -54,6 +60,7 @@ type AssettoServerProcess struct {
 	logBuffer *logBuffer
 
 	raceEvent      RaceEvent
+	serverConfig   *GlobalServerConfig
 	mutex          sync.Mutex
 	extraProcesses []*exec.Cmd
 
@@ -62,7 +69,7 @@ type AssettoServerProcess struct {
 
 func NewAssettoServerProcess(store Store, contentManagerWrapper *ContentManagerWrapper) *AssettoServerProcess {
 	sp := &AssettoServerProcess{
-		start:                 make(chan RaceEvent),
+		start:                 make(chan eventStartPacket),
 		started:               make(chan error),
 		stopped:               make(chan error),
 		run:                   make(chan error),
@@ -76,7 +83,7 @@ func NewAssettoServerProcess(store Store, contentManagerWrapper *ContentManagerW
 	return sp
 }
 
-func (sp *AssettoServerProcess) Start(event RaceEvent) error {
+func (sp *AssettoServerProcess) Start(event RaceEvent, config *GlobalServerConfig) error {
 	sp.startMutex.Lock()
 	defer sp.startMutex.Unlock()
 
@@ -86,7 +93,7 @@ func (sp *AssettoServerProcess) Start(event RaceEvent) error {
 		}
 	}
 
-	sp.start <- event
+	sp.start <- eventStartPacket{raceEvent: event, config: config}
 
 	return <-sp.started
 }
@@ -137,9 +144,10 @@ func (sp *AssettoServerProcess) Stop() error {
 func (sp *AssettoServerProcess) Restart() error {
 	sp.mutex.Lock()
 	raceEvent := sp.raceEvent
+	config := sp.serverConfig
 	sp.mutex.Unlock()
 
-	return sp.Start(raceEvent)
+	return sp.Start(raceEvent, config)
 }
 
 func (sp *AssettoServerProcess) loop() {
@@ -154,8 +162,8 @@ func (sp *AssettoServerProcess) loop() {
 			case sp.stopped <- sp.onStop():
 			default:
 			}
-		case raceEvent := <-sp.start:
-			sp.started <- sp.startRaceEvent(raceEvent)
+		case startPacket := <-sp.start:
+			sp.started <- sp.startRaceEvent(startPacket.raceEvent, startPacket.config)
 		}
 	}
 }
@@ -164,17 +172,11 @@ func (sp *AssettoServerProcess) SetPlugin(plugin acserver.Plugin) {
 	sp.plugin = plugin
 }
 
-func (sp *AssettoServerProcess) startRaceEvent(raceEvent RaceEvent) error {
+func (sp *AssettoServerProcess) startRaceEvent(raceEvent RaceEvent, serverOptions *GlobalServerConfig) error {
 	sp.mutex.Lock()
 	defer sp.mutex.Unlock()
 
 	logrus.Infof("Starting Server Process with event: %s", describeRaceEvent(raceEvent))
-
-	serverOptions, err := sp.store.LoadServerOptions()
-
-	if err != nil {
-		return err
-	}
 
 	var logOutput io.Writer
 
@@ -190,6 +192,8 @@ func (sp *AssettoServerProcess) startRaceEvent(raceEvent RaceEvent) error {
 		}
 
 		timestamp := time.Now().Format("2006-01-02_15-04-05")
+
+		var err error
 
 		sp.logFile, err = os.Create(filepath.Join(logDirectory, "output_"+timestamp+".log"))
 
@@ -209,6 +213,7 @@ func (sp *AssettoServerProcess) startRaceEvent(raceEvent RaceEvent) error {
 	}
 
 	sp.raceEvent = raceEvent
+	sp.serverConfig = serverOptions
 
 	sp.ctx, sp.cfn = context.WithCancel(context.Background())
 
@@ -562,7 +567,12 @@ func (sp *AssettoServerProcess) Event() RaceEvent {
 	return sp.raceEvent
 }
 
-var ErrNoOpenUDPConnection = errors.New("servermanager: no open UDP connection found")
+func (sp *AssettoServerProcess) CurrentServerConfig() *GlobalServerConfig {
+	sp.mutex.Lock()
+	defer sp.mutex.Unlock()
+
+	return sp.serverConfig
+}
 
 func (sp *AssettoServerProcess) NotifyDone(ch chan struct{}) {
 	sp.mutex.Lock()
