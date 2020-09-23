@@ -56,7 +56,7 @@ func (t SectorSplitMessageHandler) OnMessage(conn net.Conn, p *Packet) error {
 			Index: splitIndex,
 			Time:  splitTime,
 			Cuts:  cuts,
-		})
+		}, entrant)
 
 		if err != nil {
 			t.logger.WithError(err).Error("On sector completed plugin returned an error")

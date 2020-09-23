@@ -84,6 +84,7 @@ func (c *Connection) Close() {
 
 type SessionData struct {
 	Laps                []*Lap
+	Sectors             []Split
 	Events              []*ClientEvent
 	LapCount            int
 	HasCompletedSession bool

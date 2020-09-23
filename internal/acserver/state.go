@@ -15,7 +15,6 @@ import (
 	"regexp"
 	"sort"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/cj123/ini"
@@ -46,10 +45,6 @@ type ServerState struct {
 
 	currentSessionIndex uint8
 	currentSession      SessionConfig
-
-	// I'm sorry
-	sectorsMutex sync.Mutex
-	sectors map[CarID]map[uint8]Split
 
 	// fixed
 	drsZones           map[string]DRSZone
@@ -83,7 +78,6 @@ func NewServerState(baseDirectory string, serverConfig *ServerConfig, raceConfig
 		randomSeed:      rand.Uint32(),
 		noJoinList:      make(map[string]bool),
 		baseDirectory:   baseDirectory,
-		sectors:         make(map[CarID]map[uint8]Split),
 	}
 
 	if err := ss.init(); err != nil {
@@ -688,15 +682,21 @@ func (ss *ServerState) ChangeTyre(carID CarID, tyre string) error {
 	return nil
 }
 
-func (ss *ServerState) CompleteSector(split Split) error {
-	ss.sectorsMutex.Lock()
-	defer ss.sectorsMutex.Unlock()
+func (ss *ServerState) CompleteSector(split Split, car *Car) error {
+	splitFound := false
 
-	if ss.sectors[split.Car.CarID] == nil {
-		ss.sectors[split.Car.CarID] = make(map[uint8]Split)
+	for i := range car.SessionData.Sectors {
+		if split.Index == car.SessionData.Sectors[i].Index {
+			car.SessionData.Sectors[i] = split
+
+			splitFound = true
+			break
+		}
 	}
 
-	ss.sectors[split.Car.CarID][split.Index] = split
+	if !splitFound {
+		car.SessionData.Sectors = append(car.SessionData.Sectors, split)
+	}
 
 	return ss.plugin.OnSectorCompleted(split)
 }
@@ -734,7 +734,7 @@ func (ss *ServerState) CompleteLap(carID CarID, lap *LapCompleted, target *Car) 
 		go func() {
 			var cutsInSectorsSoFar uint8
 
-			for _, sector := range ss.sectors[entrant.CarID] {
+			for _, sector := range entrant.SessionData.Sectors {
 				cutsInSectorsSoFar += sector.Cuts
 			}
 
