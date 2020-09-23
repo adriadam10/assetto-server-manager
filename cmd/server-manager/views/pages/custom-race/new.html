@@ -1546,7 +1546,23 @@
                     </div>
                 </div>
 
+                <div class="form-group row">
+                    <label for="ForceOpponentHeadlights" class="col-sm-3 col-form-label">Force Opponent Headlights</label>
 
+
+                    <div class="col-sm-9">
+                        <input type="checkbox"
+                               id="ForceOpponentHeadlights"
+                               name="ForceOpponentHeadlights"
+                                {{ if $f.ForceOpponentHeadlights }}
+                                    checked="checked"
+                                {{ end }}
+                        >
+                        <br>
+
+                        <small>Force the headlights of all other cars (not your own, you control those) to on, all the time. Useful for night sessions!</small>
+                    </div>
+                </div>
 
                 <h4>Dynamic Track</h4>
 

@@ -54,6 +54,7 @@ type EventConfig struct {
 	AutoClutchAllowed         bool     `json:"auto_clutch_allowed" yaml:"auto_clutch_allowed"`
 	TyreBlanketsAllowed       bool     `json:"tyre_blankets_allowed" yaml:"tyre_blankets_allowed"`
 	ForceVirtualMirror        bool     `json:"force_virtual_mirror" yaml:"force_virtual_mirror"`
+	ForceOpponentHeadlights   bool     `json:"force_opponent_headlights" yaml:"force_opponent_headlights"`
 	RacePitWindowStart        uint16   `json:"race_pit_window_start" yaml:"race_pit_window_start"`
 	RacePitWindowEnd          uint16   `json:"race_pit_window_end" yaml:"race_pit_window_end"`
 	ReversedGridRacePositions int16    `json:"reversed_grid_race_positions" yaml:"reversed_grid_race_positions"`

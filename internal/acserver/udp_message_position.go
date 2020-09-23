@@ -23,6 +23,10 @@ func NewPositionMessageHandler(state *ServerState, weatherManager *WeatherManage
 	return ph
 }
 
+const (
+	forceHeadlightByte = 0b100000
+)
+
 type CarUpdate struct {
 	Sequence            uint8
 	Timestamp           uint32
@@ -49,6 +53,10 @@ func (pm *PositionMessageHandler) OnMessage(_ net.PacketConn, addr net.Addr, p *
 
 	if car == nil {
 		return nil
+	}
+
+	if pm.state.raceConfig.ForceOpponentHeadlights {
+		carUpdate.StatusBytes |= forceHeadlightByte
 	}
 
 	if car.Connection.HasSentFirstUpdate && carUpdate.Timestamp < car.PluginStatus.Timestamp {

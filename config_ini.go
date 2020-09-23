@@ -384,11 +384,10 @@ type CurrentRaceConfig struct {
 
 	IsSol int `ini:"-" help:"Allows for 24 hour time cycles. The server treats time differently if enabled. Clients also require Sol and Content Manager"`
 
-	ForcedApps []string `ini:"-"`
-
-	DisableDRSZones bool `ini:"-"`
-
-	TimeAttack bool `ini:"-"` // time attack races will force loop ON and merge all results files (practice only)
+	ForcedApps              []string `ini:"-"`
+	ForceOpponentHeadlights bool     `ini:"FORCE_OPPONENT_HEADLIGHTS"`
+	DisableDRSZones         bool     `ini:"-"`
+	TimeAttack              bool     `ini:"-"` // time attack races will force loop ON and merge all results files (practice only)
 
 	ExportSecondRaceToACSR bool `ini:"-"`
 
@@ -415,6 +414,7 @@ func (c CurrentRaceConfig) ToACConfig() *acserver.EventConfig {
 		AutoClutchAllowed:         c.AutoClutchAllowed == 1,
 		TyreBlanketsAllowed:       c.TyreBlanketsAllowed == 1,
 		ForceVirtualMirror:        c.ForceVirtualMirror == 1,
+		ForceOpponentHeadlights:   c.ForceOpponentHeadlights,
 		RacePitWindowStart:        uint16(c.RacePitWindowStart),
 		RacePitWindowEnd:          uint16(c.RacePitWindowEnd),
 		ReversedGridRacePositions: int16(c.ReversedGridRacePositions),

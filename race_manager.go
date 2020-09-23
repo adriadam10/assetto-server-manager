@@ -611,12 +611,13 @@ func (rm *RaceManager) BuildCustomRaceFromForm(r *http.Request) (*CurrentRaceCon
 		SunAngle: formValueAsInt(r.FormValue("SunAngle")),
 
 		// realism
-		LegalTyres:          legalTyres,
-		FuelRate:            formValueAsInt(r.FormValue("FuelRate")),
-		DamageMultiplier:    formValueAsInt(r.FormValue("DamageMultiplier")),
-		TyreWearRate:        formValueAsInt(r.FormValue("TyreWearRate")),
-		ForceVirtualMirror:  formValueAsInt(r.FormValue("ForceVirtualMirror")),
-		TimeOfDayMultiplier: formValueAsInt(r.FormValue("TimeOfDayMultiplier")),
+		LegalTyres:              legalTyres,
+		FuelRate:                formValueAsInt(r.FormValue("FuelRate")),
+		DamageMultiplier:        formValueAsInt(r.FormValue("DamageMultiplier")),
+		TyreWearRate:            formValueAsInt(r.FormValue("TyreWearRate")),
+		ForceVirtualMirror:      formValueAsInt(r.FormValue("ForceVirtualMirror")),
+		ForceOpponentHeadlights: formValueAsInt(r.FormValue("ForceOpponentHeadlights")) == 1,
+		TimeOfDayMultiplier:     formValueAsInt(r.FormValue("TimeOfDayMultiplier")),
 
 		DynamicTrack: DynamicTrackConfig{
 			SessionStart:    formValueAsInt(r.FormValue("SessionStart")),

@@ -14,6 +14,7 @@ Kunos' acServer, and also provides the following advantages, exclusive to Server
   - @TODO add a thing about race weekend session management in here.
 * More platform support - run server manager on anything you like. We've been testing it on a Raspberry Pi!
 * Active development - expect fixes for any issues, and further feature development!
+* Force Opponent Headlights - you can now force opponent drivers to always have their headlights on.
 
 We've also changed the following things in Server Manager itself:
 
