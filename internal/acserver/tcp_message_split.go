@@ -51,16 +51,12 @@ func (t SectorSplitMessageHandler) OnMessage(conn net.Conn, p *Packet) error {
 	go func() {
 		// @TODO I think this is the first time we get told about cuts
 		// @TODO if we decide to do ballast for cut this might be the best place
-		split := Split{
+		err := t.state.CompleteSector(Split{
 			Car:   *entrant,
 			Index: splitIndex,
 			Time:  splitTime,
 			Cuts:  cuts,
-		}
-
-		t.state.CompleteSector(split)
-
-		err := t.plugin.OnSectorCompleted(split)
+		})
 
 		if err != nil {
 			t.logger.WithError(err).Error("On sector completed plugin returned an error")

@@ -15,6 +15,7 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/cj123/ini"
@@ -47,6 +48,7 @@ type ServerState struct {
 	currentSession      SessionConfig
 
 	// I'm sorry
+	sectorsMutex sync.Mutex
 	sectors map[CarID]map[uint8]Split
 
 	// fixed
@@ -686,12 +688,17 @@ func (ss *ServerState) ChangeTyre(carID CarID, tyre string) error {
 	return nil
 }
 
-func (ss *ServerState) CompleteSector(split Split) {
+func (ss *ServerState) CompleteSector(split Split) error {
+	ss.sectorsMutex.Lock()
+	defer ss.sectorsMutex.Unlock()
+
 	if ss.sectors[split.Car.CarID] == nil {
 		ss.sectors[split.Car.CarID] = make(map[uint8]Split)
 	}
 
 	ss.sectors[split.Car.CarID][split.Index] = split
+
+	return ss.plugin.OnSectorCompleted(split)
 }
 
 func (ss *ServerState) CompleteLap(carID CarID, lap *LapCompleted, target *Car) error {

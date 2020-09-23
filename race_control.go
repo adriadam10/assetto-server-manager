@@ -998,9 +998,6 @@ func (rc *RaceControl) OnLapCompleted(lap udp.LapCompleted) error {
 	}
 
 	currentCar.TopSpeedThisLap = 0
-	// @TODO calculate final split time
-	// @TODO or get from CompleteLap in serverstate
-	//currentCar.CurrentLapSplits = make(map[uint8]RaceControlCarSplit)
 
 	rc.ConnectedDrivers.sort()
 
