@@ -326,6 +326,8 @@ func (rc *RaceControl) OnNewSession(sessionInfo udp.SessionInfo) error {
 				}
 			}
 
+			rc.bestSplits = persistedInfo.BestSplits
+
 			logrus.Infof("Loaded previous Live Timings data for %s (%s), num drivers: %d", persistedInfo.Track, persistedInfo.TrackLayout, len(persistedInfo.Drivers))
 		}
 	} else {
@@ -996,7 +998,9 @@ func (rc *RaceControl) OnLapCompleted(lap udp.LapCompleted) error {
 	}
 
 	currentCar.TopSpeedThisLap = 0
-	currentCar.CurrentLapSplits = make(map[uint8]RaceControlCarSplit)
+	// @TODO calculate final split time
+	// @TODO or get from CompleteLap in serverstate
+	//currentCar.CurrentLapSplits = make(map[uint8]RaceControlCarSplit)
 
 	rc.ConnectedDrivers.sort()
 
@@ -1075,30 +1079,30 @@ func (rc *RaceControl) OnSplitComplete(split udp.SplitCompleted) error {
 	}
 
 	newSplit := RaceControlCarSplit{
-		SplitIndex: split.Index,
-		SplitTime:  splitDuration,
-		Cuts:       split.Cuts,
+		SplitIndex:    split.Index,
+		SplitTime:     splitDuration,
+		Cuts:          split.Cuts,
+		IsDriversBest: false,
+		IsBest:        false,
 	}
 
 	if bestSplit, ok := currentCar.BestSplits[newSplit.SplitIndex]; ok {
 		if newSplit.Cuts == 0 && splitDuration < bestSplit.SplitTime {
 			newSplit.IsDriversBest = true
-			currentCar.BestSplits[newSplit.SplitIndex] = newSplit
 		}
-	} else {
+	} else if newSplit.Cuts == 0 {
 		newSplit.IsDriversBest = true
-		currentCar.BestSplits[newSplit.SplitIndex] = newSplit
 	}
 
 	hasSplit := false
 
-	for _, bestSplit := range rc.bestSplits {
+	for index, bestSplit := range rc.bestSplits {
 		if newSplit.SplitIndex == bestSplit.SplitIndex {
 			hasSplit = true
 
 			if newSplit.Cuts == 0 && splitDuration < bestSplit.SplitTime {
 				newSplit.IsBest = true
-				rc.bestSplits = append(rc.bestSplits, newSplit)
+				rc.bestSplits[index] = newSplit
 			}
 		}
 	}
@@ -1109,6 +1113,10 @@ func (rc *RaceControl) OnSplitComplete(split udp.SplitCompleted) error {
 	}
 
 	currentCar.CurrentLapSplits[newSplit.SplitIndex] = newSplit
+
+	if newSplit.IsDriversBest {
+		currentCar.BestSplits[newSplit.SplitIndex] = newSplit
+	}
 
 	return nil
 }
@@ -1265,6 +1273,7 @@ type LiveTimingsPersistedData struct {
 	Track       string
 	TrackLayout string
 	SessionName string
+	BestSplits  []RaceControlCarSplit
 
 	Drivers map[udp.DriverGUID]*RaceControlDriver
 }
@@ -1278,6 +1287,7 @@ func (rc *RaceControl) persistTimingData() {
 		Track:       rc.SessionInfo.Track,
 		TrackLayout: rc.SessionInfo.TrackConfig,
 		SessionName: rc.SessionInfo.Name,
+		BestSplits:  rc.bestSplits,
 
 		Drivers: rc.AllLapTimes(),
 	}

@@ -892,22 +892,26 @@ class LiveTimings implements WebsocketHandler {
 
                 let badgeColour = " badge-primary";
 
-                if (split.IsDriversBest) {
+                if (split.IsDriversBest !== undefined && split.IsDriversBest) {
                     badgeColour = " badge-success";
                 }
 
-                if (split.IsBest) {
+                if (split.IsBest !== undefined && split.IsBest) {
                     badgeColour = " badge-info";
                 }
 
-                if (split.Cuts !== 0 && split.Cuts !== undefined) {
+                if (split.Cuts !== undefined && split.Cuts !== 0) {
                     badgeColour = " badge-danger";
                 }
 
                 $tag.attr({'id': `split-` + splitIndex, 'class': 'badge ml-2 mt-1' + badgeColour});
 
+                if (split.SplitIndex === undefined) {
+                    split.SplitIndex = 0
+                }
+
                 $tag.text(
-                    splitIndex + ": " + msToTime(split.SplitTime / 1000000)
+                    "S" + (split.SplitIndex+1) + ": " + msToTime(split.SplitTime / 1000000)
                 );
 
                 $currentLap.append($tag);

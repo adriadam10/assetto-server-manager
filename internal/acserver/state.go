@@ -46,6 +46,9 @@ type ServerState struct {
 	currentSessionIndex uint8
 	currentSession      SessionConfig
 
+	// I'm sorry
+	sectors map[CarID]map[uint8]Split
+
 	// fixed
 	drsZones           map[string]DRSZone
 	setups             map[string]Setup
@@ -78,6 +81,7 @@ func NewServerState(baseDirectory string, serverConfig *ServerConfig, raceConfig
 		randomSeed:      rand.Uint32(),
 		noJoinList:      make(map[string]bool),
 		baseDirectory:   baseDirectory,
+		sectors:         make(map[CarID]map[uint8]Split),
 	}
 
 	if err := ss.init(); err != nil {
@@ -682,6 +686,14 @@ func (ss *ServerState) ChangeTyre(carID CarID, tyre string) error {
 	return nil
 }
 
+func (ss *ServerState) CompleteSector(split Split) {
+	if ss.sectors[split.Car.CarID] == nil {
+		ss.sectors[split.Car.CarID] = make(map[uint8]Split)
+	}
+
+	ss.sectors[split.Car.CarID][split.Index] = split
+}
+
 func (ss *ServerState) CompleteLap(carID CarID, lap *LapCompleted, target *Car) error {
 	if carID != ServerCarID {
 		ss.logger.Infof("CarID: %d just completed lap: %s (%d cuts) (splits: %v)", carID, time.Duration(lap.LapTime)*time.Millisecond, lap.Cuts, lap.Splits)
@@ -708,6 +720,30 @@ func (ss *ServerState) CompleteLap(carID CarID, lap *LapCompleted, target *Car) 
 
 			if err != nil {
 				ss.logger.WithError(err).Error("On lap completed plugin returned an error")
+			}
+		}()
+
+		// last sector only
+		go func() {
+			var cutsInSectorsSoFar uint8
+
+			for _, sector := range ss.sectors[entrant.CarID] {
+				cutsInSectorsSoFar += sector.Cuts
+			}
+
+			cutsInFinalSector := lap.Cuts - cutsInSectorsSoFar
+
+			split := Split{
+				Car:   *entrant,
+				Index: lap.NumSplits - 1,
+				Time:  lap.Splits[lap.NumSplits-1],
+				Cuts:  cutsInFinalSector,
+			}
+
+			err := ss.plugin.OnSectorCompleted(split)
+
+			if err != nil {
+				ss.logger.WithError(err).Error("On sector completed plugin returned an error")
 			}
 		}()
 	}

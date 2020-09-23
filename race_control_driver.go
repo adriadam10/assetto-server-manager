@@ -76,7 +76,7 @@ type RaceControlCarLapInfo struct {
 }
 
 type RaceControlCarSplit struct {
-	SplitIndex    uint8         `json:"-"`
+	SplitIndex    uint8         `json:"SplitIndex"`
 	SplitTime     time.Duration `json:"SplitTime"`
 	Cuts          uint8         `json:"Cuts"`
 	IsDriversBest bool          `json:"IsDriversBest"`

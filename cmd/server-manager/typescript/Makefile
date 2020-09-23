@@ -2,7 +2,7 @@ deps:
 	npm install
 
 build: deps
-	./node_modules/.bin/gulp build
+	npx gulp build
 
 watch: deps
-	./node_modules/.bin/gulp
+	npx gulp

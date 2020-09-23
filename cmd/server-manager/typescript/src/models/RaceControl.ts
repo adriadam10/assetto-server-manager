@@ -289,6 +289,7 @@ class RaceControlDriverMapRaceControlDriverCollision {
 
 // struct2ts:justapengu.in/acsm.RaceControlDriverMapRaceControlDriverRaceControlCarLapInfoRaceControlCarSplit
 class RaceControlDriverMapRaceControlDriverRaceControlCarLapInfoRaceControlCarSplit {
+    SplitIndex: number;
     SplitTime: number;
     Cuts: number;
     IsDriversBest: boolean;
@@ -296,6 +297,7 @@ class RaceControlDriverMapRaceControlDriverRaceControlCarLapInfoRaceControlCarSp
 
     constructor(data?: any) {
         const d: any = (data && typeof data === 'object') ? ToObject(data) : {};
+        this.SplitIndex = ('SplitIndex' in d) ? d.SplitIndex as number : 0;
         this.SplitTime = ('SplitTime' in d) ? d.SplitTime as number : 0;
         this.Cuts = ('Cuts' in d) ? d.Cuts as number : 0;
         this.IsDriversBest = ('IsDriversBest' in d) ? d.IsDriversBest as boolean : false;
@@ -304,6 +306,7 @@ class RaceControlDriverMapRaceControlDriverRaceControlCarLapInfoRaceControlCarSp
 
     toObject(): any {
         const cfg: any = {};
+        cfg.SplitIndex = 'number';
         cfg.SplitTime = 'number';
         cfg.Cuts = 'number';
         return ToObject(this, cfg);
