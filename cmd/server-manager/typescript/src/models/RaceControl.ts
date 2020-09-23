@@ -287,6 +287,32 @@ class RaceControlDriverMapRaceControlDriverCollision {
     }
 }
 
+// struct2ts:justapengu.in/acsm.RaceControlDriverMapRaceControlDriverRaceControlCarLapInfoRaceControlCarSplit
+class RaceControlDriverMapRaceControlDriverRaceControlCarLapInfoRaceControlCarSplit {
+    SplitIndex: number;
+    SplitTime: number;
+    Cuts: number;
+    IsDriversBest: boolean;
+    IsBest: boolean;
+
+    constructor(data?: any) {
+        const d: any = (data && typeof data === 'object') ? ToObject(data) : {};
+        this.SplitIndex = ('SplitIndex' in d) ? d.SplitIndex as number : 0;
+        this.SplitTime = ('SplitTime' in d) ? d.SplitTime as number : 0;
+        this.Cuts = ('Cuts' in d) ? d.Cuts as number : 0;
+        this.IsDriversBest = ('IsDriversBest' in d) ? d.IsDriversBest as boolean : false;
+        this.IsBest = ('IsBest' in d) ? d.IsBest as boolean : false;
+    }
+
+    toObject(): any {
+        const cfg: any = {};
+        cfg.SplitIndex = 'number';
+        cfg.SplitTime = 'number';
+        cfg.Cuts = 'number';
+        return ToObject(this, cfg);
+    }
+}
+
 // struct2ts:justapengu.in/acsm.RaceControlDriverMapRaceControlDriverRaceControlCarLapInfo
 class RaceControlDriverMapRaceControlDriverRaceControlCarLapInfo {
     TopSpeedThisLap: number;
@@ -297,6 +323,8 @@ class RaceControlDriverMapRaceControlDriverRaceControlCarLapInfo {
     LastLapCompletedTime: Date;
     TotalLapTime: number;
     CarName: string;
+    CurrentLapSplits: { [key: number]: RaceControlDriverMapRaceControlDriverRaceControlCarLapInfoRaceControlCarSplit };
+    BestLapSplits: { [key: number]: RaceControlDriverMapRaceControlDriverRaceControlCarLapInfoRaceControlCarSplit };
 
     constructor(data?: any) {
         const d: any = (data && typeof data === 'object') ? ToObject(data) : {};
@@ -308,6 +336,8 @@ class RaceControlDriverMapRaceControlDriverRaceControlCarLapInfo {
         this.LastLapCompletedTime = ('LastLapCompletedTime' in d) ? ParseDate(d.LastLapCompletedTime) : new Date();
         this.TotalLapTime = ('TotalLapTime' in d) ? d.TotalLapTime as number : 0;
         this.CarName = ('CarName' in d) ? d.CarName as string : '';
+        this.CurrentLapSplits = ('CurrentLapSplits' in d) ? d.CurrentLapSplits as { [key: number]: RaceControlDriverMapRaceControlDriverRaceControlCarLapInfoRaceControlCarSplit } : {};
+        this.BestLapSplits = ('BestLapSplits' in d) ? d.BestLapSplits as { [key: number]: RaceControlDriverMapRaceControlDriverRaceControlCarLapInfoRaceControlCarSplit } : {};
     }
 
     toObject(): any {
@@ -420,6 +450,7 @@ export {
     RaceControlDriverMapRaceControlDriverSessionCarInfo,
     RaceControlDriverMapRaceControlDriverVector3F,
     RaceControlDriverMapRaceControlDriverCollision,
+    RaceControlDriverMapRaceControlDriverRaceControlCarLapInfoRaceControlCarSplit,
     RaceControlDriverMapRaceControlDriverRaceControlCarLapInfo,
     RaceControlDriverMapRaceControlDriver,
     RaceControlDriverMap,

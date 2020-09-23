@@ -682,6 +682,25 @@ func (ss *ServerState) ChangeTyre(carID CarID, tyre string) error {
 	return nil
 }
 
+func (ss *ServerState) CompleteSector(split Split, car *Car) error {
+	splitFound := false
+
+	for i := range car.SessionData.Sectors {
+		if split.Index == car.SessionData.Sectors[i].Index {
+			car.SessionData.Sectors[i] = split
+
+			splitFound = true
+			break
+		}
+	}
+
+	if !splitFound {
+		car.SessionData.Sectors = append(car.SessionData.Sectors, split)
+	}
+
+	return ss.plugin.OnSectorCompleted(split)
+}
+
 func (ss *ServerState) CompleteLap(carID CarID, lap *LapCompleted, target *Car) error {
 	if carID != ServerCarID {
 		ss.logger.Infof("CarID: %d just completed lap: %s (%d cuts) (splits: %v)", carID, time.Duration(lap.LapTime)*time.Millisecond, lap.Cuts, lap.Splits)
@@ -708,6 +727,30 @@ func (ss *ServerState) CompleteLap(carID CarID, lap *LapCompleted, target *Car) 
 
 			if err != nil {
 				ss.logger.WithError(err).Error("On lap completed plugin returned an error")
+			}
+		}()
+
+		// last sector only
+		go func() {
+			var cutsInSectorsSoFar uint8
+
+			for _, sector := range entrant.SessionData.Sectors {
+				cutsInSectorsSoFar += sector.Cuts
+			}
+
+			cutsInFinalSector := lap.Cuts - cutsInSectorsSoFar
+
+			split := Split{
+				Car:   *entrant,
+				Index: lap.NumSplits - 1,
+				Time:  lap.Splits[lap.NumSplits-1],
+				Cuts:  cutsInFinalSector,
+			}
+
+			err := ss.plugin.OnSectorCompleted(split)
+
+			if err != nil {
+				ss.logger.WithError(err).Error("On sector completed plugin returned an error")
 			}
 		}()
 	}

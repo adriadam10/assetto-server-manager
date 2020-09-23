@@ -153,7 +153,7 @@ export class RaceControl {
                     "style", "color: " + randomColorForDriver(message.Message.DriverGUID)
                 ).text(
                     hoursString + ":" + minutesString + " " + message.Message.DriverName + ": "
-                )
+                );
 
                 chatMessage.text(message.Message.Message);
                 chatMessage.addClass("chat-message");
@@ -881,7 +881,41 @@ class LiveTimings implements WebsocketHandler {
                 currentLapTimeText = msToTime(moment().utc().diff(moment(carInfo.LastLapCompletedTime).utc()), false);
             }
 
-            $tr.find(".current-lap").text(currentLapTimeText);
+            let $currentLap = $tr.find(".current-lap");
+
+            $currentLap.text(currentLapTimeText);
+
+            for (const splitIndex in carInfo.CurrentLapSplits) {
+                let split = carInfo.CurrentLapSplits[splitIndex];
+
+                let $tag = $("<span/>");
+
+                let badgeColour = " badge-primary";
+
+                if (split.IsDriversBest !== undefined && split.IsDriversBest) {
+                    badgeColour = " badge-success";
+                }
+
+                if (split.IsBest !== undefined && split.IsBest) {
+                    badgeColour = " badge-info";
+                }
+
+                if (split.Cuts !== undefined && split.Cuts !== 0) {
+                    badgeColour = " badge-danger";
+                }
+
+                $tag.attr({'id': `split-` + splitIndex, 'class': 'badge ml-2 mt-1' + badgeColour});
+
+                if (split.SplitIndex === undefined) {
+                    split.SplitIndex = 0
+                }
+
+                $tag.text(
+                    "S" + (split.SplitIndex+1) + ": " + msToTime(split.SplitTime / 1000000)
+                );
+
+                $currentLap.append($tag);
+            }
         }
 
         if (addingDriverToConnectedTable) {

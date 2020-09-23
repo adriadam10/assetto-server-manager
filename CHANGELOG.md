@@ -18,6 +18,7 @@ Kunos' acServer, and also provides the following advantages, exclusive to Server
 We've also changed the following things in Server Manager itself:
 
 * Significantly improved startup times - we've optimised some of Server Manager's startup logic.
+* Added split information to the Current Lap column of the Live Timings page.
 
 Removed:
 

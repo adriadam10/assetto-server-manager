@@ -59,6 +59,8 @@ type RaceControl struct {
 	driverSwapTimers         map[int]*time.Timer
 	driverSwapPenaltiesMutex sync.Mutex
 	driverSwapPenalties      map[udp.DriverGUID]*driverSwapPenalty
+
+	bestSplits []RaceControlCarSplit
 }
 
 // RaceControl piggybacks on the udp.Message interface so that the entire data can be sent to newly connected clients.
@@ -142,6 +144,10 @@ func (rc *RaceControl) UDPCallback(message udp.Message) {
 		sendUpdatedRaceControlStatus = true
 	case udp.LapCompleted:
 		err = rc.OnLapCompleted(m)
+
+		sendUpdatedRaceControlStatus = true
+	case udp.SplitCompleted:
+		err = rc.OnSplitComplete(m)
 
 		sendUpdatedRaceControlStatus = true
 	case udp.Chat:
@@ -248,6 +254,8 @@ func (rc *RaceControl) OnNewSession(sessionInfo udp.SessionInfo) error {
 	rc.driverSwapPenalties = make(map[udp.DriverGUID]*driverSwapPenalty)
 	rc.driverSwapPenaltiesMutex.Unlock()
 
+	rc.bestSplits = []RaceControlCarSplit{}
+
 	if (rc.ConnectedDrivers.Len() > 0 || rc.DisconnectedDrivers.Len() > 0) && sessionInfo.Type == acserver.SessionTypePractice {
 		if oldSessionInfo.Type == sessionInfo.Type && oldSessionInfo.Track == sessionInfo.Track && oldSessionInfo.TrackConfig == sessionInfo.TrackConfig && oldSessionInfo.Name == sessionInfo.Name {
 			// this is a looped event, keep the cars
@@ -317,6 +325,8 @@ func (rc *RaceControl) OnNewSession(sessionInfo udp.SessionInfo) error {
 					rc.DisconnectedDrivers.Add(guid, driver)
 				}
 			}
+
+			rc.bestSplits = persistedInfo.BestSplits
 
 			logrus.Infof("Loaded previous Live Timings data for %s (%s), num drivers: %d", persistedInfo.Track, persistedInfo.TrackLayout, len(persistedInfo.Drivers))
 		}
@@ -1043,6 +1053,71 @@ func (rc *RaceControl) OnLapCompleted(lap udp.LapCompleted) error {
 	return nil
 }
 
+func (rc *RaceControl) OnSplitComplete(split udp.SplitCompleted) error {
+	driver, err := rc.findConnectedDriverByCarID(split.CarID)
+
+	if err != nil {
+		return err
+	}
+
+	splitDuration := lapToDuration(int(split.Time))
+
+	driver.mutex.Lock()
+	defer driver.mutex.Unlock()
+
+	currentCar := driver.CurrentCar()
+
+	if currentCar.CurrentLapSplits == nil || split.Index == 0 {
+		currentCar.CurrentLapSplits = make(map[uint8]RaceControlCarSplit)
+	}
+
+	if currentCar.BestSplits == nil {
+		currentCar.BestSplits = make(map[uint8]RaceControlCarSplit)
+	}
+
+	newSplit := RaceControlCarSplit{
+		SplitIndex:    split.Index,
+		SplitTime:     splitDuration,
+		Cuts:          split.Cuts,
+		IsDriversBest: false,
+		IsBest:        false,
+	}
+
+	if bestSplit, ok := currentCar.BestSplits[newSplit.SplitIndex]; ok {
+		if newSplit.Cuts == 0 && splitDuration < bestSplit.SplitTime {
+			newSplit.IsDriversBest = true
+		}
+	} else if newSplit.Cuts == 0 {
+		newSplit.IsDriversBest = true
+	}
+
+	hasSplit := false
+
+	for index, bestSplit := range rc.bestSplits {
+		if newSplit.SplitIndex == bestSplit.SplitIndex {
+			hasSplit = true
+
+			if newSplit.Cuts == 0 && splitDuration < bestSplit.SplitTime {
+				newSplit.IsBest = true
+				rc.bestSplits[index] = newSplit
+			}
+		}
+	}
+
+	if !hasSplit && newSplit.Cuts == 0 {
+		newSplit.IsBest = true
+		rc.bestSplits = append(rc.bestSplits, newSplit)
+	}
+
+	currentCar.CurrentLapSplits[newSplit.SplitIndex] = newSplit
+
+	if newSplit.IsDriversBest {
+		currentCar.BestSplits[newSplit.SplitIndex] = newSplit
+	}
+
+	return nil
+}
+
 const (
 	chatMessageLimit  = 50
 	chatCommandPrefix = "/"
@@ -1195,6 +1270,7 @@ type LiveTimingsPersistedData struct {
 	Track       string
 	TrackLayout string
 	SessionName string
+	BestSplits  []RaceControlCarSplit
 
 	Drivers map[udp.DriverGUID]*RaceControlDriver
 }
@@ -1208,6 +1284,7 @@ func (rc *RaceControl) persistTimingData() {
 		Track:       rc.SessionInfo.Track,
 		TrackLayout: rc.SessionInfo.TrackConfig,
 		SessionName: rc.SessionInfo.Name,
+		BestSplits:  rc.bestSplits,
 
 		Drivers: rc.AllLapTimes(),
 	}

@@ -41,6 +41,11 @@ export function msToTime(s: number, millisecondPrecision: boolean = true, trimLe
     let formatString = (millisecondPrecision ? "HH:mm:ss.SSS" : "HH:mm:ss");
     let formatted = moment.utc(s).format(formatString);
 
+    if (trimLeadingZeroes && formatted.startsWith("00:00:")) {
+        // remove leading hours
+        return out+formatted.substring(6);
+    }
+
     if (trimLeadingZeroes && formatted.startsWith("00:")) {
         // remove leading hours
         return out+formatted.substring(3);

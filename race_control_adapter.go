@@ -112,6 +112,13 @@ func (r *UDPPluginAdapter) OnClientLoaded(car acserver.Car) error {
 }
 
 func (r *UDPPluginAdapter) OnSectorCompleted(split acserver.Split) error {
+	r.UDPCallback(udp.SplitCompleted{
+		CarID: split.Car.CarID,
+		Index: split.Index,
+		Time:  split.Time,
+		Cuts:  split.Cuts,
+	})
+
 	return nil
 }
 

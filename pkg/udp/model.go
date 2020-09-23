@@ -25,6 +25,7 @@ const (
 	EventSessionInfo      Event = 59
 	EventError            Event = 60
 	EventLapCompleted     Event = 73
+	EventSplitCompleted   Event = 100
 )
 
 type Message interface {
@@ -49,6 +50,17 @@ type LapCompleted struct {
 	CarsCount uint8  `json:"CarsCount"`
 
 	Cars []*LapCompletedCar `json:"Cars"`
+}
+
+type SplitCompleted struct {
+	CarID CarID
+	Index uint8
+	Time  uint32
+	Cuts  uint8
+}
+
+func (SplitCompleted) Event() Event {
+	return EventSplitCompleted
 }
 
 func (LapCompleted) Event() Event {
