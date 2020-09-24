@@ -2,6 +2,7 @@ package acsm
 
 import (
 	"encoding/json"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	"sort"
@@ -88,6 +89,7 @@ var (
 		addDefaultACSRGateOptionsToChampionships,
 		addSplitTypeToRaceWeekends,
 		addDefaultCustomChecksums,
+		migrateBlacklistToBlockList,
 	}
 )
 
@@ -1125,4 +1127,30 @@ func addDefaultCustomChecksums(s Store) error {
 	}}
 
 	return s.UpsertCustomChecksums(customChecksums)
+}
+
+func migrateBlacklistToBlockList(s Store) error {
+	logrus.Infof("Running migration: Migrate to Block List")
+
+	data, err := ioutil.ReadFile(filepath.Join(ServerInstallPath, "blacklist.txt"))
+
+	if os.IsNotExist(err) {
+		return nil
+	} else if err != nil {
+		return err
+	}
+
+	if len(data) == 0 {
+		return nil
+	}
+
+	blockListManager := NewBlockListManager()
+
+	for _, guid := range strings.Split(string(data), "\n") {
+		if err := blockListManager.AddToBlockList(guid); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }

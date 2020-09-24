@@ -1,0 +1,48 @@
+{{/* gotype: justapengu.in/acsm.serverBlocklistTemplateVars*/}}
+
+{{ define "title" }}Block List{{ end }}
+
+{{ define "content" }}
+    <h1 class="text-center">Block List</h1>
+
+    <p>
+        This file is where banned user GUIDs are stored. If block list mode is set to "2" users will automatically
+        be added to this list when kicked. You can edit this list manually regardless of block list mode, but you must
+        restart the server for manual changes to take affect.
+    </p>
+
+    <table class="table table-striped table-bordered">
+        <tr>
+            <th>GUID</th>
+            <th>Actions</th>
+        </tr>
+        {{ range $index, $guid := $.GUIDs }}
+            <tr>
+                <td>{{ $guid }}</td>
+                <td>
+                    <a class="btn btn-danger" href="/blocklist?action=remove&guid={{ $guid }}">
+                        <i class="fa fa-trash mr-2"></i> Delete
+                    </a>
+                </td>
+            </tr>
+        {{ end }}
+    </table>
+
+    <hr>
+
+    <form action="/blocklist" method="GET">
+        <input type="hidden" name="action" value="add">
+
+        <div class="form-group row">
+            <label for="guid" class="col-sm-3 col-form-label">Add To Block List</label>
+
+            <div class="col-sm-6">
+                <input type="text" class="form-control" id="guid" name="guid" pattern="[0-9]+">
+            </div>
+
+            <div class="col-sm-3">
+                <button class="btn btn-success" type="submit">Add to Block List</button>
+            </div>
+        </div>
+    </form>
+{{ end }}

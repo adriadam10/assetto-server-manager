@@ -239,10 +239,12 @@ func (ss *ServerState) initMOTD() error {
 	return nil
 }
 
+const BlockListFileName = "blocklist.json"
+
 func (ss *ServerState) initBlockList() error {
 	ss.logger.Debug("Loading server blocklist.json")
 
-	blockListFile, err := ioutil.ReadFile(filepath.Join(ss.baseDirectory, "blocklist.json"))
+	blockListFile, err := ioutil.ReadFile(filepath.Join(ss.baseDirectory, BlockListFileName))
 
 	if err != nil && !os.IsNotExist(err) {
 		return err
@@ -254,13 +256,13 @@ func (ss *ServerState) initBlockList() error {
 		err := json.Unmarshal(blockListFile, &blockList)
 
 		if err != nil {
-			ss.logger.Debug("Server blocklist.json is formatted incorrectly! Skipping")
+			ss.logger.WithError(err).Errorf("Server %s is formatted incorrectly. Skipping", BlockListFileName)
 		} else {
-			ss.logger.Debugf("Block list loaded successfully: %s", strings.Join(blockList, ", "))
+			ss.logger.Infof("Block list loaded successfully: %s", strings.Join(blockList, ", "))
 			ss.blockList = blockList
 		}
 	} else {
-		ss.logger.Debug("Server blocklist.json not found, skipping")
+		ss.logger.Debug("Server %s not found, skipping", BlockListFileName)
 	}
 
 	return nil
