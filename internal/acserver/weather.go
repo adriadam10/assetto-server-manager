@@ -81,7 +81,7 @@ func NewWeatherManager(state *ServerState, plugin Plugin, logger Logger) *Weathe
 	}
 }
 
-func (wm *WeatherManager) ChangeWeather(weatherConfig *WeatherConfig) {
+func (wm *WeatherManager) ChangeWeather(weatherConfig *WeatherConfig, weatherUpdateOffsetSeconds int64) {
 	ambient, road := wm.calculateTemperatures(weatherConfig)
 	windSpeed, windDirection := wm.calculateWind(weatherConfig)
 
@@ -96,7 +96,7 @@ func (wm *WeatherManager) ChangeWeather(weatherConfig *WeatherConfig) {
 	wm.logger.Infof("Changed weather to: %s", wm.currentWeather.String())
 
 	if weatherConfig.Duration > 0 {
-		wm.nextWeatherUpdate = currentTimeMillisecond() + (weatherConfig.Duration * 60000)
+		wm.nextWeatherUpdate = currentTimeMillisecond() + (weatherUpdateOffsetSeconds * 1000) + (weatherConfig.Duration * 60000)
 	} else {
 		wm.logger.Infof("Weather progression completed.")
 		wm.weatherProgression = false
@@ -247,7 +247,7 @@ func (wm *WeatherManager) OnNewSession() {
 	if sessionWeatherIndex >= 0 {
 		wm.currentWeatherIndex = sessionWeatherIndex
 
-		wm.ChangeWeather(wm.state.raceConfig.Weather[wm.currentWeatherIndex])
+		wm.ChangeWeather(wm.state.raceConfig.Weather[wm.currentWeatherIndex], int64(wm.state.currentSession.WaitTime))
 	} else if sessionWeatherIndex < 0 {
 		wm.logger.Debugf("No weather defined for session. Falling back to sensible defaults.")
 
@@ -262,7 +262,7 @@ func (wm *WeatherManager) OnNewSession() {
 			WindBaseSpeedMax:       15,
 			WindBaseDirection:      30,
 			WindVariationDirection: 15,
-		})
+		}, int64(wm.state.currentSession.WaitTime))
 	}
 }
 
@@ -319,7 +319,7 @@ func (wm *WeatherManager) NextWeather() {
 		nextWeather := wm.state.raceConfig.Weather[nextWeatherIndex]
 
 		wm.currentWeatherIndex = nextWeatherIndex
-		wm.ChangeWeather(nextWeather)
+		wm.ChangeWeather(nextWeather, 0)
 	} else {
 		wm.logger.Infof("Weather progression completed.")
 		wm.weatherProgression = false

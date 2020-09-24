@@ -194,35 +194,42 @@ export class RaceControl {
     private showEventCompletion() {
         let timeRemaining = "";
 
-        // Get lap/laps or time/totalTime
-        if (this.status.SessionInfo.Time > 0) {
-            let timeInMS = (this.status.SessionInfo.Time * 60 * 1000) + (this.status.SessionInfo.WaitTime/126.166667 * 1000) - moment.duration(moment().utc().diff(moment(this.status.SessionStartTime).utc())).asMilliseconds();
+        let elapsedTime = moment.duration(moment().utc().diff(moment(this.status.SessionStartTime).utc())).asMilliseconds();
+        let isInWaitTime = elapsedTime < (this.status.SessionInfo.WaitTime * 1000);
 
-            let days = Math.floor(timeInMS/8.64e+7);
+        if (isInWaitTime) {
+            timeRemaining = "Countdown: " + msToTime((this.status.SessionInfo.WaitTime * 1000) - elapsedTime, false, true);
+        } else {
+            // Get lap/laps or time/totalTime
+            if (this.status.SessionInfo.Time > 0) {
+                let timeInMS = (this.status.SessionInfo.Time * 60 * 1000) + (this.status.SessionInfo.WaitTime * 1000) - moment.duration(moment().utc().diff(moment(this.status.SessionStartTime).utc())).asMilliseconds();
 
-            timeRemaining = msToTime(timeInMS, false, false);
+                let days = Math.floor(timeInMS/8.64e+7);
 
-            if (days > 0) {
-                let dayText = " day + ";
+                timeRemaining = msToTime(timeInMS, false, false);
 
-                if ( days > 1) {
-                    dayText = " days + ";
+                if (days > 0) {
+                    let dayText = " day + ";
+
+                    if ( days > 1) {
+                        dayText = " days + ";
+                    }
+
+                    timeRemaining = days + dayText + timeRemaining;
+                }
+            } else if (this.status.SessionInfo.Laps > 0) {
+                let lapsCompleted = 0;
+
+                if (this.status.ConnectedDrivers && this.status.ConnectedDrivers.GUIDsInPositionalOrder.length > 0) {
+                    let driver = this.status.ConnectedDrivers.Drivers[this.status.ConnectedDrivers.GUIDsInPositionalOrder[0]];
+
+                    if (driver.TotalNumLaps > 0) {
+                        lapsCompleted = driver.TotalNumLaps;
+                    }
                 }
 
-                timeRemaining = days + dayText + timeRemaining;
+                timeRemaining = this.status.SessionInfo.Laps - lapsCompleted + " laps remaining";
             }
-        } else if (this.status.SessionInfo.Laps > 0) {
-            let lapsCompleted = 0;
-
-            if (this.status.ConnectedDrivers && this.status.ConnectedDrivers.GUIDsInPositionalOrder.length > 0) {
-                let driver = this.status.ConnectedDrivers.Drivers[this.status.ConnectedDrivers.GUIDsInPositionalOrder[0]];
-
-                if (driver.TotalNumLaps > 0) {
-                    lapsCompleted = driver.TotalNumLaps;
-                }
-            }
-
-            timeRemaining = this.status.SessionInfo.Laps - lapsCompleted + " laps remaining";
         }
 
         let $raceTime = $("#race-time");
