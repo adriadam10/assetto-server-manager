@@ -18,6 +18,7 @@ type Resolver struct {
 	notificationManager   *NotificationManager
 	scheduledRacesManager *ScheduledRacesManager
 	raceWeekendManager    *RaceWeekendManager
+	blockListManager      *BlockListManager
 
 	viewRenderer          *Renderer
 	serverProcess         ServerProcess
@@ -364,11 +365,22 @@ func (r *Resolver) resolveServerAdministrationHandler() *ServerAdministrationHan
 		r.resolveRaceManager(),
 		r.resolveChampionshipManager(),
 		r.resolveRaceWeekendManager(),
+		r.resolveBlockListManager(),
 		r.resolveServerProcess(),
 		r.acsrClient,
 	)
 
 	return r.serverAdministrationHandler
+}
+
+func (r *Resolver) resolveBlockListManager() *BlockListManager {
+	if r.blockListManager != nil {
+		return r.blockListManager
+	}
+
+	r.blockListManager = NewBlockListManager()
+
+	return r.blockListManager
 }
 
 func (r *Resolver) resolveContentUploadHandler() *ContentUploadHandler {
