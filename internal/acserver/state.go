@@ -983,7 +983,11 @@ func (ss *ServerState) Leaderboard() []*LeaderboardLine {
 			}
 
 			if carI.Time == carJ.Time {
-				return carI.Car.CarID < carJ.Car.CarID
+				if len(carI.Car.SessionData.Laps) == len(carJ.Car.SessionData.Laps) {
+					return carI.Car.CarID < carJ.Car.CarID
+				}
+
+				return len(carI.Car.SessionData.Laps) < len(carJ.Car.SessionData.Laps)
 			}
 
 			return carI.Time < carJ.Time
