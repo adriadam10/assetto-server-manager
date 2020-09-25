@@ -916,7 +916,11 @@ func (rc *RaceControl) OnClientLoaded(loadedCar udp.ClientLoaded) error {
 		DriverName: "Server",
 	}
 
-	rc.OnChatMessage(chat)
+	err = rc.OnChatMessage(chat)
+
+	if err != nil {
+		logrus.WithError(err).Errorf("Couldn't add driver loaded message to live timings chat")
+	}
 
 	driver.LoadedTime = time.Now()
 
@@ -1267,15 +1271,6 @@ func (rc *RaceControl) OnCollisionWithEnvironment(collision udp.CollisionWithEnv
 
 	driver.mutex.Lock()
 	defer driver.mutex.Unlock()
-
-	logrus.Debugf(
-		"front bumper %.3f, rear bumper %.3f, left skirt %.3f, right skirt %.3f, unknown %.3f",
-		collision.DamageZones[0],
-		collision.DamageZones[1],
-		collision.DamageZones[2],
-		collision.DamageZones[3],
-		collision.DamageZones[4],
-	)
 
 	driver.Collisions = append(driver.Collisions, Collision{
 		ID:          uuid.New().String(),
