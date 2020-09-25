@@ -441,19 +441,20 @@ func (ss *ServerState) BroadcastChat(carID CarID, message string) {
 	p.Write(carID)
 	p.WriteUTF32String(message)
 
-	/* @TODO do we want to call on chat for broadcasted messages?
-	go func() {
-		err := ss.plugin.OnChat(Chat{
-			FromCar: carID,
-			ToCar:   ServerCarID,
-			Message: message,
-			Time:    time.Now(),
-		})
+	if carID != ServerCarID {
+		go func() {
+			err := ss.plugin.OnChat(Chat{
+				FromCar: carID,
+				ToCar:   ServerCarID,
+				Message: message,
+				Time:    time.Now(),
+			})
 
-		if err != nil {
-			ss.logger.WithError(err).Error("On chat plugin returned an error")
-		}
-	}()*/
+			if err != nil {
+				ss.logger.WithError(err).Error("On chat plugin returned an error")
+			}
+		}()
+	}
 
 	ss.BroadcastAllTCP(p)
 }
@@ -527,6 +528,14 @@ func (ss *ServerState) ChangeTyre(carID CarID, tyre string) error {
 	ss.logger.Debugf("Car: %s changed tyres to: %s", entrant, tyre)
 
 	ss.BroadcastOthersTCP(p, entrant.CarID)
+
+	go func() {
+		err := ss.plugin.OnTyreChange(*entrant, tyre)
+
+		if err != nil {
+			ss.logger.WithError(err).Error("On tyre change plugin returned an error")
+		}
+	}()
 
 	return nil
 }

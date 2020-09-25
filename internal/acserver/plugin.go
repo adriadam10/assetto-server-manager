@@ -20,6 +20,7 @@ type Plugin interface {
 	OnSectorCompleted(split Split) error
 	OnLapCompleted(carID CarID, lap Lap) error
 	OnCarUpdate(carUpdate Car) error
+	OnTyreChange(car Car, tyres string) error
 
 	OnClientEvent(event ClientEvent) error
 	OnCollisionWithCar(event ClientEvent) error
@@ -136,6 +137,19 @@ func (mp *multiPlugin) OnCarUpdate(carUpdate Car) error {
 		plugin := plugin
 		g.Go(func() error {
 			return plugin.OnCarUpdate(carUpdate)
+		})
+	}
+
+	return g.Wait()
+}
+
+func (mp *multiPlugin) OnTyreChange(car Car, tyres string) error {
+	g, _ := errgroup.WithContext(context.Background())
+
+	for _, plugin := range mp.plugins {
+		plugin := plugin
+		g.Go(func() error {
+			return plugin.OnTyreChange(car, tyres)
 		})
 	}
 
@@ -269,6 +283,10 @@ func (n nilPlugin) OnConnectionClosed(_ Car) error {
 }
 
 func (n nilPlugin) OnCarUpdate(_ Car) error {
+	return nil
+}
+
+func (n nilPlugin) OnTyreChange(car Car, tyres string) error {
 	return nil
 }
 

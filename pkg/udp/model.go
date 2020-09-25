@@ -26,6 +26,7 @@ const (
 	EventError            Event = 60
 	EventLapCompleted     Event = 73
 	EventSplitCompleted   Event = 100
+	EventTyresChanged     Event = 101
 )
 
 type Message interface {
@@ -48,6 +49,7 @@ type LapCompleted struct {
 	LapTime   uint32 `json:"LapTime"`
 	Cuts      uint8  `json:"Cuts"`
 	CarsCount uint8  `json:"CarsCount"`
+	Tyres     string `json:"Tyres"`
 
 	Cars []*LapCompletedCar `json:"Cars"`
 }
@@ -105,6 +107,7 @@ type SessionCarInfo struct {
 	DriverGUID DriverGUID `json:"DriverGUID"`
 	CarModel   string     `json:"CarModel"`
 	CarSkin    string     `json:"CarSkin"`
+	Tyres      string     `json:"Tyres"`
 
 	DriverInitials string `json:"DriverInitials"`
 	CarName        string `json:"CarName"`

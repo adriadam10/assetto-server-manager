@@ -32,7 +32,8 @@ const EventCollisionWithCar = 10,
     EventError = 60,
     EventLapCompleted = 73,
     EventClientEvent = 130,
-    EventRaceControl = 200
+    EventRaceControl = 200,
+    EventTyresChanged = 101
 ;
 
 interface SimpleCollision {
@@ -732,6 +733,10 @@ class LiveTimings implements WebsocketHandler {
             const connectedDriver = new SessionCarInfo(message.Message);
 
             this.addDriverToAdminSelects(connectedDriver);
+        } else if (message.EventType === EventTyresChanged) {
+            const driver = new SessionCarInfo(message.Message);
+
+            this.onTyreChange(driver);
         }
     }
 
@@ -801,6 +806,7 @@ class LiveTimings implements WebsocketHandler {
             <td class="driver-pos text-center"></td>
             <td class="driver-name driver-link"></td>
             <td class="driver-car"></td>
+            <td class="current-tyres"></td>
             <td class="current-lap"></td>
             <td class="last-lap"></td>
             <td class="best-lap"></td>
@@ -881,6 +887,9 @@ class LiveTimings implements WebsocketHandler {
         $tr.find(".driver-car").text(carInfo.CarName ? carInfo.CarName : prettifyName(driver.CarInfo.CarModel, true));
 
         if (addingDriverToConnectedTable) {
+            // tyres
+            $tr.find(".current-tyres").text(driver.CarInfo.Tyres);
+
             let currentLapTimeText = "";
 
             if (moment(carInfo.LastLapCompletedTime).utc().isAfter(moment(this.raceControl.status!.SessionStartTime).utc())) {
@@ -897,21 +906,21 @@ class LiveTimings implements WebsocketHandler {
 
                 let $tag = $("<span/>");
 
-                let badgeColour = " badge-primary";
+                let badgeColour = "warning";
 
                 if (split.IsDriversBest !== undefined && split.IsDriversBest) {
-                    badgeColour = " badge-success";
+                    badgeColour = "success";
                 }
 
                 if (split.IsBest !== undefined && split.IsBest) {
-                    badgeColour = " badge-info";
+                    badgeColour = "info";
                 }
 
                 if (split.Cuts !== undefined && split.Cuts !== 0) {
-                    badgeColour = " badge-danger";
+                    badgeColour = "danger";
                 }
 
-                $tag.attr({'id': `split-` + splitIndex, 'class': 'badge ml-2 mt-1' + badgeColour});
+                $tag.attr({'id': `split-` + splitIndex, 'class': 'badge ml-2 mt-1 badge-' + badgeColour});
 
                 if (split.SplitIndex === undefined) {
                     split.SplitIndex = 0
@@ -931,7 +940,7 @@ class LiveTimings implements WebsocketHandler {
         }
 
         // best lap
-        $tr.find(".best-lap").text(msToTime(carInfo.BestLap / 1000000));
+        $tr.find(".best-lap").text(msToTime(carInfo.BestLap / 1000000) + (carInfo.TyreBestLap ? " (" + carInfo.TyreBestLap + ")" : ""));
 
         if (addingDriverToConnectedTable) {
             // gap
@@ -1080,6 +1089,24 @@ class LiveTimings implements WebsocketHandler {
 
         $driverDot.find(".info").toggle();
         $target.find(".dot").toggleClass("dot-inactive");
+    }
+
+    private onTyreChange(driver: SessionCarInfo): void {
+        let $tr = this.$connectedDriversTable.find("[data-guid='" + driver.DriverGUID + "'][data-car-model='"+ driver.CarModel + "']");
+
+        if (!$tr.length) {
+            return;
+        }
+
+        if (this.raceControl.status.ConnectedDrivers) {
+            const connectedDriver = this.raceControl.status.ConnectedDrivers.Drivers[driver.DriverGUID];
+
+            if (connectedDriver) {
+                connectedDriver.CarInfo.Tyres = driver.Tyres;
+            }
+        }
+
+        $tr.find(".current-tyres").text(driver.Tyres);
     }
 
     private initialisedAdmin = false;

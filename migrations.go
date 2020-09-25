@@ -1147,6 +1147,10 @@ func migrateBlacklistToBlockList(s Store) error {
 	blockListManager := NewBlockListManager()
 
 	for _, guid := range strings.Split(string(data), "\n") {
+		if guid == "" {
+			continue
+		}
+
 		if err := blockListManager.AddToBlockList(guid); err != nil {
 			return err
 		}
