@@ -82,6 +82,9 @@ type Collision struct {
 	OtherDriverGUID udp.DriverGUID `json:"OtherDriverGUID"`
 	OtherDriverName string         `json:"OtherDriverName"`
 	Speed           float64        `json:"Speed"`
+
+	DamageZones      [5]float32 `json:"DamageZones"`
+	OtherDamageZones [5]float32 `json:"OtherDamageZones"`
 }
 
 func NewRaceControl(broadcaster Broadcaster, trackDataGateway TrackDataGateway, process ServerProcess, store Store, penaltiesManager *PenaltiesManager) *RaceControl {
@@ -905,6 +908,16 @@ func (rc *RaceControl) OnClientLoaded(loadedCar udp.ClientLoaded) error {
 
 	logrus.Debugf("Driver: %s (%s) loaded", driver.CarInfo.DriverName, driver.CarInfo.DriverGUID)
 
+	chat := udp.Chat{
+		CarID:      acserver.ServerCarID,
+		Message:    fmt.Sprintf("%s loaded into the server", driverName(driver.CarInfo.DriverName)),
+		Time:       time.Now(),
+		DriverGUID: "0",
+		DriverName: "Server",
+	}
+
+	rc.OnChatMessage(chat)
+
 	driver.LoadedTime = time.Now()
 
 	_, err = rc.broadcaster.Send(loadedCar)
@@ -1219,10 +1232,11 @@ func (rc *RaceControl) OnCollisionWithCar(collision udp.CollisionWithCar) error 
 	}
 
 	c := Collision{
-		ID:    uuid.New().String(),
-		Type:  CollisionWithCar,
-		Time:  time.Now(),
-		Speed: metersPerSecondToKilometersPerHour(float64(collision.ImpactSpeed)),
+		ID:          uuid.New().String(),
+		Type:        CollisionWithCar,
+		Time:        time.Now(),
+		Speed:       metersPerSecondToKilometersPerHour(float64(collision.ImpactSpeed)),
+		DamageZones: collision.DamageZones,
 	}
 
 	driver.mutex.Lock()
@@ -1233,6 +1247,7 @@ func (rc *RaceControl) OnCollisionWithCar(collision udp.CollisionWithCar) error 
 	if err == nil {
 		c.OtherDriverGUID = otherDriver.CarInfo.DriverGUID
 		c.OtherDriverName = otherDriver.CarInfo.DriverName
+		c.OtherDamageZones = collision.OtherDamageZones
 	}
 
 	driver.Collisions = append(driver.Collisions, c)
@@ -1253,11 +1268,21 @@ func (rc *RaceControl) OnCollisionWithEnvironment(collision udp.CollisionWithEnv
 	driver.mutex.Lock()
 	defer driver.mutex.Unlock()
 
+	logrus.Debugf(
+		"front bumper %.3f, rear bumper %.3f, left skirt %.3f, right skirt %.3f, unknown %.3f",
+		collision.DamageZones[0],
+		collision.DamageZones[1],
+		collision.DamageZones[2],
+		collision.DamageZones[3],
+		collision.DamageZones[4],
+	)
+
 	driver.Collisions = append(driver.Collisions, Collision{
-		ID:    uuid.New().String(),
-		Type:  CollisionWithEnvironment,
-		Time:  time.Now(),
-		Speed: metersPerSecondToKilometersPerHour(float64(collision.ImpactSpeed)),
+		ID:          uuid.New().String(),
+		Type:        CollisionWithEnvironment,
+		Time:        time.Now(),
+		Speed:       metersPerSecondToKilometersPerHour(float64(collision.ImpactSpeed)),
+		DamageZones: collision.DamageZones,
 	})
 
 	_, err = rc.broadcaster.Send(collision)

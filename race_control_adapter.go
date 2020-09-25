@@ -170,23 +170,44 @@ func (r *UDPPluginAdapter) OnClientEvent(event acserver.ClientEvent) error {
 }
 
 func (r *UDPPluginAdapter) OnCollisionWithCar(event acserver.ClientEvent) error {
+	car, err := r.server.GetCarInfo(event.CarID)
+
+	if err != nil {
+		return err
+	}
+
+	otherCar, err := r.server.GetCarInfo(event.OtherCarID)
+
+	if err != nil {
+		return err
+	}
+
 	r.UDPCallback(udp.CollisionWithCar{
-		CarID:       event.CarID,
-		OtherCarID:  event.OtherCarID,
-		ImpactSpeed: event.Speed,
-		WorldPos:    event.Position,
-		RelPos:      event.RelativePosition,
+		CarID:            event.CarID,
+		OtherCarID:       event.OtherCarID,
+		ImpactSpeed:      event.Speed,
+		WorldPos:         event.Position,
+		RelPos:           event.RelativePosition,
+		DamageZones:      car.DamageZones,
+		OtherDamageZones: otherCar.DamageZones,
 	})
 
 	return nil
 }
 
 func (r *UDPPluginAdapter) OnCollisionWithEnv(event acserver.ClientEvent) error {
+	car, err := r.server.GetCarInfo(event.CarID)
+
+	if err != nil {
+		return err
+	}
+
 	r.UDPCallback(udp.CollisionWithEnvironment{
 		CarID:       event.CarID,
 		ImpactSpeed: event.Speed,
 		WorldPos:    event.Position,
 		RelPos:      event.RelativePosition,
+		DamageZones: car.DamageZones,
 	})
 
 	return nil

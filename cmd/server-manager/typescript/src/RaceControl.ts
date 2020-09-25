@@ -800,7 +800,6 @@ class LiveTimings implements WebsocketHandler {
             <td class="gap"></td>
             <td class="num-laps"></td>
             <td class="top-speed"></td>
-            <td class="events"></td>
         </tr>
     `;
 
@@ -948,31 +947,20 @@ class LiveTimings implements WebsocketHandler {
         $tr.find(".top-speed").text(topSpeed ? topSpeed.toFixed(2) + speedUnits : "");
 
         if (addingDriverToConnectedTable) {
-            // events
-            const $tdEvents = $tr.find(".events");
-            const loadedID = driver.CarInfo.DriverGUID + "-loaded";
+            let $shownToasts = $('.damage-zone-toast:visible');
 
-            if (moment(driver.LoadedTime).utc().add("10", "seconds").isSameOrAfter(moment().utc()) && !$("#" + loadedID).length) {
-                // car just loaded
-                let $tag = $("<span/>").attr("id", loadedID);
-                $tag.attr({'class': 'badge badge-success live-badge'});
-                $tag.text("Loaded");
-
-                $tdEvents.append($tag);
-
-                setTimeout(() => {
-                    $tag.remove();
-                }, 10000);
+            if ($shownToasts.length > 6) {
+                for (let i = 6; i < $shownToasts.length;  i++) {
+                    $($shownToasts[i]).toast('hide');
+                }
             }
 
+            // events
             if (driver.Collisions) {
                 for (const collision of driver.Collisions) {
                     const collisionID = driver.CarInfo.DriverGUID + "-collision-" + collision.ID;
 
                     if (moment(collision.Time).utc().add("10", "seconds").isSameOrAfter(moment().utc()) && !$("#" + collisionID).length) {
-                        let $tag = $("<span/>");
-                        $tag.attr("id", collisionID);
-                        $tag.attr({'class': 'badge badge-danger live-badge'});
 
                         let crashSpeed;
 
@@ -982,21 +970,128 @@ class LiveTimings implements WebsocketHandler {
                             crashSpeed = collision.Speed;
                         }
 
+                        let $toast = $("<div/>");
+                        let $toastHeader = $("<div/>");
+                        let $toastBody = $("<div/>");
+
+                        let toastHeaderBG = "";
+                        let toastHeaderBD = "";
+
                         if (collision.Type === Collision.WithCar) {
-                            $tag.text(
-                                "Crash with " + collision.OtherDriverName + " at " + crashSpeed.toFixed(2) + speedUnits
+                            toastHeaderBG = "bg-danger";
+                            toastHeaderBD = "border-danger";
+
+                            $toastHeader.text(
+                                "Crash with " + collision.OtherDriverName
                             );
                         } else {
-                            $tag.text(
-                                "Crash " + collision.Type + " at " + crashSpeed.toFixed(2) + speedUnits
+                            toastHeaderBG = "bg-warning";
+                            toastHeaderBD = "border-warning";
+
+                            $toastHeader.text(
+                                "Crash " + collision.Type
                             );
                         }
 
-                        $tdEvents.append($tag);
+                        $toast.attr({'id': collisionID, 'class': 'toast damage-zone-toast', 'role': 'alert', 'aria-live': 'assertive', 'aria-atomic': 'true'});
+                        $toastHeader.attr('class', 'toast-header damage-zone-toast-header ' + toastHeaderBG + ' ' + toastHeaderBD);
+                        $toastBody.attr('class', 'toast-body damage=zone-toast-body');
+
+                        let $textContainer = $("<div/>");
+                        $textContainer.attr('style', 'height: 18px')
+
+                        let $driverName = $("<strong/>");
+                        $driverName.text(driver.CarInfo.DriverName + ' ');
+
+                        let $crashSpeed = $("<span/>");
+                        $crashSpeed.attr('class', 'text-secondary');
+                        $crashSpeed.text(crashSpeed.toFixed(2) + speedUnits);
+
+                        $textContainer.append($driverName);
+                        $textContainer.append($crashSpeed);
+
+                        $toastBody.append($textContainer);
+
+                        let $frontBumper = $("<img/>");
+                        let $rearBumper = $("<img/>");
+                        let $leftSkirt = $("<img/>");
+                        let $rightSkirt = $("<img/>");
+                        let $tyres = $("<img/>");
+
+                        let frontBumperHue = 70 - collision.DamageZones[0];
+                        let rearBumperHue = 70 - collision.DamageZones[1];
+                        let leftSkirtHue = 70 - collision.DamageZones[2];
+                        let rightSkirtHue = 70 - collision.DamageZones[3];
+
+                        if (frontBumperHue < 0) {
+                            frontBumperHue = 0
+                        }
+
+                        if (rearBumperHue < 0) {
+                            rearBumperHue = 0
+                        }
+
+                        if (leftSkirtHue < 0) {
+                            leftSkirtHue = 0
+                        }
+
+                        if (rightSkirtHue < 0) {
+                            rightSkirtHue = 0
+                        }
+
+                        $frontBumper.attr({
+                            'style':
+                                '-webkit-mask-image: url(/static/img/damage-zones-bumper.png);' +
+                                'mask-image: url(/static/img/damage-zones-bumper.png);' +
+                                'background-color: hsl(' + frontBumperHue + ', 100%, 50%);',
+                            'class': 'damage-zone-mask-relative',
+                        });
+
+                        $rearBumper.attr({
+                            'style':
+                                '-webkit-mask-image: url(/static/img/damage-zones-rear-bumper.png);' +
+                                'mask-image: url(/static/img/damage-zones-rear-bumper.png);' +
+                                'background-color: hsl(' + rearBumperHue + ', 100%, 50%);',
+                            'class': 'damage-zone-mask-absolute',
+                        });
+
+                        $leftSkirt.attr({
+                            'style':
+                                '-webkit-mask-image: url(/static/img/damage-zones-l-skirt.png);' +
+                                'mask-image: url(/static/img/damage-zones-l-skirt.png);' +
+                                'background-color: hsl(' + leftSkirtHue + ', 100%, 50%);',
+                            'class': 'damage-zone-mask-absolute',
+                        });
+
+                        $rightSkirt.attr({
+                            'style':
+                                '-webkit-mask-image: url(/static/img/damage-zones-r-skirt.png);' +
+                                'mask-image: url(/static/img/damage-zones-r-skirt.png);' +
+                                'background-color: hsl(' + rightSkirtHue + ', 100%, 50%);',
+                            'class': 'damage-zone-mask-absolute',
+                        });
+
+                        $tyres.attr({
+                            'class': 'damage-zone-mask-absolute', 'src': '/static/img/damage-zones-tyres.png',
+                        });
+
+                        $toastBody.append($frontBumper);
+                        $toastBody.append($rearBumper);
+                        $toastBody.append($leftSkirt);
+                        $toastBody.append($rightSkirt);
+                        $toastBody.append($tyres);
+
+                        $toast.append($toastHeader);
+                        $toast.append($toastBody);
+
+                        $toast.toast({animation: true, autohide: true, delay: 10000});
+                        $toast.toast('show');
+
+                        $("#toasts").append($toast);
 
                         setTimeout(() => {
-                            $tag.remove();
-                        }, 10000);
+                            $toast.remove();
+                        }, 12000);
                     }
                 }
             }
