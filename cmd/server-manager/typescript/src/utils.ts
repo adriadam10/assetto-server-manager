@@ -26,7 +26,7 @@ export function prettifyName(name: string, acronyms: boolean = true): string {
     return parts.join(" ")
 }
 
-export function msToTime(s: number, millisecondPrecision: boolean = true, trimLeadingZeroes: boolean = true): string {
+export function msToTime(s: number, millisecondPrecision: boolean = true, leadingZeroesToTrim: number = 1): string {
     if (!s) {
         return "";
     }
@@ -41,9 +41,11 @@ export function msToTime(s: number, millisecondPrecision: boolean = true, trimLe
     let formatString = (millisecondPrecision ? "HH:mm:ss.SSS" : "HH:mm:ss");
     let formatted = moment.utc(s).format(formatString);
 
-    if (trimLeadingZeroes && formatted.startsWith("00:")) {
-        // remove leading hours
-        return out+formatted.substring(3);
+    for (let i = 0; i < leadingZeroesToTrim; i++) {
+        if (formatted.startsWith("00:")) {
+            // remove leading hours
+            formatted = formatted.substring(3);
+        }
     }
 
     return out+formatted;

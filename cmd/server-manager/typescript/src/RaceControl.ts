@@ -199,7 +199,7 @@ export class RaceControl {
         let isInWaitTime = elapsedTime < (this.status.SessionInfo.WaitTime * 1000);
 
         if (isInWaitTime) {
-            timeRemaining = "Countdown: " + msToTime((this.status.SessionInfo.WaitTime * 1000) - elapsedTime, false, true);
+            timeRemaining = "Countdown: " + msToTime((this.status.SessionInfo.WaitTime * 1000) - elapsedTime, false, 1);
         } else {
             // Get lap/laps or time/totalTime
             if (this.status.SessionInfo.Time > 0) {
@@ -207,7 +207,7 @@ export class RaceControl {
 
                 let days = Math.floor(timeInMS/8.64e+7);
 
-                timeRemaining = msToTime(timeInMS, false, false);
+                timeRemaining = msToTime(timeInMS, false, 0);
 
                 if (days > 0) {
                     let dayText = " day + ";
@@ -894,7 +894,7 @@ class LiveTimings implements WebsocketHandler {
 
             if (moment(carInfo.LastLapCompletedTime).utc().isAfter(moment(this.raceControl.status!.SessionStartTime).utc())) {
                 // only show current lap time text if the last lap completed time is after session start.
-                currentLapTimeText = msToTime(moment().utc().diff(moment(carInfo.LastLapCompletedTime).utc()), false);
+                currentLapTimeText = msToTime(moment().utc().diff(moment(carInfo.LastLapCompletedTime).utc()), false, 1);
             }
 
             let $currentLap = $tr.find(".current-lap");
@@ -927,7 +927,7 @@ class LiveTimings implements WebsocketHandler {
                 }
 
                 $tag.text(
-                    "S" + (split.SplitIndex+1) + ": " + msToTime(split.SplitTime / 1000000)
+                    "S" + (split.SplitIndex+1) + ": " + msToTime(split.SplitTime / 1000000, true, 2)
                 );
 
                 $currentLap.append($tag);
