@@ -64,6 +64,7 @@ func (rcd *RaceControlDriver) CurrentCar() *RaceControlCarLapInfo {
 type RaceControlCarLapInfo struct {
 	TopSpeedThisLap      float64       `json:"TopSpeedThisLap"`
 	TopSpeedBestLap      float64       `json:"TopSpeedBestLap"`
+	TyresBestLap         string        `json:"TyreBestLap"`
 	BestLap              time.Duration `json:"BestLap"`
 	NumLaps              int           `json:"NumLaps"`
 	LastLap              time.Duration `json:"LastLap"`

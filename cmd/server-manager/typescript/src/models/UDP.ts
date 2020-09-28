@@ -197,6 +197,7 @@ class LapCompleted {
     LapTime: number;
     Cuts: number;
     CarsCount: number;
+    Tyres: string;
     Cars: LapCompletedLapCompletedCar[];
 
     constructor(data?: any) {
@@ -205,6 +206,7 @@ class LapCompleted {
         this.LapTime = ('LapTime' in d) ? d.LapTime as number : 0;
         this.Cuts = ('Cuts' in d) ? d.Cuts as number : 0;
         this.CarsCount = ('CarsCount' in d) ? d.CarsCount as number : 0;
+        this.Tyres = ('Tyres' in d) ? d.Tyres as string : '';
         this.Cars = Array.isArray(d.Cars) ? d.Cars.map((v: any) => new LapCompletedLapCompletedCar(v)) : [];
     }
 
