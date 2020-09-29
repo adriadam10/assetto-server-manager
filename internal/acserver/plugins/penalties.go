@@ -2,6 +2,7 @@ package plugins
 
 import (
 	"fmt"
+
 	"justapengu.in/acsm/internal/acserver"
 )
 
@@ -111,7 +112,7 @@ func (p *PenaltiesPlugin) OnLapCompleted(carID acserver.CarID, lap acserver.Lap)
 		}
 
 		if lap.Cuts == 0 {
-			penaltyInfo.totalCleanLaps += 1
+			penaltyInfo.totalCleanLaps ++
 			penaltyInfo.totalCleanLapTime += lap.LapTime.Milliseconds()
 		}
 
