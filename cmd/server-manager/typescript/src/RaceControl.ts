@@ -192,6 +192,10 @@ export class RaceControl {
         }
     }
 
+    public refreshTimings(): void {
+        this.liveTimings.refresh();
+    }
+
     private showEventCompletion() {
         let timeRemaining = "";
 
@@ -439,6 +443,59 @@ class LiveMap implements WebsocketHandler {
                 // find the guid for this car ID:
                 const driverGUID = this.raceControl.status!.CarIDToGUID[update.CarID];
 
+                if (this.raceControl.status.ConnectedDrivers) {
+                    let driver = this.raceControl.status.ConnectedDrivers.Drivers[driverGUID];
+
+                    if (driver) {
+                        driver.NormalisedSplinePos = update.NormalisedSplinePos;
+
+                        if (this.raceControl.status.SessionInfo.Type === SessionType.Race) {
+                            // sort drivers on the fly by their NormalisedSplinePos, if they're on the same lap.
+                            let oldGUIDOrder = this.raceControl.status.ConnectedDrivers.GUIDsInPositionalOrder;
+
+                            this.raceControl.status.ConnectedDrivers.GUIDsInPositionalOrder.sort((guidA: string, guidB: string): number => {
+                                if (!this.raceControl.status.ConnectedDrivers) {
+                                    return 0;
+                                }
+
+                                let driverA = this.raceControl.status.ConnectedDrivers.Drivers[guidA]
+                                let driverB = this.raceControl.status.ConnectedDrivers.Drivers[guidB]
+
+                                if (driverA.TotalNumLaps === driverB.TotalNumLaps) {
+                                    if (driverA.NormalisedSplinePos > driverB.NormalisedSplinePos) {
+                                        return -1;
+                                    } else if (driverA.NormalisedSplinePos < driverB.NormalisedSplinePos) {
+                                        return 1;
+                                    } else {
+                                        return 0;
+                                    }
+                                }
+
+                                // javascript has no stable sort. use our (backend sorted) position numbers to ensure stability.
+                                return driverA.Position - driverB.Position;
+                            });
+
+                            let guidOrderHasChanged = false;
+                            let newGUIDOrder = this.raceControl.status.ConnectedDrivers.GUIDsInPositionalOrder;
+
+                            if (oldGUIDOrder.length !== newGUIDOrder.length) {
+                                guidOrderHasChanged = true;
+                            } else {
+                                for (let i = 0; i < oldGUIDOrder.length; i++) {
+                                    if (oldGUIDOrder[i] !== newGUIDOrder[i]) {
+                                        guidOrderHasChanged = true;
+                                        break;
+                                    }
+                                }
+                            }
+
+                            if (guidOrderHasChanged) {
+                                this.raceControl.refreshTimings();
+                            }
+                        }
+                    }
+                }
+
                 let $myDot = this.dots.get(driverGUID);
                 let dotPos = this.translateToTrackCoordinate(update.Pos);
 
@@ -447,13 +504,12 @@ class LiveMap implements WebsocketHandler {
                     "top": dotPos.Z,
                 });
 
-                // working here
                 let speed = Math.floor(Math.sqrt((Math.pow(update.Velocity.X, 2) + Math.pow(update.Velocity.Z, 2))) * 3.6);
-                let speedUnits = "Km/h ";
+                let speedUnits = "Km/h";
 
                 if (useMPH) {
                     speed = Math.floor(speed * 0.621371);
-                    speedUnits = "MPH ";
+                    speedUnits = "MPH";
                 }
 
                 let maxRPM = this.maxRPMs.get(driverGUID);
@@ -476,7 +532,7 @@ class LiveMap implements WebsocketHandler {
                 });
 
                 $rpmGaugeOuter.append($rpmGaugeInner);
-                $myDot!.find(".info").text(speed + speedUnits + (update.Gear - 1));
+                $myDot!.find(".info").text(speed + speedUnits + " " + (update.Gear - 1));
                 $myDot!.find(".info").append($rpmGaugeOuter);
                 break;
 
@@ -710,6 +766,10 @@ class LiveTimings implements WebsocketHandler {
         });
     }
 
+    public refresh(): void {
+        this.populateConnectedDrivers();
+    }
+
     public handleWebsocketMessage(message: WSMessage): void {
         if (message.EventType === EventRaceControl) {
             this.populateConnectedDrivers();
@@ -749,6 +809,8 @@ class LiveTimings implements WebsocketHandler {
             return;
         }
 
+        let position = 1;
+
         for (const driverGUID of this.raceControl.status.ConnectedDrivers.GUIDsInPositionalOrder) {
             const driver = this.raceControl.status.ConnectedDrivers.Drivers[driverGUID];
 
@@ -756,8 +818,12 @@ class LiveTimings implements WebsocketHandler {
                 continue;
             }
 
+            driver.Position = position;
+
             this.addDriverToTable(driver, this.$connectedDriversTable);
             this.populatePreviousLapsForDriver(driver);
+
+            position++;
         }
     }
 
@@ -1039,16 +1105,16 @@ class LiveTimings implements WebsocketHandler {
         }
 
         if (!addingDriverToConnectedTable) {
-            this.sortTable($table);
+            this.sortDisconnectedTable($table);
         }
     }
 
-    private sortTable($table: JQuery<HTMLTableElement>) {
+    private sortDisconnectedTable($table: JQuery<HTMLTableElement>) {
         const $tbody = $table.find("tbody");
         const that = this;
 
         $($tbody.find("tr:not(:nth-child(1))").get().sort(function (a: HTMLTableElement, b: HTMLTableElement): number {
-            if (that.raceControl.status.SessionInfo.Type == SessionType.Race) {
+            if (that.raceControl.status.SessionInfo.Type === SessionType.Race) {
                 let lapsA = parseInt($(a).find("td:nth-child(4)").text(), 10);
                 let lapsB = parseInt($(b).find("td:nth-child(4)").text(), 10);
 
