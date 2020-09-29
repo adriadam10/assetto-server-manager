@@ -224,7 +224,7 @@ func (sp *AssettoServerProcess) startRaceEvent(raceEvent RaceEvent, serverOption
 
 	udpPluginPortsSetup := serverOptions.UDPPluginLocalPort >= 0 && serverOptions.UDPPluginAddress != "" || strings.Contains(serverOptions.UDPPluginAddress, ":")
 
-	plugin := sp.plugin
+	plugin := acserver.MultiPlugin(sp.plugin, plugins.NewPenaltiesPlugin())
 
 	if udpPluginPortsSetup {
 		udpPlugin, err := plugins.NewUDPPlugin(serverOptions.UDPPluginLocalPort, serverOptions.UDPPluginAddress)
@@ -233,7 +233,7 @@ func (sp *AssettoServerProcess) startRaceEvent(raceEvent RaceEvent, serverOption
 			return err
 		}
 
-		plugin = acserver.MultiPlugin(plugin, udpPlugin)
+		plugin = acserver.MultiPlugin(plugin, udpPlugin, plugins.NewPenaltiesPlugin())
 	}
 
 	raceConfig := raceEvent.GetRaceConfig()

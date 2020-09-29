@@ -32,8 +32,10 @@ type Plugin interface {
 type ServerPlugin interface {
 	GetCarInfo(id CarID) (Car, error)
 	GetSessionInfo() SessionInfo
+	GetEventConfig() EventConfig
 	SendChat(message string, from, to CarID) error
 	BroadcastChat(message string, from CarID)
+	UpdateBoP(carIDToUpdate CarID, ballast, restrictor float32) error
 	KickUser(carIDToKick CarID, reason KickReason) error
 	NextSession()
 	RestartSession()

@@ -271,12 +271,31 @@ func (s *Server) GetSessionInfo() SessionInfo {
 	}
 }
 
+func (s *Server) GetEventConfig() EventConfig {
+	return *s.state.raceConfig
+}
+
 func (s *Server) SendChat(message string, from, to CarID) error {
 	return s.state.SendChat(from, to, message)
 }
 
 func (s *Server) BroadcastChat(message string, from CarID) {
 	s.state.BroadcastChat(from, message)
+}
+
+func (s *Server) UpdateBoP(carIDToUpdate CarID, ballast, restrictor float32) error {
+	car, err := s.state.GetCarByID(carIDToUpdate)
+
+	if err != nil {
+		return err
+	}
+
+	car.Ballast = ballast
+	car.Restrictor = restrictor
+
+	s.state.BroadcastUpdateBoP(car)
+
+	return nil
 }
 
 func (s *Server) KickUser(carIDToKick CarID, reason KickReason) error {
