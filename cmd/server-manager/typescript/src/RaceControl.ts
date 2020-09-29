@@ -32,7 +32,8 @@ const EventCollisionWithCar = 10,
     EventError = 60,
     EventLapCompleted = 73,
     EventClientEvent = 130,
-    EventRaceControl = 200
+    EventRaceControl = 200,
+    EventTyresChanged = 101
 ;
 
 interface SimpleCollision {
@@ -194,35 +195,42 @@ export class RaceControl {
     private showEventCompletion() {
         let timeRemaining = "";
 
-        // Get lap/laps or time/totalTime
-        if (this.status.SessionInfo.Time > 0) {
-            let timeInMS = (this.status.SessionInfo.Time * 60 * 1000) + (this.status.SessionInfo.WaitTime/126.166667 * 1000) - moment.duration(moment().utc().diff(moment(this.status.SessionStartTime).utc())).asMilliseconds();
+        let elapsedTime = moment.duration(moment().utc().diff(moment(this.status.SessionStartTime).utc())).asMilliseconds();
+        let isInWaitTime = elapsedTime < (this.status.SessionInfo.WaitTime * 1000);
 
-            let days = Math.floor(timeInMS/8.64e+7);
+        if (isInWaitTime) {
+            timeRemaining = "Countdown: " + msToTime((this.status.SessionInfo.WaitTime * 1000) - elapsedTime, false, 1);
+        } else {
+            // Get lap/laps or time/totalTime
+            if (this.status.SessionInfo.Time > 0) {
+                let timeInMS = (this.status.SessionInfo.Time * 60 * 1000) + (this.status.SessionInfo.WaitTime * 1000) - moment.duration(moment().utc().diff(moment(this.status.SessionStartTime).utc())).asMilliseconds();
 
-            timeRemaining = msToTime(timeInMS, false, false);
+                let days = Math.floor(timeInMS/8.64e+7);
 
-            if (days > 0) {
-                let dayText = " day + ";
+                timeRemaining = msToTime(timeInMS, false, 0);
 
-                if ( days > 1) {
-                    dayText = " days + ";
+                if (days > 0) {
+                    let dayText = " day + ";
+
+                    if ( days > 1) {
+                        dayText = " days + ";
+                    }
+
+                    timeRemaining = days + dayText + timeRemaining;
+                }
+            } else if (this.status.SessionInfo.Laps > 0) {
+                let lapsCompleted = 0;
+
+                if (this.status.ConnectedDrivers && this.status.ConnectedDrivers.GUIDsInPositionalOrder.length > 0) {
+                    let driver = this.status.ConnectedDrivers.Drivers[this.status.ConnectedDrivers.GUIDsInPositionalOrder[0]];
+
+                    if (driver.TotalNumLaps > 0) {
+                        lapsCompleted = driver.TotalNumLaps;
+                    }
                 }
 
-                timeRemaining = days + dayText + timeRemaining;
+                timeRemaining = this.status.SessionInfo.Laps - lapsCompleted + " laps remaining";
             }
-        } else if (this.status.SessionInfo.Laps > 0) {
-            let lapsCompleted = 0;
-
-            if (this.status.ConnectedDrivers && this.status.ConnectedDrivers.GUIDsInPositionalOrder.length > 0) {
-                let driver = this.status.ConnectedDrivers.Drivers[this.status.ConnectedDrivers.GUIDsInPositionalOrder[0]];
-
-                if (driver.TotalNumLaps > 0) {
-                    lapsCompleted = driver.TotalNumLaps;
-                }
-            }
-
-            timeRemaining = this.status.SessionInfo.Laps - lapsCompleted + " laps remaining";
         }
 
         let $raceTime = $("#race-time");
@@ -725,6 +733,10 @@ class LiveTimings implements WebsocketHandler {
             const connectedDriver = new SessionCarInfo(message.Message);
 
             this.addDriverToAdminSelects(connectedDriver);
+        } else if (message.EventType === EventTyresChanged) {
+            const driver = new SessionCarInfo(message.Message);
+
+            this.onTyreChange(driver);
         }
     }
 
@@ -794,6 +806,7 @@ class LiveTimings implements WebsocketHandler {
             <td class="driver-pos text-center"></td>
             <td class="driver-name driver-link"></td>
             <td class="driver-car"></td>
+            <td class="current-tyres"></td>
             <td class="current-lap"></td>
             <td class="last-lap"></td>
             <td class="best-lap"></td>
@@ -874,11 +887,14 @@ class LiveTimings implements WebsocketHandler {
         $tr.find(".driver-car").text(carInfo.CarName ? carInfo.CarName : prettifyName(driver.CarInfo.CarModel, true));
 
         if (addingDriverToConnectedTable) {
+            // tyres
+            $tr.find(".current-tyres").text(driver.CarInfo.Tyres);
+
             let currentLapTimeText = "";
 
             if (moment(carInfo.LastLapCompletedTime).utc().isAfter(moment(this.raceControl.status!.SessionStartTime).utc())) {
                 // only show current lap time text if the last lap completed time is after session start.
-                currentLapTimeText = msToTime(moment().utc().diff(moment(carInfo.LastLapCompletedTime).utc()), false);
+                currentLapTimeText = msToTime(moment().utc().diff(moment(carInfo.LastLapCompletedTime).utc()), false, 1);
             }
 
             let $currentLap = $tr.find(".current-lap");
@@ -890,28 +906,28 @@ class LiveTimings implements WebsocketHandler {
 
                 let $tag = $("<span/>");
 
-                let badgeColour = " badge-primary";
+                let badgeColour = "warning";
 
                 if (split.IsDriversBest !== undefined && split.IsDriversBest) {
-                    badgeColour = " badge-success";
+                    badgeColour = "success";
                 }
 
                 if (split.IsBest !== undefined && split.IsBest) {
-                    badgeColour = " badge-info";
+                    badgeColour = "info";
                 }
 
                 if (split.Cuts !== undefined && split.Cuts !== 0) {
-                    badgeColour = " badge-danger";
+                    badgeColour = "danger";
                 }
 
-                $tag.attr({'id': `split-` + splitIndex, 'class': 'badge ml-2 mt-1' + badgeColour});
+                $tag.attr({'id': `split-` + splitIndex, 'class': 'badge ml-2 mt-1 badge-' + badgeColour});
 
                 if (split.SplitIndex === undefined) {
                     split.SplitIndex = 0
                 }
 
                 $tag.text(
-                    "S" + (split.SplitIndex+1) + ": " + msToTime(split.SplitTime / 1000000)
+                    "S" + (split.SplitIndex+1) + ": " + msToTime(split.SplitTime / 1000000, true, 2)
                 );
 
                 $currentLap.append($tag);
@@ -924,7 +940,7 @@ class LiveTimings implements WebsocketHandler {
         }
 
         // best lap
-        $tr.find(".best-lap").text(msToTime(carInfo.BestLap / 1000000));
+        $tr.find(".best-lap").text(msToTime(carInfo.BestLap / 1000000) + (carInfo.TyreBestLap ? " (" + carInfo.TyreBestLap + ")" : ""));
 
         if (addingDriverToConnectedTable) {
             // gap
@@ -1073,6 +1089,24 @@ class LiveTimings implements WebsocketHandler {
 
         $driverDot.find(".info").toggle();
         $target.find(".dot").toggleClass("dot-inactive");
+    }
+
+    private onTyreChange(driver: SessionCarInfo): void {
+        let $tr = this.$connectedDriversTable.find("[data-guid='" + driver.DriverGUID + "'][data-car-model='"+ driver.CarModel + "']");
+
+        if (!$tr.length) {
+            return;
+        }
+
+        if (this.raceControl.status.ConnectedDrivers) {
+            const connectedDriver = this.raceControl.status.ConnectedDrivers.Drivers[driver.DriverGUID];
+
+            if (connectedDriver) {
+                connectedDriver.CarInfo.Tyres = driver.Tyres;
+            }
+        }
+
+        $tr.find(".current-tyres").text(driver.Tyres);
     }
 
     private initialisedAdmin = false;

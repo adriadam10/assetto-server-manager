@@ -365,3 +365,7 @@ func (u *UDPPlugin) OnWeatherChange(_ acserver.CurrentWeather) error {
 
 	return p.WriteToUDPConn(u.packetConn)
 }
+
+func (u *UDPPlugin) OnTyreChange(car acserver.Car, tyres string) error {
+	return nil
+}

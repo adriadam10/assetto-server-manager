@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"strings"
 	"time"
 
 	"github.com/alecthomas/chroma/formatters"
@@ -30,6 +29,7 @@ type ServerAdministrationHandler struct {
 	raceManager         *RaceManager
 	championshipManager *ChampionshipManager
 	raceWeekendManager  *RaceWeekendManager
+	blockListManager    *BlockListManager
 	process             ServerProcess
 	acsrClient          *ACSRClient
 }
@@ -40,6 +40,7 @@ func NewServerAdministrationHandler(
 	raceManager *RaceManager,
 	championshipManager *ChampionshipManager,
 	raceWeekendManager *RaceWeekendManager,
+	blockListManager *BlockListManager,
 	process ServerProcess,
 	acsrClient *ACSRClient,
 ) *ServerAdministrationHandler {
@@ -49,6 +50,7 @@ func NewServerAdministrationHandler(
 		raceManager:         raceManager,
 		championshipManager: championshipManager,
 		raceWeekendManager:  raceWeekendManager,
+		blockListManager:    blockListManager,
 		process:             process,
 		acsrClient:          acsrClient,
 	}
@@ -234,52 +236,44 @@ func (sah *ServerAdministrationHandler) options(w http.ResponseWriter, r *http.R
 	})
 }
 
-type serverBlacklistTemplateVars struct {
+type serverBlocklistTemplateVars struct {
 	BaseTemplateVars
 
-	Text string
+	GUIDs []string
 }
 
-func (sah *ServerAdministrationHandler) blacklist(w http.ResponseWriter, r *http.Request) {
-	if r.Method == http.MethodPost {
-		// save to blacklist.txt
-		var text string
-
-		if r.FormValue("type") == "single" {
-			// we're adding a single GUID, load the existing blacklist list then append
-			b, err := ioutil.ReadFile(filepath.Join(ServerInstallPath, "blacklist.txt"))
-			if err != nil {
-				logrus.WithError(err).Error("couldn't find blacklist.txt")
-			}
-
-			text = string(b) + r.FormValue("blacklist")
-		} else {
-			text = r.FormValue("blacklist")
+func (sah *ServerAdministrationHandler) blockList(w http.ResponseWriter, r *http.Request) {
+	switch r.URL.Query().Get("action") {
+	case "add":
+		if err := sah.blockListManager.AddToBlockList(r.URL.Query().Get("guid")); err != nil {
+			logrus.WithError(err).Errorf("Could not add GUID to block list")
+			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+			return
 		}
 
-		if !strings.HasSuffix(text, "\n") {
-			text += "\n"
+		http.Redirect(w, r, "/blocklist", http.StatusFound)
+		return
+	case "remove":
+		if err := sah.blockListManager.RemoveFromBlockList(r.URL.Query().Get("guid")); err != nil {
+			logrus.WithError(err).Errorf("Could not remove GUID from block list")
+			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+			return
 		}
 
-		err := ioutil.WriteFile(filepath.Join(ServerInstallPath, "blacklist.txt"), []byte(text), 0644)
-
-		if err != nil {
-			logrus.WithError(err).Error("couldn't save blacklist")
-			AddErrorFlash(w, r, "Failed to save Server blacklist changes")
-		} else {
-			AddFlash(w, r, "Server blacklist successfully changed!")
-		}
+		http.Redirect(w, r, "/blocklist", http.StatusFound)
+		return
 	}
 
-	// load blacklist.txt
-	b, err := ioutil.ReadFile(filepath.Join(ServerInstallPath, "blacklist.txt")) // just pass the file name
+	blockList, err := sah.blockListManager.LoadBlockList()
+
 	if err != nil {
-		logrus.WithError(err).Error("couldn't find blacklist.txt")
+		logrus.WithError(err).Errorf("Could not load block list")
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		return
 	}
 
-	// render blacklist edit page
-	sah.viewRenderer.MustLoadTemplate(w, r, "server/blacklist.html", &serverBlacklistTemplateVars{
-		Text: string(b),
+	sah.viewRenderer.MustLoadTemplate(w, r, "server/blocklist.html", &serverBlocklistTemplateVars{
+		GUIDs: blockList,
 	})
 }
 
