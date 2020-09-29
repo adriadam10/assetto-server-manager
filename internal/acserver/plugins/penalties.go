@@ -112,7 +112,7 @@ func (p *PenaltiesPlugin) OnLapCompleted(carID acserver.CarID, lap acserver.Lap)
 		}
 
 		if lap.Cuts == 0 {
-			penaltyInfo.totalCleanLaps ++
+			penaltyInfo.totalCleanLaps++
 			penaltyInfo.totalCleanLapTime += lap.LapTime.Milliseconds()
 		}
 
