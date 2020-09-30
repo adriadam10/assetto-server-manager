@@ -82,6 +82,9 @@ type Collision struct {
 	OtherDriverGUID udp.DriverGUID `json:"OtherDriverGUID"`
 	OtherDriverName string         `json:"OtherDriverName"`
 	Speed           float64        `json:"Speed"`
+
+	DamageZones      [5]float32 `json:"DamageZones"`
+	OtherDamageZones [5]float32 `json:"OtherDamageZones"`
 }
 
 func NewRaceControl(broadcaster Broadcaster, trackDataGateway TrackDataGateway, process ServerProcess, store Store, penaltiesManager *PenaltiesManager) *RaceControl {
@@ -925,6 +928,20 @@ func (rc *RaceControl) OnClientLoaded(loadedCar udp.ClientLoaded) error {
 
 	logrus.Debugf("Driver: %s (%s) loaded", driver.CarInfo.DriverName, driver.CarInfo.DriverGUID)
 
+	chat := udp.Chat{
+		CarID:      acserver.ServerCarID,
+		Message:    fmt.Sprintf("%s loaded into the server", driverName(driver.CarInfo.DriverName)),
+		Time:       time.Now(),
+		DriverGUID: "0",
+		DriverName: "Server",
+	}
+
+	err = rc.OnChatMessage(chat)
+
+	if err != nil {
+		logrus.WithError(err).Errorf("Couldn't add driver loaded message to live timings chat")
+	}
+
 	driver.LoadedTime = time.Now()
 
 	_, err = rc.broadcaster.Send(loadedCar)
@@ -1240,10 +1257,11 @@ func (rc *RaceControl) OnCollisionWithCar(collision udp.CollisionWithCar) error 
 	}
 
 	c := Collision{
-		ID:    uuid.New().String(),
-		Type:  CollisionWithCar,
-		Time:  time.Now(),
-		Speed: metersPerSecondToKilometersPerHour(float64(collision.ImpactSpeed)),
+		ID:          uuid.New().String(),
+		Type:        CollisionWithCar,
+		Time:        time.Now(),
+		Speed:       metersPerSecondToKilometersPerHour(float64(collision.ImpactSpeed)),
+		DamageZones: collision.DamageZones,
 	}
 
 	driver.mutex.Lock()
@@ -1254,6 +1272,7 @@ func (rc *RaceControl) OnCollisionWithCar(collision udp.CollisionWithCar) error 
 	if err == nil {
 		c.OtherDriverGUID = otherDriver.CarInfo.DriverGUID
 		c.OtherDriverName = otherDriver.CarInfo.DriverName
+		c.OtherDamageZones = collision.OtherDamageZones
 	}
 
 	driver.Collisions = append(driver.Collisions, c)
@@ -1275,10 +1294,11 @@ func (rc *RaceControl) OnCollisionWithEnvironment(collision udp.CollisionWithEnv
 	defer driver.mutex.Unlock()
 
 	driver.Collisions = append(driver.Collisions, Collision{
-		ID:    uuid.New().String(),
-		Type:  CollisionWithEnvironment,
-		Time:  time.Now(),
-		Speed: metersPerSecondToKilometersPerHour(float64(collision.ImpactSpeed)),
+		ID:          uuid.New().String(),
+		Type:        CollisionWithEnvironment,
+		Time:        time.Now(),
+		Speed:       metersPerSecondToKilometersPerHour(float64(collision.ImpactSpeed)),
+		DamageZones: collision.DamageZones,
 	})
 
 	_, err = rc.broadcaster.Send(collision)

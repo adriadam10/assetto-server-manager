@@ -270,6 +270,8 @@ class RaceControlDriverMapRaceControlDriverCollision {
     OtherDriverGUID: string;
     OtherDriverName: string;
     Speed: number;
+    DamageZones: number[];
+    OtherDamageZones: number[];
 
     constructor(data?: any) {
         const d: any = (data && typeof data === 'object') ? ToObject(data) : {};
@@ -279,6 +281,8 @@ class RaceControlDriverMapRaceControlDriverCollision {
         this.OtherDriverGUID = ('OtherDriverGUID' in d) ? d.OtherDriverGUID as string : '';
         this.OtherDriverName = ('OtherDriverName' in d) ? d.OtherDriverName as string : '';
         this.Speed = ('Speed' in d) ? d.Speed as number : 0;
+        this.DamageZones = ('DamageZones' in d) ? d.DamageZones as number[] : [];
+        this.OtherDamageZones = ('OtherDamageZones' in d) ? d.OtherDamageZones as number[] : [];
     }
 
     toObject(): any {
