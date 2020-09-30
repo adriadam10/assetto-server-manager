@@ -2,6 +2,7 @@ package acsm
 
 import (
 	"context"
+	"encoding/json"
 	"sort"
 	"sync"
 	"time"
@@ -36,10 +37,11 @@ type RaceControlDriver struct {
 	ConnectedTime time.Time `json:"ConnectedTime" ts:"date"`
 	LoadedTime    time.Time `json:"LoadedTime" ts:"date"`
 
-	Position int       `json:"Position"`
-	Split    string    `json:"Split"`
-	LastSeen time.Time `json:"LastSeen" ts:"date"`
-	LastPos  udp.Vec   `json:"LastPos"`
+	Position            int       `json:"Position"`
+	Split               string    `json:"Split"`
+	LastSeen            time.Time `json:"LastSeen" ts:"date"`
+	LastPos             udp.Vec   `json:"LastPos"`
+	NormalisedSplinePos float32   `json:"NormalisedSplinePos"`
 
 	Collisions []Collision `json:"Collisions"`
 
@@ -207,4 +209,17 @@ func (d *DriverMap) Len() int {
 	defer d.rwMutex.RUnlock()
 
 	return len(d.Drivers)
+}
+
+func (d *DriverMap) MarshalJSON() ([]byte, error) {
+	d.rwMutex.RLock()
+	defer d.rwMutex.RUnlock()
+
+	return json.Marshal(struct {
+		Drivers                map[udp.DriverGUID]*RaceControlDriver `json:"Drivers"`
+		GUIDsInPositionalOrder []udp.DriverGUID                      `json:"GUIDsInPositionalOrder"`
+	}{
+		Drivers:                d.Drivers,
+		GUIDsInPositionalOrder: d.GUIDsInPositionalOrder,
+	})
 }

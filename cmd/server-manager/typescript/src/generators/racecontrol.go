@@ -52,7 +52,7 @@ func runStruct2TS(w io.Writer) error {
 		ES6: false,
 	})
 
-	s.Add(acsm.RaceControl{})
+	s.AddWithName(acsm.RaceControlBroadcastData{}, "RaceControl")
 
 	io.WriteString(w, "// this file was automatically generated, DO NOT EDIT\n")
 	return s.RenderTo(w)

@@ -278,7 +278,7 @@ func (rch *RaceControlHandler) websocket(w http.ResponseWriter, r *http.Request)
 	c, err := upgrader.Upgrade(w, r, nil)
 
 	if err != nil {
-		logrus.Error(err)
+		logrus.WithError(err).Errorf("Could not upgrade request to a websocket")
 		return
 	}
 
@@ -287,14 +287,17 @@ func (rch *RaceControlHandler) websocket(w http.ResponseWriter, r *http.Request)
 
 	go client.writePump()
 
+	message, err := encodeRaceControlMessage(rch.raceControl)
+
+	if err != nil {
+		logrus.WithError(err).Errorf("Could not encode initial race control message")
+		return
+	}
+
 	// new client, send them an initial race control message.
-	rch.raceControl.lastUpdateMessageMutex.Lock()
-	client.receive <- rch.raceControl.lastUpdateMessage
-	rch.raceControl.lastUpdateMessageMutex.Unlock()
+	client.receive <- message
 
 	// send stored chat messages to new client
-	rch.raceControl.chatMessagesMutex.Lock()
-
 	for _, message := range rch.raceControl.ChatMessages {
 		encoded, err := encodeRaceControlMessage(message)
 
@@ -304,8 +307,6 @@ func (rch *RaceControlHandler) websocket(w http.ResponseWriter, r *http.Request)
 
 		client.receive <- encoded
 	}
-
-	rch.raceControl.chatMessagesMutex.Unlock()
 }
 
 func (rch *RaceControlHandler) broadcastChat(w http.ResponseWriter, r *http.Request) {
