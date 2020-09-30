@@ -448,51 +448,6 @@ class LiveMap implements WebsocketHandler {
 
                     if (driver) {
                         driver.NormalisedSplinePos = update.NormalisedSplinePos;
-
-                        if (this.raceControl.status.SessionInfo.Type === SessionType.Race) {
-                            // sort drivers on the fly by their NormalisedSplinePos, if they're on the same lap.
-                            let oldGUIDOrder = this.raceControl.status.ConnectedDrivers.GUIDsInPositionalOrder;
-
-                            this.raceControl.status.ConnectedDrivers.GUIDsInPositionalOrder.sort((guidA: string, guidB: string): number => {
-                                if (!this.raceControl.status.ConnectedDrivers) {
-                                    return 0;
-                                }
-
-                                let driverA = this.raceControl.status.ConnectedDrivers.Drivers[guidA]
-                                let driverB = this.raceControl.status.ConnectedDrivers.Drivers[guidB]
-
-                                if (driverA.TotalNumLaps === driverB.TotalNumLaps) {
-                                    if (driverA.NormalisedSplinePos > driverB.NormalisedSplinePos) {
-                                        return -1;
-                                    } else if (driverA.NormalisedSplinePos < driverB.NormalisedSplinePos) {
-                                        return 1;
-                                    } else {
-                                        return 0;
-                                    }
-                                }
-
-                                // javascript has no stable sort. use our (backend sorted) position numbers to ensure stability.
-                                return driverA.Position - driverB.Position;
-                            });
-
-                            let guidOrderHasChanged = false;
-                            let newGUIDOrder = this.raceControl.status.ConnectedDrivers.GUIDsInPositionalOrder;
-
-                            if (oldGUIDOrder.length !== newGUIDOrder.length) {
-                                guidOrderHasChanged = true;
-                            } else {
-                                for (let i = 0; i < oldGUIDOrder.length; i++) {
-                                    if (oldGUIDOrder[i] !== newGUIDOrder[i]) {
-                                        guidOrderHasChanged = true;
-                                        break;
-                                    }
-                                }
-                            }
-
-                            if (guidOrderHasChanged) {
-                                this.raceControl.refreshTimings();
-                            }
-                        }
                     }
                 }
 
@@ -706,6 +661,59 @@ class LiveTimings implements WebsocketHandler {
         $(document).on("submit", "#admin-command-form", this.processAdminCommandForm.bind(this));
         $(document).on("submit", "#kick-user-form", this.processKickUserForm.bind(this));
         $(document).on("submit", "#send-chat-form", this.processSendChatForm.bind(this));
+
+        setInterval(this.updateCarPositions.bind(this), 1000);
+    }
+
+    private updateCarPositions(): void {
+        if (!this.raceControl.status.ConnectedDrivers) {
+            return;
+        }
+
+        if (this.raceControl.status.SessionInfo.Type === SessionType.Race) {
+            // sort drivers on the fly by their NormalisedSplinePos, if they're on the same lap.
+            let oldGUIDOrder = this.raceControl.status.ConnectedDrivers.GUIDsInPositionalOrder;
+
+            this.raceControl.status.ConnectedDrivers.GUIDsInPositionalOrder.sort((guidA: string, guidB: string): number => {
+                if (!this.raceControl.status.ConnectedDrivers) {
+                    return 0;
+                }
+
+                let driverA = this.raceControl.status.ConnectedDrivers.Drivers[guidA]
+                let driverB = this.raceControl.status.ConnectedDrivers.Drivers[guidB]
+
+                if (driverA.TotalNumLaps === driverB.TotalNumLaps) {
+                    if (driverA.NormalisedSplinePos > driverB.NormalisedSplinePos) {
+                        return -1;
+                    } else if (driverA.NormalisedSplinePos < driverB.NormalisedSplinePos) {
+                        return 1;
+                    } else {
+                        return 0;
+                    }
+                }
+
+                // javascript has no stable sort. use our (backend sorted) position numbers to ensure stability.
+                return driverA.Position - driverB.Position;
+            });
+
+            let guidOrderHasChanged = false;
+            let newGUIDOrder = this.raceControl.status.ConnectedDrivers.GUIDsInPositionalOrder;
+
+            if (oldGUIDOrder.length !== newGUIDOrder.length) {
+                guidOrderHasChanged = true;
+            } else {
+                for (let i = 0; i < oldGUIDOrder.length; i++) {
+                    if (oldGUIDOrder[i] !== newGUIDOrder[i]) {
+                        guidOrderHasChanged = true;
+                        break;
+                    }
+                }
+            }
+
+            if (guidOrderHasChanged) {
+                this.refresh();
+            }
+        }
     }
 
     private getFromClickEvent(e: ClickEvent): void {

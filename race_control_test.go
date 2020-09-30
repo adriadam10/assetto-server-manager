@@ -1055,18 +1055,21 @@ func TestRaceControl_SortDrivers(t *testing.T) {
 		d0 := NewRaceControlDriver(drivers[0])
 		d0.CurrentCar().NumLaps = 10
 		d0.CurrentCar().TotalLapTime = 100
+		d0.NormalisedSplinePos = 0.9
 
 		rc.ConnectedDrivers.Add(d0.CarInfo.DriverGUID, d0)
 
 		d1 := NewRaceControlDriver(drivers[1])
 		d1.CurrentCar().NumLaps = 10
 		d1.CurrentCar().TotalLapTime = 88
+		d1.NormalisedSplinePos = 0.95
 
 		rc.ConnectedDrivers.Add(d1.CarInfo.DriverGUID, d1)
 
 		d2 := NewRaceControlDriver(drivers[2])
 		d2.CurrentCar().NumLaps = 7
 		d2.CurrentCar().TotalLapTime = 30
+		d2.NormalisedSplinePos = 0.99
 
 		rc.ConnectedDrivers.Add(d2.CarInfo.DriverGUID, d2)
 
