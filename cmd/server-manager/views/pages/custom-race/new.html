@@ -1891,17 +1891,15 @@
                     </div>
                 </div>
 
-                <!-- @TODO penalty type -->
                 <div class="form-group row">
                     <label for="CustomCutsPenaltyType" class="col-sm-3 col-form-label">Penalty Type</label>
 
                     <div class="col-sm-9">
 
                         <select class="form-control" id="CustomCutsPenaltyType" name="CustomCutsPenaltyType">
-                            <option value="0" {{ if eq $f.CustomCutsPenaltyType 0 }} selected="selected" {{ end }}>Kick</option>
-                            <option value="1" {{ if eq $f.CustomCutsPenaltyType 1 }} selected="selected" {{ end }}>Apply Ballast</option>
-                            <option value="2" {{ if eq $f.CustomCutsPenaltyType 2 }} selected="selected" {{ end }}>Apply Restrictor</option>
-                            <option value="4" {{ if eq $f.CustomCutsPenaltyType 4 }} selected="selected" {{ end }}>Warn Driver</option>
+                            {{ range $val, $name := .CutPenaltyOptions }}
+                                <option value="{{ $val }}" {{ if eq $f.CustomCutsPenaltyType $val }} selected="selected" {{ end }}>{{ $name }}</option>
+                            {{ end }}
                         </select>
 
                         <small>The type of penalty to apply when the number of warnings is exceeded.</small>

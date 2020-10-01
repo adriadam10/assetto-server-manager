@@ -980,6 +980,8 @@ type RaceTemplateVars struct {
 	RaceWeekendSession              *RaceWeekendSession
 	RaceWeekendHasAtLeastOneSession bool
 
+	CutPenaltyOptions map[acserver.CutPenaltyType]string
+
 	ShowOverridePasswordCard bool
 }
 
@@ -1101,6 +1103,7 @@ func (rm *RaceManager) BuildRaceOpts(r *http.Request) (*RaceTemplateVars, error)
 		ForceStopTime:            forceStopTime,
 		ForceStopWithDrivers:     forceStopWithDrivers,
 		ForcedApps:               forcedApps,
+		CutPenaltyOptions:        acserver.CutPenaltyOptions,
 	}
 
 	err = rm.applyCurrentRaceSetupToOptions(opts, race.CurrentRaceConfig)

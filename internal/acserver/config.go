@@ -86,7 +86,7 @@ type EventConfig struct {
 
 	CustomCutsEnabled        bool           `json:"custom_cuts_enabled" yaml:"custom_cuts_enabled"`
 	CustomCutsOnlyIfCleanSet bool           `json:"custom_cuts_only_if_clean_set" yaml:"custom_cuts_only_if_clean_set"`
-	CustomCutsIgnoreFirstLap bool			`json:"custom_cuts_ignore_first_lap" yaml:"custom_cuts_ignore_first_lap"`
+	CustomCutsIgnoreFirstLap bool           `json:"custom_cuts_ignore_first_lap" yaml:"custom_cuts_ignore_first_lap"`
 	CustomCutsNumWarnings    int            `json:"custom_cuts_num_warnings" yaml:"custom_cuts_num_warnings"`
 	CustomCutsPenaltyType    CutPenaltyType `json:"custom_cuts_penalty_type" yaml:"custom_cuts_penalty_type"`
 	CustomCutsBoPAmount      float32        `json:"custom_cuts_bop_amount" yaml:"custom_cuts_bop_amount"`
@@ -99,9 +99,16 @@ const (
 	CutPenaltyKick CutPenaltyType = iota
 	CutPenaltyBallast
 	CutPenaltyRestrictor
-	//CutPenaltyDriveThrough
 	CutPenaltyWarn
+	//CutPenaltyDriveThrough
 )
+
+var CutPenaltyOptions = map[CutPenaltyType]string{
+	CutPenaltyKick:       "Kick",
+	CutPenaltyBallast:    "Apply Ballast",
+	CutPenaltyRestrictor: "Apply Restrictor",
+	CutPenaltyWarn:       "Warn Driver",
+}
 
 func (c EventConfig) Tyres() map[string]bool {
 	tyres := make(map[string]bool)

@@ -115,13 +115,13 @@ func ConfigDefault() ServerConfig {
 				},
 			},
 
-			CustomCutsEnabled: false,
+			CustomCutsEnabled:        false,
 			CustomCutsOnlyIfCleanSet: false,
 			CustomCutsIgnoreFirstLap: true,
-			CustomCutsPenaltyType: acserver.CutPenaltyKick,
-			CustomCutsNumWarnings: 4,
-			CustomCutsBoPAmount: 50,
-			CustomCutsBoPNumLaps: 1,
+			CustomCutsPenaltyType:    acserver.CutPenaltyKick,
+			CustomCutsNumWarnings:    4,
+			CustomCutsBoPAmount:      50,
+			CustomCutsBoPNumLaps:     1,
 		},
 	}
 }

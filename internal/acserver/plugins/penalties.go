@@ -88,16 +88,6 @@ func (p *PenaltiesPlugin) OnClientLoaded(car acserver.Car) error {
 func (p *PenaltiesPlugin) OnLapCompleted(carID acserver.CarID, lap acserver.Lap) error {
 	eventConfig := p.server.GetEventConfig()
 
-	// @TODO remove this, implement to custom race form
-	if !eventConfig.CustomCutsEnabled {
-		eventConfig.CustomCutsEnabled = true
-		eventConfig.CustomCutsNumWarnings = 2
-		eventConfig.CustomCutsPenaltyType = acserver.CutPenaltyBallast
-		eventConfig.CustomCutsBoPAmount = 100
-		eventConfig.CustomCutsBoPNumLaps = 2
-		eventConfig.CustomCutsIgnoreFirstLap = true // @TODO test
-	}
-
 	if eventConfig.CustomCutsEnabled && p.server.GetSessionInfo().SessionType == acserver.SessionTypeRace {
 		var averageCleanLap int64
 
@@ -112,6 +102,7 @@ func (p *PenaltiesPlugin) OnLapCompleted(carID acserver.CarID, lap acserver.Lap)
 		for _, penalty := range p.penalties {
 			if penalty.carID == carID {
 				penaltyInfo = penalty
+				break
 			}
 		}
 
