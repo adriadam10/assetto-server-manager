@@ -16,7 +16,7 @@ func (d *DisconnectMessageHandler) OnMessage(conn net.Conn, p *Packet) error {
 	car, err := d.state.GetCarByTCPConn(conn)
 
 	if err == ErrCarNotFound {
-		closeTCPConnection(conn)
+		d.state.closeTCPConnection(conn)
 		return nil
 	} else if err != nil {
 		return err
