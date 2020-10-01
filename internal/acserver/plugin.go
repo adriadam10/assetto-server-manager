@@ -33,8 +33,8 @@ type Plugin interface {
 type ServerPlugin interface {
 	GetCarInfo(id CarID) (Car, error)
 	GetSessionInfo() SessionInfo
-	SendChat(message string, from, to CarID) error
-	BroadcastChat(message string, from CarID)
+	SendChat(message string, from, to CarID, rateLimit bool) error
+	BroadcastChat(message string, from CarID, rateLimit bool)
 	KickUser(carIDToKick CarID, reason KickReason) error
 	NextSession()
 	RestartSession()

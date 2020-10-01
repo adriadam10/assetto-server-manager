@@ -739,7 +739,7 @@ func (rc *RaceControl) handleDriverSwap(ticker *time.Ticker, config CurrentRaceC
 				}
 			} else {
 				if totalTime.Seconds() >= completeTime.Seconds() {
-					err := rc.server.SendChat("You are clear to leave the pits, go go go!", acserver.ServerCarID, currentDriver.CarInfo.CarID)
+					err := rc.server.SendChat("You are clear to leave the pits, go go go!", acserver.ServerCarID, currentDriver.CarInfo.CarID, false)
 
 					if err != nil {
 						logrus.WithError(err).Errorf("Unable to send driver swap clear to leave message to: %s", currentDriver.CarInfo.DriverName)
@@ -762,6 +762,7 @@ func (rc *RaceControl) handleDriverSwap(ticker *time.Ticker, config CurrentRaceC
 							),
 							acserver.ServerCarID,
 							currentDriver.CarInfo.CarID,
+							false,
 						)
 
 						if err != nil {
@@ -784,6 +785,7 @@ func (rc *RaceControl) handleDriverSwap(ticker *time.Ticker, config CurrentRaceC
 							),
 							acserver.ServerCarID,
 							currentDriver.CarInfo.CarID,
+							false,
 						)
 
 						if err != nil {
@@ -828,6 +830,7 @@ func (rc *RaceControl) handleDriverSwap(ticker *time.Ticker, config CurrentRaceC
 							),
 							acserver.ServerCarID,
 							currentDriver.CarInfo.CarID,
+							false,
 						)
 
 						if err != nil {
@@ -852,6 +855,7 @@ func (rc *RaceControl) handleDriverSwap(ticker *time.Ticker, config CurrentRaceC
 						fmt.Sprintf("Free to leave pits in %s", countdown.String()),
 						acserver.ServerCarID,
 						currentDriver.CarInfo.CarID,
+						false,
 					)
 
 					if err != nil {
@@ -930,11 +934,11 @@ func (rc *RaceControl) OnClientLoaded(loadedCar udp.ClientLoaded) error {
 			solWarning,
 			liveLink,
 		),
-		60,
+		acChatLineLimit,
 	), "\n")
 
 	for _, message := range wrapped {
-		err := rc.server.SendChat(message, acserver.ServerCarID, driver.CarInfo.CarID)
+		err := rc.server.SendChat(message, acserver.ServerCarID, driver.CarInfo.CarID, false)
 
 		if err != nil {
 			logrus.WithError(err).Errorf("Unable to send welcome message to: %s", driver.CarInfo.DriverName)
@@ -1009,11 +1013,11 @@ func (rc *RaceControl) sendChampionshipPlayerSummaryMessage(driver *RaceControlD
 			championship.GetPlayerSummary(string(driver.CarInfo.DriverGUID)),
 			visitServer,
 		),
-		60,
+		acChatLineLimit,
 	), "\n")
 
 	for _, message := range wrapped {
-		err := rc.server.SendChat(message, acserver.ServerCarID, driver.CarInfo.CarID)
+		err := rc.server.SendChat(message, acserver.ServerCarID, driver.CarInfo.CarID, false)
 
 		if err != nil {
 			logrus.WithError(err).Errorf("Unable to send welcome message to: %s", driver.CarInfo.DriverName)
@@ -1403,6 +1407,8 @@ func (rc *RaceControl) LuaSendChat(L *lua.LState) int {
 	return 1
 }
 
+const acChatLineLimit = 80
+
 func (rc *RaceControl) splitAndBroadcastChat(message string, account *Account) error {
 	name := "Server"
 	guid := ""
@@ -1416,11 +1422,11 @@ func (rc *RaceControl) splitAndBroadcastChat(message string, account *Account) e
 
 	wrapped := strings.Split(wordwrap.WrapString(
 		messageWithUser,
-		60,
+		acChatLineLimit,
 	), "\n")
 
 	for _, message := range wrapped {
-		rc.server.BroadcastChat(message, acserver.ServerCarID)
+		rc.server.BroadcastChat(message, acserver.ServerCarID, true)
 	}
 
 	chat, err := udp.NewChat(message, 0, name, udp.DriverGUID(guid))
@@ -1446,11 +1452,11 @@ func (rc *RaceControl) splitAndSendChat(message, guid string) error {
 
 	wrapped := strings.Split(wordwrap.WrapString(
 		message,
-		60,
+		acChatLineLimit,
 	), "\n")
 
 	for _, message := range wrapped {
-		err := rc.server.SendChat(message, acserver.ServerCarID, acserver.CarID(carID))
+		err := rc.server.SendChat(message, acserver.ServerCarID, acserver.CarID(carID), true)
 
 		if err != nil {
 			return err
