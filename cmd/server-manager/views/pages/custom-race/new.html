@@ -1840,6 +1840,153 @@
             </div>
         </div>
 
+        <div class="card mt-3 border-secondary">
+            <div class="card-header">
+                <strong>Custom Penalties</strong>
+            </div>
+
+            <div class="card-body">
+
+                <div class="form-group row">
+                    <label for="CustomCutsEnabled" class="col-sm-3 col-form-label">Enable Custom Penalties</label>
+
+                    <div class="col-sm-9">
+
+                        <input
+                                class="form-control"
+                                type="checkbox"
+                                id="CustomCutsEnabled"
+                                name="CustomCutsEnabled"
+                                {{ if $f.CustomCutsEnabled }}
+                                    checked="checked"
+                                {{ end }}
+                        ><br/>
+
+                        <small>
+                            Custom cut penalties are controlled entirely by the server to prevent driver intervention.
+                            If a driver finishes a lap faster than their current average that has one or more cuts then
+                            they will be given a warning. If their number of warnings exceeds the number of warnings set
+                            they will be given the configured penalty and their warning counter will reset.
+
+                            <strong>These penalties only apply in race sessions.</strong>
+                        </small>
+                    </div>
+                </div>
+
+                <div class="form-group row">
+                    <label for="CustomCutsNumWarnings" class="col-sm-3 col-form-label">Number of Warnings</label>
+
+                    <div class="col-sm-9">
+                        <input
+                                type="number"
+                                id="CustomCutsNumWarnings"
+                                name="CustomCutsNumWarnings"
+                                class="form-control"
+                                value="{{ $f.CustomCutsNumWarnings }}"
+                                min="1"
+                                step="1"
+                        >
+
+                        <small>The number of cut warnings to give before applying the configured penalty.</small>
+                    </div>
+                </div>
+
+                <div class="form-group row">
+                    <label for="CustomCutsPenaltyType" class="col-sm-3 col-form-label">Penalty Type</label>
+
+                    <div class="col-sm-9">
+
+                        <select class="form-control" id="CustomCutsPenaltyType" name="CustomCutsPenaltyType">
+                            {{ range $val, $name := .CutPenaltyOptions }}
+                                <option value="{{ $val }}" {{ if eq $f.CustomCutsPenaltyType $val }} selected="selected" {{ end }}>{{ $name }}</option>
+                            {{ end }}
+                        </select>
+
+                        <small>The type of penalty to apply when the number of warnings is exceeded.</small>
+                    </div>
+                </div>
+
+                <div class="form-group row" style="{{ if and (ne $f.CustomCutsPenaltyType 1) (ne $f.CustomCutsPenaltyType 2) }}display: none;{{ end }}" id="CustomCutsBoPAmountWrapper">
+                    <label for="CustomCutsBoPAmount" class="col-sm-3 col-form-label">Ballast(kg)/Restrictor(%) to Apply</label>
+
+                    <div class="col-sm-9">
+                        <input
+                                type="number"
+                                id="CustomCutsBoPAmount"
+                                name="CustomCutsBoPAmount"
+                                class="form-control"
+                                value="{{ $f.CustomCutsBoPAmount }}"
+                                min="0"
+                                step="0.01"
+                        >
+
+                        <small>The amount of ballast/restrictor to apply when the penalty is applied.</small>
+                    </div>
+                </div>
+
+                <div class="form-group row" style="{{ if and (ne $f.CustomCutsPenaltyType 1) (ne $f.CustomCutsPenaltyType 2) }}display: none;{{ end }}" id="CustomCutsBoPNumLapsWrapper">
+                    <label for="CustomCutsBoPNumLaps" class="col-sm-3 col-form-label">Number of Laps of Penalty Ballast/Restrictor</label>
+
+                    <div class="col-sm-9">
+                        <input
+                                type="number"
+                                id="CustomCutsBoPNumLaps"
+                                name="CustomCutsBoPNumLaps"
+                                class="form-control"
+                                value="{{ $f.CustomCutsBoPNumLaps }}"
+                                min="1"
+                                step="1"
+                        >
+
+                        <small>After this number of laps the ballast/restrictor penalty will be removed.</small>
+                    </div>
+                </div>
+
+                <div class="form-group row">
+                    <label for="CustomCutsOnlyIfCleanSet" class="col-sm-3 col-form-label">Only Penalise with Clean Lap</label>
+
+                    <div class="col-sm-9">
+
+                        <input
+                                class="form-control"
+                                type="checkbox"
+                                id="CustomCutsOnlyIfCleanSet"
+                                name="CustomCutsOnlyIfCleanSet"
+                                {{ if $f.CustomCutsOnlyIfCleanSet }}
+                                    checked="checked"
+                                {{ end }}
+                        ><br/>
+
+                        <small>
+                            If this is enabled a driver will only be given warnings/penalties after they have completed a clean lap.
+                        </small>
+                    </div>
+                </div>
+
+                <div class="form-group row">
+                    <label for="CustomCutsIgnoreFirstLap" class="col-sm-3 col-form-label">Ignore First Lap</label>
+
+                    <div class="col-sm-9">
+
+                        <input
+                                class="form-control"
+                                type="checkbox"
+                                id="CustomCutsIgnoreFirstLap"
+                                name="CustomCutsIgnoreFirstLap"
+                                {{ if $f.CustomCutsIgnoreFirstLap }}
+                                    checked="checked"
+                                {{ end }}
+                        ><br/>
+
+                        <small>
+                            If this is enabled cuts in the first lap of a race will be completely ignored.
+                        </small>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
         {{ if $.ShowOverridePasswordCard }}
             <div class="card mt-3 border-secondary">
                 <div class="card-header">

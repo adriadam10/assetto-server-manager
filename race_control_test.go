@@ -194,12 +194,20 @@ func (d dummyServer) GetSessionInfo() acserver.SessionInfo {
 	return acserver.SessionInfo{}
 }
 
+func (d dummyServer) GetEventConfig() acserver.EventConfig {
+	return acserver.EventConfig{}
+}
+
 func (d dummyServer) SendChat(message string, from, to acserver.CarID) error {
 	return nil
 }
 
 func (d dummyServer) BroadcastChat(message string, from acserver.CarID) {
 
+}
+
+func (d dummyServer) UpdateBoP(carIDToUpdate acserver.CarID, ballast, restrictor float32) error {
+	return nil
 }
 
 func (d dummyServer) KickUser(carIDToKick acserver.CarID, reason acserver.KickReason) error {

@@ -3,7 +3,8 @@ import dragula from "dragula";
 export namespace CustomRace {
     export class View {
         public constructor() {
-            this.initDraggableCards()
+            this.initDraggableCards();
+            this.initPenaltyTypeWatcher();
         }
 
         private initDraggableCards(): void {
@@ -27,6 +28,27 @@ export namespace CustomRace {
                 $weatherDelete.show();
                 $weatherDelete.first().hide();
             });
+        }
+
+        private initPenaltyTypeWatcher(): void {
+            let $penaltyType = $("#CustomCutsPenaltyType");
+
+            if (!$penaltyType) {
+                return;
+            }
+
+            $penaltyType.on("change", function (e) {
+                let $this = $(e.currentTarget) as JQuery<HTMLInputElement>;
+                let value = $this.val() as number;
+
+                if (value == 1 || value == 2) {
+                    $("#CustomCutsBoPAmountWrapper").show();
+                    $("#CustomCutsBoPNumLapsWrapper").show();
+                } else {
+                    $("#CustomCutsBoPAmountWrapper").hide();
+                    $("#CustomCutsBoPNumLapsWrapper").hide();
+                }
+            })
         }
     }
 }
