@@ -38,6 +38,12 @@
     {{ $UseMPH := .UseMPH }}
 
     {{ with .RaceDetails }}
+        <div aria-live="polite" class="damage-zone-polite" aria-atomic="true">
+            <div id="toasts" class="damage-zone-toasts">
+                <!-- Toasts appended by js -->
+            </div>
+        </div>
+
         <div class="race-control-event-info">
             {{ range $sessionName, $session := .RaceConfig.Sessions }}
                 <span data-toggle="tooltip" title="{{ $sessionName.String }}" class="badge badge-primary">{{ trunc 1 $sessionName.String }}</span>
@@ -197,7 +203,6 @@
                             <th>Gap</th>
                             <th>&num; Laps</th>
                             <th>Top Speed</th>
-                            <th class="live-events">Events</th>
                         </tr>
 
                         <!-- trs for drivers are appended by javascript -->

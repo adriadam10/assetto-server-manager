@@ -36,6 +36,8 @@ const EventCollisionWithCar = 10,
     EventTyresChanged = 101
 ;
 
+const GolangZeroTime = "0001-01-01T00:00:00Z";
+
 interface SimpleCollision {
     WorldPos: CarUpdateVector3F
 }
@@ -190,6 +192,10 @@ export class RaceControl {
             default:
                 return "Unknown session";
         }
+    }
+
+    public refreshTimings(): void {
+        this.liveTimings.refresh();
     }
 
     private showEventCompletion() {
@@ -390,7 +396,7 @@ class LiveMap implements WebsocketHandler {
                 for (const connectedGUID in this.raceControl.status.ConnectedDrivers!.Drivers) {
                     const driver = this.raceControl.status.ConnectedDrivers!.Drivers[connectedGUID];
 
-                    if (!this.dots.has(driver.CarInfo.DriverGUID)) {
+                    if (driver.LoadedTime.toString() !== GolangZeroTime && !this.dots.has(driver.CarInfo.DriverGUID)) {
                         // in the event that a user just loaded the race control page, place the
                         // already loaded dots onto the map
                         let $driverDot = this.buildDriverDot(driver.CarInfo, driver.LastPos as CarUpdateVector3F).show();
@@ -439,6 +445,14 @@ class LiveMap implements WebsocketHandler {
                 // find the guid for this car ID:
                 const driverGUID = this.raceControl.status!.CarIDToGUID[update.CarID];
 
+                if (this.raceControl.status.ConnectedDrivers) {
+                    let driver = this.raceControl.status.ConnectedDrivers.Drivers[driverGUID];
+
+                    if (driver) {
+                        driver.NormalisedSplinePos = update.NormalisedSplinePos;
+                    }
+                }
+
                 let $myDot = this.dots.get(driverGUID);
                 let dotPos = this.translateToTrackCoordinate(update.Pos);
 
@@ -447,13 +461,12 @@ class LiveMap implements WebsocketHandler {
                     "top": dotPos.Z,
                 });
 
-                // working here
                 let speed = Math.floor(Math.sqrt((Math.pow(update.Velocity.X, 2) + Math.pow(update.Velocity.Z, 2))) * 3.6);
-                let speedUnits = "Km/h ";
+                let speedUnits = "Km/h";
 
                 if (useMPH) {
                     speed = Math.floor(speed * 0.621371);
-                    speedUnits = "MPH ";
+                    speedUnits = "MPH";
                 }
 
                 let maxRPM = this.maxRPMs.get(driverGUID);
@@ -476,7 +489,7 @@ class LiveMap implements WebsocketHandler {
                 });
 
                 $rpmGaugeOuter.append($rpmGaugeInner);
-                $myDot!.find(".info").text(speed + speedUnits + (update.Gear - 1));
+                $myDot!.find(".info").text(speed + speedUnits + " " + (update.Gear - 1));
                 $myDot!.find(".info").append($rpmGaugeOuter);
                 break;
 
@@ -650,6 +663,59 @@ class LiveTimings implements WebsocketHandler {
         $(document).on("submit", "#admin-command-form", this.processAdminCommandForm.bind(this));
         $(document).on("submit", "#kick-user-form", this.processKickUserForm.bind(this));
         $(document).on("submit", "#send-chat-form", this.processSendChatForm.bind(this));
+
+        setInterval(this.updateCarPositions.bind(this), 1000);
+    }
+
+    private updateCarPositions(): void {
+        if (!this.raceControl.status.ConnectedDrivers) {
+            return;
+        }
+
+        if (this.raceControl.status.SessionInfo.Type === SessionType.Race) {
+            // sort drivers on the fly by their NormalisedSplinePos, if they're on the same lap.
+            let oldGUIDOrder = this.raceControl.status.ConnectedDrivers.GUIDsInPositionalOrder;
+
+            this.raceControl.status.ConnectedDrivers.GUIDsInPositionalOrder.sort((guidA: string, guidB: string): number => {
+                if (!this.raceControl.status.ConnectedDrivers) {
+                    return 0;
+                }
+
+                let driverA = this.raceControl.status.ConnectedDrivers.Drivers[guidA]
+                let driverB = this.raceControl.status.ConnectedDrivers.Drivers[guidB]
+
+                if (driverA.TotalNumLaps === driverB.TotalNumLaps) {
+                    if (driverA.NormalisedSplinePos > driverB.NormalisedSplinePos) {
+                        return -1;
+                    } else if (driverA.NormalisedSplinePos < driverB.NormalisedSplinePos) {
+                        return 1;
+                    } else {
+                        return 0;
+                    }
+                }
+
+                // javascript has no stable sort. use our (backend sorted) position numbers to ensure stability.
+                return driverA.Position - driverB.Position;
+            });
+
+            let guidOrderHasChanged = false;
+            let newGUIDOrder = this.raceControl.status.ConnectedDrivers.GUIDsInPositionalOrder;
+
+            if (oldGUIDOrder.length !== newGUIDOrder.length) {
+                guidOrderHasChanged = true;
+            } else {
+                for (let i = 0; i < oldGUIDOrder.length; i++) {
+                    if (oldGUIDOrder[i] !== newGUIDOrder[i]) {
+                        guidOrderHasChanged = true;
+                        break;
+                    }
+                }
+            }
+
+            if (guidOrderHasChanged) {
+                this.refresh();
+            }
+        }
     }
 
     private getFromClickEvent(e: ClickEvent): void {
@@ -710,6 +776,10 @@ class LiveTimings implements WebsocketHandler {
         });
     }
 
+    public refresh(): void {
+        this.populateConnectedDrivers();
+    }
+
     public handleWebsocketMessage(message: WSMessage): void {
         if (message.EventType === EventRaceControl) {
             this.populateConnectedDrivers();
@@ -723,7 +793,7 @@ class LiveTimings implements WebsocketHandler {
             if (this.raceControl.status.ConnectedDrivers) {
                 const driver = this.raceControl.status.ConnectedDrivers.Drivers[closedConnection.DriverGUID];
 
-                if (driver && (driver.LoadedTime.toString() === "0001-01-01T00:00:00Z" || !driver.TotalNumLaps)) {
+                if (driver && (driver.LoadedTime.toString() === GolangZeroTime || !driver.TotalNumLaps)) {
                     // a driver joined but never loaded, or hasn't completed any laps. remove them from the connected drivers table.
                     this.$connectedDriversTable.find("tr[data-guid='" + closedConnection.DriverGUID + "']").remove();
                     this.removeDriverFromAdminSelects(driver.CarInfo)
@@ -749,6 +819,8 @@ class LiveTimings implements WebsocketHandler {
             return;
         }
 
+        let position = 1;
+
         for (const driverGUID of this.raceControl.status.ConnectedDrivers.GUIDsInPositionalOrder) {
             const driver = this.raceControl.status.ConnectedDrivers.Drivers[driverGUID];
 
@@ -756,8 +828,12 @@ class LiveTimings implements WebsocketHandler {
                 continue;
             }
 
+            driver.Position = position;
+
             this.addDriverToTable(driver, this.$connectedDriversTable);
             this.populatePreviousLapsForDriver(driver);
+
+            position++;
         }
     }
 
@@ -813,7 +889,6 @@ class LiveTimings implements WebsocketHandler {
             <td class="gap"></td>
             <td class="num-laps"></td>
             <td class="top-speed"></td>
-            <td class="events"></td>
         </tr>
     `;
 
@@ -892,9 +967,11 @@ class LiveTimings implements WebsocketHandler {
 
             let currentLapTimeText = "";
 
-            if (moment(carInfo.LastLapCompletedTime).utc().isAfter(moment(this.raceControl.status!.SessionStartTime).utc())) {
-                // only show current lap time text if the last lap completed time is after session start.
-                currentLapTimeText = msToTime(moment().utc().diff(moment(carInfo.LastLapCompletedTime).utc()), false, 1);
+            if (driver.LoadedTime.toString() !== GolangZeroTime) {
+                if (moment(carInfo.LastLapCompletedTime).utc().isSameOrAfter(moment(this.raceControl.status!.SessionStartTime).utc())) {
+                    // only show current lap time text if the last lap completed time is after session start.
+                    currentLapTimeText = msToTime(moment().utc().diff(moment(carInfo.LastLapCompletedTime).utc()), false, 1);
+                }
             }
 
             let $currentLap = $tr.find(".current-lap");
@@ -964,31 +1041,20 @@ class LiveTimings implements WebsocketHandler {
         $tr.find(".top-speed").text(topSpeed ? topSpeed.toFixed(2) + speedUnits : "");
 
         if (addingDriverToConnectedTable) {
-            // events
-            const $tdEvents = $tr.find(".events");
-            const loadedID = driver.CarInfo.DriverGUID + "-loaded";
+            let $shownToasts = $('.damage-zone-toast:visible');
 
-            if (moment(driver.LoadedTime).utc().add("10", "seconds").isSameOrAfter(moment().utc()) && !$("#" + loadedID).length) {
-                // car just loaded
-                let $tag = $("<span/>").attr("id", loadedID);
-                $tag.attr({'class': 'badge badge-success live-badge'});
-                $tag.text("Loaded");
-
-                $tdEvents.append($tag);
-
-                setTimeout(() => {
-                    $tag.remove();
-                }, 10000);
+            if ($shownToasts.length > 6) {
+                for (let i = 6; i < $shownToasts.length;  i++) {
+                    $($shownToasts[i]).toast('hide');
+                }
             }
 
+            // events
             if (driver.Collisions) {
                 for (const collision of driver.Collisions) {
                     const collisionID = driver.CarInfo.DriverGUID + "-collision-" + collision.ID;
 
                     if (moment(collision.Time).utc().add("10", "seconds").isSameOrAfter(moment().utc()) && !$("#" + collisionID).length) {
-                        let $tag = $("<span/>");
-                        $tag.attr("id", collisionID);
-                        $tag.attr({'class': 'badge badge-danger live-badge'});
 
                         let crashSpeed;
 
@@ -998,21 +1064,128 @@ class LiveTimings implements WebsocketHandler {
                             crashSpeed = collision.Speed;
                         }
 
+                        let $toast = $("<div/>");
+                        let $toastHeader = $("<div/>");
+                        let $toastBody = $("<div/>");
+
+                        let toastHeaderBG = "";
+                        let toastHeaderBD = "";
+
                         if (collision.Type === Collision.WithCar) {
-                            $tag.text(
-                                "Crash with " + collision.OtherDriverName + " at " + crashSpeed.toFixed(2) + speedUnits
+                            toastHeaderBG = "bg-danger";
+                            toastHeaderBD = "border-danger";
+
+                            $toastHeader.text(
+                                "Crash with " + collision.OtherDriverName
                             );
                         } else {
-                            $tag.text(
-                                "Crash " + collision.Type + " at " + crashSpeed.toFixed(2) + speedUnits
+                            toastHeaderBG = "bg-warning";
+                            toastHeaderBD = "border-warning";
+
+                            $toastHeader.text(
+                                "Crash " + collision.Type
                             );
                         }
 
-                        $tdEvents.append($tag);
+                        $toast.attr({'id': collisionID, 'class': 'toast damage-zone-toast', 'role': 'alert', 'aria-live': 'assertive', 'aria-atomic': 'true'});
+                        $toastHeader.attr('class', 'toast-header damage-zone-toast-header ' + toastHeaderBG + ' ' + toastHeaderBD);
+                        $toastBody.attr('class', 'toast-body damage=zone-toast-body');
+
+                        let $textContainer = $("<div/>");
+                        $textContainer.attr('style', 'height: 18px')
+
+                        let $driverName = $("<strong/>");
+                        $driverName.text(driver.CarInfo.DriverName + ' ');
+
+                        let $crashSpeed = $("<span/>");
+                        $crashSpeed.attr('class', 'text-secondary');
+                        $crashSpeed.text(crashSpeed.toFixed(2) + speedUnits);
+
+                        $textContainer.append($driverName);
+                        $textContainer.append($crashSpeed);
+
+                        $toastBody.append($textContainer);
+
+                        let $frontBumper = $("<img/>");
+                        let $rearBumper = $("<img/>");
+                        let $leftSkirt = $("<img/>");
+                        let $rightSkirt = $("<img/>");
+                        let $tyres = $("<img/>");
+
+                        let frontBumperHue = 70 - collision.DamageZones[0];
+                        let rearBumperHue = 70 - collision.DamageZones[1];
+                        let leftSkirtHue = 70 - collision.DamageZones[2];
+                        let rightSkirtHue = 70 - collision.DamageZones[3];
+
+                        if (frontBumperHue < 0) {
+                            frontBumperHue = 0
+                        }
+
+                        if (rearBumperHue < 0) {
+                            rearBumperHue = 0
+                        }
+
+                        if (leftSkirtHue < 0) {
+                            leftSkirtHue = 0
+                        }
+
+                        if (rightSkirtHue < 0) {
+                            rightSkirtHue = 0
+                        }
+
+                        $frontBumper.attr({
+                            'style':
+                                '-webkit-mask-image: url(/static/img/damage-zones-bumper.png);' +
+                                'mask-image: url(/static/img/damage-zones-bumper.png);' +
+                                'background-color: hsl(' + frontBumperHue + ', 100%, 50%);',
+                            'class': 'damage-zone-mask-relative',
+                        });
+
+                        $rearBumper.attr({
+                            'style':
+                                '-webkit-mask-image: url(/static/img/damage-zones-rear-bumper.png);' +
+                                'mask-image: url(/static/img/damage-zones-rear-bumper.png);' +
+                                'background-color: hsl(' + rearBumperHue + ', 100%, 50%);',
+                            'class': 'damage-zone-mask-absolute',
+                        });
+
+                        $leftSkirt.attr({
+                            'style':
+                                '-webkit-mask-image: url(/static/img/damage-zones-l-skirt.png);' +
+                                'mask-image: url(/static/img/damage-zones-l-skirt.png);' +
+                                'background-color: hsl(' + leftSkirtHue + ', 100%, 50%);',
+                            'class': 'damage-zone-mask-absolute',
+                        });
+
+                        $rightSkirt.attr({
+                            'style':
+                                '-webkit-mask-image: url(/static/img/damage-zones-r-skirt.png);' +
+                                'mask-image: url(/static/img/damage-zones-r-skirt.png);' +
+                                'background-color: hsl(' + rightSkirtHue + ', 100%, 50%);',
+                            'class': 'damage-zone-mask-absolute',
+                        });
+
+                        $tyres.attr({
+                            'class': 'damage-zone-mask-absolute', 'src': '/static/img/damage-zones-tyres.png',
+                        });
+
+                        $toastBody.append($frontBumper);
+                        $toastBody.append($rearBumper);
+                        $toastBody.append($leftSkirt);
+                        $toastBody.append($rightSkirt);
+                        $toastBody.append($tyres);
+
+                        $toast.append($toastHeader);
+                        $toast.append($toastBody);
+
+                        $toast.toast({animation: true, autohide: true, delay: 10000});
+                        $toast.toast('show');
+
+                        $("#toasts").append($toast);
 
                         setTimeout(() => {
-                            $tag.remove();
-                        }, 10000);
+                            $toast.remove();
+                        }, 12000);
                     }
                 }
             }
@@ -1039,16 +1212,16 @@ class LiveTimings implements WebsocketHandler {
         }
 
         if (!addingDriverToConnectedTable) {
-            this.sortTable($table);
+            this.sortDisconnectedTable($table);
         }
     }
 
-    private sortTable($table: JQuery<HTMLTableElement>) {
+    private sortDisconnectedTable($table: JQuery<HTMLTableElement>) {
         const $tbody = $table.find("tbody");
         const that = this;
 
         $($tbody.find("tr:not(:nth-child(1))").get().sort(function (a: HTMLTableElement, b: HTMLTableElement): number {
-            if (that.raceControl.status.SessionInfo.Type == SessionType.Race) {
+            if (that.raceControl.status.SessionInfo.Type === SessionType.Race) {
                 let lapsA = parseInt($(a).find("td:nth-child(4)").text(), 10);
                 let lapsB = parseInt($(b).find("td:nth-child(4)").text(), 10);
 

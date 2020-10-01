@@ -226,6 +226,7 @@ class CollisionWithEnvironment {
     ImpactSpeed: number;
     WorldPos: CarUpdateVector3F;
     RelPos: CarUpdateVector3F;
+    DamageZones: number[];
 
     constructor(data?: any) {
         const d: any = (data && typeof data === 'object') ? ToObject(data) : {};
@@ -233,6 +234,7 @@ class CollisionWithEnvironment {
         this.ImpactSpeed = ('ImpactSpeed' in d) ? d.ImpactSpeed as number : 0;
         this.WorldPos = new CarUpdateVector3F(d.WorldPos);
         this.RelPos = new CarUpdateVector3F(d.RelPos);
+        this.DamageZones = ('DamageZones' in d) ? d.DamageZones as number[] : [];
     }
 
     toObject(): any {
@@ -250,6 +252,8 @@ class CollisionWithCar {
     ImpactSpeed: number;
     WorldPos: CarUpdateVector3F;
     RelPos: CarUpdateVector3F;
+    DamageZones: number[];
+    OtherDamageZones: number[];
 
     constructor(data?: any) {
         const d: any = (data && typeof data === 'object') ? ToObject(data) : {};
@@ -258,6 +262,8 @@ class CollisionWithCar {
         this.ImpactSpeed = ('ImpactSpeed' in d) ? d.ImpactSpeed as number : 0;
         this.WorldPos = new CarUpdateVector3F(d.WorldPos);
         this.RelPos = new CarUpdateVector3F(d.RelPos);
+        this.DamageZones = ('DamageZones' in d) ? d.DamageZones as number[] : [];
+        this.OtherDamageZones = ('OtherDamageZones' in d) ? d.OtherDamageZones as number[] : [];
     }
 
     toObject(): any {

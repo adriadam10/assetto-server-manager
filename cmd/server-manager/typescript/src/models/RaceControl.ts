@@ -182,31 +182,6 @@ class RaceControlTrackInfo {
     }
 }
 
-// struct2ts:justapengu.in/acsm/pkg/udp.RaceControlChat
-class RaceControlChat {
-    CarID: number;
-    Message: string;
-    DriverGUID: string;
-    DriverName: string;
-    Time: Date;
-
-    constructor(data?: any) {
-        const d: any = (data && typeof data === 'object') ? ToObject(data) : {};
-        this.CarID = ('CarID' in d) ? d.CarID as number : 0;
-        this.Message = ('Message' in d) ? d.Message as string : '';
-        this.DriverGUID = ('DriverGUID' in d) ? d.DriverGUID as string : '';
-        this.DriverName = ('DriverName' in d) ? d.DriverName as string : '';
-        this.Time = ('Time' in d) ? ParseDate(d.Time) : new Date();
-    }
-
-    toObject(): any {
-        const cfg: any = {};
-        cfg.CarID = 'number';
-        cfg.Time = 'string';
-        return ToObject(this, cfg);
-    }
-}
-
 // struct2ts:justapengu.in/acsm/pkg/udp.RaceControlDriverMapRaceControlDriverSessionCarInfo
 class RaceControlDriverMapRaceControlDriverSessionCarInfo {
     CarID: number;
@@ -270,6 +245,8 @@ class RaceControlDriverMapRaceControlDriverCollision {
     OtherDriverGUID: string;
     OtherDriverName: string;
     Speed: number;
+    DamageZones: number[];
+    OtherDamageZones: number[];
 
     constructor(data?: any) {
         const d: any = (data && typeof data === 'object') ? ToObject(data) : {};
@@ -279,6 +256,8 @@ class RaceControlDriverMapRaceControlDriverCollision {
         this.OtherDriverGUID = ('OtherDriverGUID' in d) ? d.OtherDriverGUID as string : '';
         this.OtherDriverName = ('OtherDriverName' in d) ? d.OtherDriverName as string : '';
         this.Speed = ('Speed' in d) ? d.Speed as number : 0;
+        this.DamageZones = ('DamageZones' in d) ? d.DamageZones as number[] : [];
+        this.OtherDamageZones = ('OtherDamageZones' in d) ? d.OtherDamageZones as number[] : [];
     }
 
     toObject(): any {
@@ -367,6 +346,7 @@ class RaceControlDriverMapRaceControlDriver {
     Split: string;
     LastSeen: Date;
     LastPos: RaceControlDriverMapRaceControlDriverVector3F;
+    NormalisedSplinePos: number;
     Collisions: RaceControlDriverMapRaceControlDriverCollision[];
     Cars: { [key: string]: RaceControlDriverMapRaceControlDriverRaceControlCarLapInfo };
 
@@ -380,6 +360,7 @@ class RaceControlDriverMapRaceControlDriver {
         this.Split = ('Split' in d) ? d.Split as string : '';
         this.LastSeen = ('LastSeen' in d) ? ParseDate(d.LastSeen) : new Date();
         this.LastPos = new RaceControlDriverMapRaceControlDriverVector3F(d.LastPos);
+        this.NormalisedSplinePos = ('NormalisedSplinePos' in d) ? d.NormalisedSplinePos as number : 0;
         this.Collisions = Array.isArray(d.Collisions) ? d.Collisions.map((v: any) => new RaceControlDriverMapRaceControlDriverCollision(v)) : [];
         this.Cars = ('Cars' in d) ? d.Cars as { [key: string]: RaceControlDriverMapRaceControlDriverRaceControlCarLapInfo } : {};
     }
@@ -391,6 +372,7 @@ class RaceControlDriverMapRaceControlDriver {
         cfg.LoadedTime = 'string';
         cfg.Position = 'number';
         cfg.LastSeen = 'string';
+        cfg.NormalisedSplinePos = 'number';
         return ToObject(this, cfg);
     }
 }
@@ -412,6 +394,31 @@ class RaceControlDriverMap {
     }
 }
 
+// struct2ts:justapengu.in/acsm/pkg/udp.RaceControlChat
+class RaceControlChat {
+    CarID: number;
+    Message: string;
+    DriverGUID: string;
+    DriverName: string;
+    Time: Date;
+
+    constructor(data?: any) {
+        const d: any = (data && typeof data === 'object') ? ToObject(data) : {};
+        this.CarID = ('CarID' in d) ? d.CarID as number : 0;
+        this.Message = ('Message' in d) ? d.Message as string : '';
+        this.DriverGUID = ('DriverGUID' in d) ? d.DriverGUID as string : '';
+        this.DriverName = ('DriverName' in d) ? d.DriverName as string : '';
+        this.Time = ('Time' in d) ? ParseDate(d.Time) : new Date();
+    }
+
+    toObject(): any {
+        const cfg: any = {};
+        cfg.CarID = 'number';
+        cfg.Time = 'string';
+        return ToObject(this, cfg);
+    }
+}
+
 // struct2ts:justapengu.in/acsm.RaceControl
 class RaceControl {
     CurrentRealtimePosInterval: number;
@@ -419,9 +426,9 @@ class RaceControl {
     TrackMapData: RaceControlTrackMapData;
     TrackInfo: RaceControlTrackInfo;
     SessionStartTime: Date;
-    ChatMessages: RaceControlChat[];
     ConnectedDrivers: RaceControlDriverMap | null;
     DisconnectedDrivers: RaceControlDriverMap | null;
+    ChatMessages: RaceControlChat[];
     CarIDToGUID: { [key: number]: string };
 
     constructor(data?: any) {
@@ -431,9 +438,9 @@ class RaceControl {
         this.TrackMapData = new RaceControlTrackMapData(d.TrackMapData);
         this.TrackInfo = new RaceControlTrackInfo(d.TrackInfo);
         this.SessionStartTime = ('SessionStartTime' in d) ? ParseDate(d.SessionStartTime) : new Date();
-        this.ChatMessages = Array.isArray(d.ChatMessages) ? d.ChatMessages.map((v: any) => new RaceControlChat(v)) : [];
         this.ConnectedDrivers = ('ConnectedDrivers' in d) ? new RaceControlDriverMap(d.ConnectedDrivers) : null;
         this.DisconnectedDrivers = ('DisconnectedDrivers' in d) ? new RaceControlDriverMap(d.DisconnectedDrivers) : null;
+        this.ChatMessages = Array.isArray(d.ChatMessages) ? d.ChatMessages.map((v: any) => new RaceControlChat(v)) : [];
         this.CarIDToGUID = ('CarIDToGUID' in d) ? d.CarIDToGUID as { [key: number]: string } : {};
     }
 
@@ -450,7 +457,6 @@ export {
     RaceControlSessionInfo,
     RaceControlTrackMapData,
     RaceControlTrackInfo,
-    RaceControlChat,
     RaceControlDriverMapRaceControlDriverSessionCarInfo,
     RaceControlDriverMapRaceControlDriverVector3F,
     RaceControlDriverMapRaceControlDriverCollision,
@@ -458,6 +464,7 @@ export {
     RaceControlDriverMapRaceControlDriverRaceControlCarLapInfo,
     RaceControlDriverMapRaceControlDriver,
     RaceControlDriverMap,
+    RaceControlChat,
     RaceControl,
     ParseDate,
     ParseNumber,

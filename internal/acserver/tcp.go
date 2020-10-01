@@ -191,22 +191,3 @@ func (t *TCP) handleConnection(conn net.Conn, messageLength uint16) error {
 
 	return nil
 }
-
-func closeTCPConnectionWithError(conn net.Conn, errorMessage MessageType) error {
-	p := NewPacket(nil)
-	p.Write(errorMessage)
-
-	if err := p.WriteTCP(conn); err != nil {
-		return err
-	}
-
-	closeTCPConnection(conn)
-
-	return nil
-}
-
-func closeTCPConnection(conn net.Conn) {
-	if c, ok := conn.(*tcpConn); ok {
-		c.closer <- struct{}{}
-	}
-}

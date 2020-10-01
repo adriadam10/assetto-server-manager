@@ -216,6 +216,48 @@ td .dot-inactive {
   margin-left: -2.5rem;
 }
 
+.damage-zone-mask-relative {
+  height: 90px;
+  width: 175px;
+
+  -webkit-mask-size: contain;
+}
+
+.damage-zone-mask-absolute {
+  height: 90px;
+  width: 175px;
+  top: 63px;
+  position: absolute;
+  left: 12px;
+
+  -webkit-mask-size: contain;
+}
+
+.damage-zone-polite {
+  position: absolute;
+  bottom: 0;
+  right: 215px;
+}
+
+.damage-zone-toasts {
+  position: absolute;
+  bottom: 15px;
+  left: 0;
+  z-index: 9999;
+}
+
+.damage-zone-toast {
+  max-width: 200px;
+}
+
+.damage-zone-toast-header {
+  color: white;
+}
+
+.damage-zone-toast-body {
+
+}
+
 @keyframes cssAnimation {
   0% {
     opacity: 1;
@@ -255,4 +297,9 @@ td .dot-inactive {
     position: relative;
     top: -50px;
   }
+}
+
+#live-table, #live-table-disconnected {
+  font-family: $font-family-monospace;
+  font-size: $font-size-sm;
 }

@@ -84,6 +84,9 @@ type CollisionWithCar struct {
 	ImpactSpeed float32 `json:"ImpactSpeed"`
 	WorldPos    Vec     `json:"WorldPos"`
 	RelPos      Vec     `json:"RelPos"`
+
+	DamageZones      [5]float32 `json:"DamageZones"`
+	OtherDamageZones [5]float32 `json:"OtherDamageZones"`
 }
 
 func (CollisionWithCar) Event() Event {
@@ -91,10 +94,11 @@ func (CollisionWithCar) Event() Event {
 }
 
 type CollisionWithEnvironment struct {
-	CarID       CarID   `json:"CarID"`
-	ImpactSpeed float32 `json:"ImpactSpeed"`
-	WorldPos    Vec     `json:"WorldPos"`
-	RelPos      Vec     `json:"RelPos"`
+	CarID       CarID      `json:"CarID"`
+	ImpactSpeed float32    `json:"ImpactSpeed"`
+	WorldPos    Vec        `json:"WorldPos"`
+	RelPos      Vec        `json:"RelPos"`
+	DamageZones [5]float32 `json:"DamageZones"`
 }
 
 func (CollisionWithEnvironment) Event() Event {

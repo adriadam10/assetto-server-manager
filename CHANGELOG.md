@@ -21,6 +21,7 @@ We've also changed the following things in Server Manager itself:
 * Significantly improved startup times - we've optimised some of Server Manager's startup logic.
 * Added split information to the Current Lap column of the Live Timings page.
 * Added tyre information to Live Timings.
+* Live Timings will now accurately show driver order even mid lap in Race Sessions. If one driver overtakes another, you should see their positions change in the Live Timings table!
 
 Removed:
 
