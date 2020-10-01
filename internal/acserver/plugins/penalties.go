@@ -231,3 +231,7 @@ func (p *PenaltiesPlugin) OnSectorCompleted(split acserver.Split) error {
 func (p *PenaltiesPlugin) OnWeatherChange(_ acserver.CurrentWeather) error {
 	return nil
 }
+
+func (p *PenaltiesPlugin) OnTyreChange(car acserver.Car, tyres string) error {
+	return nil
+}

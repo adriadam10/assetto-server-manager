@@ -214,6 +214,7 @@ class RaceControlDriverMapRaceControlDriverSessionCarInfo {
     DriverGUID: string;
     CarModel: string;
     CarSkin: string;
+    Tyres: string;
     DriverInitials: string;
     CarName: string;
     EventType: number;
@@ -225,6 +226,7 @@ class RaceControlDriverMapRaceControlDriverSessionCarInfo {
         this.DriverGUID = ('DriverGUID' in d) ? d.DriverGUID as string : '';
         this.CarModel = ('CarModel' in d) ? d.CarModel as string : '';
         this.CarSkin = ('CarSkin' in d) ? d.CarSkin as string : '';
+        this.Tyres = ('Tyres' in d) ? d.Tyres as string : '';
         this.DriverInitials = ('DriverInitials' in d) ? d.DriverInitials as string : '';
         this.CarName = ('CarName' in d) ? d.CarName as string : '';
         this.EventType = ('EventType' in d) ? d.EventType as number : 0;
@@ -317,6 +319,7 @@ class RaceControlDriverMapRaceControlDriverRaceControlCarLapInfoRaceControlCarSp
 class RaceControlDriverMapRaceControlDriverRaceControlCarLapInfo {
     TopSpeedThisLap: number;
     TopSpeedBestLap: number;
+    TyreBestLap: string;
     BestLap: number;
     NumLaps: number;
     LastLap: number;
@@ -330,6 +333,7 @@ class RaceControlDriverMapRaceControlDriverRaceControlCarLapInfo {
         const d: any = (data && typeof data === 'object') ? ToObject(data) : {};
         this.TopSpeedThisLap = ('TopSpeedThisLap' in d) ? d.TopSpeedThisLap as number : 0;
         this.TopSpeedBestLap = ('TopSpeedBestLap' in d) ? d.TopSpeedBestLap as number : 0;
+        this.TyreBestLap = ('TyreBestLap' in d) ? d.TyreBestLap as string : '';
         this.BestLap = ('BestLap' in d) ? d.BestLap as number : 0;
         this.NumLaps = ('NumLaps' in d) ? d.NumLaps as number : 0;
         this.LastLap = ('LastLap' in d) ? d.LastLap as number : 0;

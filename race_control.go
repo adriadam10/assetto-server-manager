@@ -127,11 +127,13 @@ func (rc *RaceControl) UDPCallback(message udp.Message) {
 	case udp.SessionCarInfo:
 		if m.Event() == udp.EventNewConnection {
 			err = rc.OnClientConnect(m)
+			sendUpdatedRaceControlStatus = true
 		} else if m.Event() == udp.EventConnectionClosed {
 			err = rc.OnClientDisconnect(m)
+			sendUpdatedRaceControlStatus = true
+		} else if m.Event() == udp.EventTyresChanged {
+			err = rc.OnTyreChange(m)
 		}
-
-		sendUpdatedRaceControlStatus = true
 	case udp.ClientLoaded:
 		err = rc.OnClientLoaded(m)
 
@@ -582,6 +584,7 @@ func (rc *RaceControl) OnClientConnect(client udp.SessionCarInfo) error {
 	driver.ConnectedTime = time.Now()
 	driver.LastSeen = time.Time{}
 	driver.CurrentCar().LastLapCompletedTime = time.Now()
+	driver.CurrentCar().CurrentLapSplits = make(map[uint8]RaceControlCarSplit)
 
 	rc.ConnectedDrivers.Add(driver.CarInfo.DriverGUID, driver)
 
@@ -619,6 +622,23 @@ func (rc *RaceControl) OnClientDisconnect(client udp.SessionCarInfo) error {
 
 		go rc.handleDriverSwap(ticker, config, client, driver)
 	}
+
+	_, err := rc.broadcaster.Send(client)
+
+	return err
+}
+
+func (rc *RaceControl) OnTyreChange(client udp.SessionCarInfo) error {
+	driver, ok := rc.ConnectedDrivers.Get(client.DriverGUID)
+
+	if !ok {
+		return fmt.Errorf("racecontrol: client changed tyres without ever being connected: %s (%s)", client.DriverName, client.DriverGUID)
+	}
+
+	driver.mutex.Lock()
+	defer driver.mutex.Unlock()
+
+	driver.CarInfo.Tyres = client.Tyres
 
 	_, err := rc.broadcaster.Send(client)
 
@@ -995,6 +1015,7 @@ func (rc *RaceControl) OnLapCompleted(lap udp.LapCompleted) error {
 	if lap.Cuts == 0 && (lapDuration < currentCar.BestLap || currentCar.BestLap == 0) {
 		currentCar.BestLap = lapDuration
 		currentCar.TopSpeedBestLap = currentCar.TopSpeedThisLap
+		currentCar.TyresBestLap = lap.Tyres
 	}
 
 	currentCar.TopSpeedThisLap = 0

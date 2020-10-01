@@ -239,10 +239,12 @@ func (ss *ServerState) initMOTD() error {
 	return nil
 }
 
+const BlockListFileName = "blocklist.json"
+
 func (ss *ServerState) initBlockList() error {
 	ss.logger.Debug("Loading server blocklist.json")
 
-	blockListFile, err := ioutil.ReadFile(filepath.Join(ss.baseDirectory, "blocklist.json"))
+	blockListFile, err := ioutil.ReadFile(filepath.Join(ss.baseDirectory, BlockListFileName))
 
 	if err != nil && !os.IsNotExist(err) {
 		return err
@@ -254,13 +256,13 @@ func (ss *ServerState) initBlockList() error {
 		err := json.Unmarshal(blockListFile, &blockList)
 
 		if err != nil {
-			ss.logger.Debug("Server blocklist.json is formatted incorrectly! Skipping")
+			ss.logger.WithError(err).Errorf("Server %s is formatted incorrectly. Skipping", BlockListFileName)
 		} else {
-			ss.logger.Debugf("Block list loaded successfully: %s", strings.Join(blockList, ", "))
+			ss.logger.Infof("Block list loaded successfully: %s", strings.Join(blockList, ", "))
 			ss.blockList = blockList
 		}
 	} else {
-		ss.logger.Debug("Server blocklist.json not found, skipping")
+		ss.logger.Debug("Server %s not found, skipping", BlockListFileName)
 	}
 
 	return nil
@@ -439,19 +441,20 @@ func (ss *ServerState) BroadcastChat(carID CarID, message string) {
 	p.Write(carID)
 	p.WriteUTF32String(message)
 
-	/* @TODO do we want to call on chat for broadcasted messages?
-	go func() {
-		err := ss.plugin.OnChat(Chat{
-			FromCar: carID,
-			ToCar:   ServerCarID,
-			Message: message,
-			Time:    time.Now(),
-		})
+	if carID != ServerCarID {
+		go func() {
+			err := ss.plugin.OnChat(Chat{
+				FromCar: carID,
+				ToCar:   ServerCarID,
+				Message: message,
+				Time:    time.Now(),
+			})
 
-		if err != nil {
-			ss.logger.WithError(err).Error("On chat plugin returned an error")
-		}
-	}()*/
+			if err != nil {
+				ss.logger.WithError(err).Error("On chat plugin returned an error")
+			}
+		}()
+	}
 
 	ss.BroadcastAllTCP(p)
 }
@@ -525,6 +528,14 @@ func (ss *ServerState) ChangeTyre(carID CarID, tyre string) error {
 	ss.logger.Debugf("Car: %s changed tyres to: %s", entrant, tyre)
 
 	ss.BroadcastOthersTCP(p, entrant.CarID)
+
+	go func() {
+		err := ss.plugin.OnTyreChange(*entrant, tyre)
+
+		if err != nil {
+			ss.logger.WithError(err).Error("On tyre change plugin returned an error")
+		}
+	}()
 
 	return nil
 }
@@ -981,7 +992,11 @@ func (ss *ServerState) Leaderboard() []*LeaderboardLine {
 			}
 
 			if carI.Time == carJ.Time {
-				return carI.Car.CarID < carJ.Car.CarID
+				if len(carI.Car.SessionData.Laps) == len(carJ.Car.SessionData.Laps) {
+					return carI.Car.CarID < carJ.Car.CarID
+				}
+
+				return len(carI.Car.SessionData.Laps) < len(carJ.Car.SessionData.Laps)
 			}
 
 			return carI.Time < carJ.Time

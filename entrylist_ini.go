@@ -352,7 +352,7 @@ func CleanGUIDs(guids []string) []string {
 	var cleaned []string
 
 	for _, guid := range guids {
-		g := guidCleanupRegex.ReplaceAllLiteralString(guid, "")
+		g := CleanGUID(guid)
 
 		if len(g) > 0 {
 			cleaned = append(cleaned, g)
@@ -360,6 +360,10 @@ func CleanGUIDs(guids []string) []string {
 	}
 
 	return cleaned
+}
+
+func CleanGUID(guid string) string {
+	return guidCleanupRegex.ReplaceAllLiteralString(guid, "")
 }
 
 // NormaliseEntrantGUID takes a guid which may have driverSwapEntrantSeparators in it,

@@ -9,7 +9,7 @@ type Lap struct {
 	Cuts          int
 	Sectors       []time.Duration
 	CompletedTime time.Time
-	Tyre          string
+	Tyres         string
 	Restrictor    float32
 	Ballast       float32
 }

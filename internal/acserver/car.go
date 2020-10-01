@@ -225,7 +225,7 @@ func (c *Car) AddLap(lap *LapCompleted) *Lap {
 		Cuts:          int(lap.Cuts),
 		Sectors:       sectors,
 		CompletedTime: time.Now(),
-		Tyre:          c.Tyres,
+		Tyres:         c.Tyres,
 		Restrictor:    c.Restrictor,
 		Ballast:       c.Ballast,
 		DriverGUID:    c.Driver.GUID,

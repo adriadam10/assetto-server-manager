@@ -79,7 +79,7 @@ func (ss *ServerState) GenerateResults() *SessionResults {
 				Restrictor: lap.Restrictor,
 				Sectors:    sectors,
 				Timestamp:  int(lap.CompletedTime.Unix()),
-				Tyre:       lap.Tyre,
+				Tyre:       lap.Tyres,
 			})
 		}
 
