@@ -46,7 +46,7 @@ func (m HandshakeMessageHandler) OnMessage(conn net.Conn, p *Packet) error {
 			return err
 		}
 
-		closeTCPConnection(conn)
+		m.state.closeTCPConnection(conn)
 		return nil
 	}
 
@@ -69,26 +69,26 @@ func (m HandshakeMessageHandler) OnMessage(conn net.Conn, p *Packet) error {
 	for _, blockedGUID := range m.state.blockList {
 		if blockedGUID == guid {
 			m.logger.Infof("Driver: %s (%s) was rejected as their guid is in the block list", driverName, guid)
-			return closeTCPConnectionWithError(conn, TCPHandshakeBlockListed)
+			return m.state.closeTCPConnectionWithError(conn, TCPHandshakeBlockListed)
 		}
 	}
 
 	// check no join list
 	if _, ok := m.state.noJoinList[guid]; ok {
 		m.logger.Infof("Driver: %s (%s) was rejected as their guid is in the no join list (was previously kicked during this session)", driverName, guid)
-		return closeTCPConnectionWithError(conn, TCPHandshakeBlockListed)
+		return m.state.closeTCPConnectionWithError(conn, TCPHandshakeBlockListed)
 	}
 
 	if m.state.serverConfig.Password != "" {
 		if password != m.state.serverConfig.Password && password != m.state.serverConfig.AdminPassword {
 			m.logger.Infof("Driver: %s (%s) got the server password wrong", driverName, guid)
-			return closeTCPConnectionWithError(conn, TCPHandshakeWrongPassword)
+			return m.state.closeTCPConnectionWithError(conn, TCPHandshakeWrongPassword)
 		}
 	}
 
 	if !m.sessionManager.JoinIsAllowed(guid) {
 		m.logger.Infof("Driver: %s (%s) tried to join but was rejected as current session is closed", driverName, guid)
-		return closeTCPConnectionWithError(conn, TCPHandshakeSessionClosed)
+		return m.state.closeTCPConnectionWithError(conn, TCPHandshakeSessionClosed)
 	}
 
 	driver := Driver{
@@ -104,10 +104,10 @@ func (m HandshakeMessageHandler) OnMessage(conn net.Conn, p *Packet) error {
 
 	if err == ErrNoAvailableSlots {
 		m.logger.WithError(err).Errorf("Could not connect driver (%s/%s) to car.", driver.Name, driver.GUID)
-		return closeTCPConnectionWithError(conn, TCPHandshakeNoSlotsAvailable)
+		return m.state.closeTCPConnectionWithError(conn, TCPHandshakeNoSlotsAvailable)
 	} else if err != nil {
 		m.logger.WithError(err).Errorf("Could not connect driver (%s/%s) to car.", driver.Name, driver.GUID)
-		return closeTCPConnectionWithError(conn, TCPHandshakeAuthFailed)
+		return m.state.closeTCPConnectionWithError(conn, TCPHandshakeAuthFailed)
 	}
 
 	m.logger.Infof("Received handshake request from: %s", entrant.String())

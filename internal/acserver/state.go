@@ -856,7 +856,7 @@ func (ss *ServerState) DisconnectCar(car *Car) error {
 		return nil
 	}
 
-	car.Connection.Close()
+	ss.closeTCPConnection(car.Connection.tcpConn)
 
 	ss.logger.Infof("Car: %s disconnected cleanly from the server", car)
 
@@ -866,15 +866,36 @@ func (ss *ServerState) DisconnectCar(car *Car) error {
 
 	ss.BroadcastAllTCP(p)
 
-	go func() {
-		err := ss.plugin.OnConnectionClosed(*car)
+	return nil
+}
 
-		if err != nil {
-			ss.logger.WithError(err).Error("On connection closed plugin returned an error")
-		}
-	}()
+func (ss *ServerState) closeTCPConnectionWithError(conn net.Conn, errorMessage MessageType) error {
+	p := NewPacket(nil)
+	p.Write(errorMessage)
+
+	if err := p.WriteTCP(conn); err != nil {
+		return err
+	}
+
+	ss.closeTCPConnection(conn)
 
 	return nil
+}
+
+func (ss *ServerState) closeTCPConnection(conn net.Conn) {
+	car, _ := ss.GetCarByTCPConn(conn)
+
+	if c, ok := conn.(*tcpConn); ok {
+		c.closer <- struct{}{}
+	}
+
+	if car != nil {
+		car.Connection.Close()
+
+		if err := ss.plugin.OnConnectionClosed(*car); err != nil {
+			ss.logger.WithError(err).Error("On connection closed plugin returned an error")
+		}
+	}
 }
 
 func (ss *ServerState) SendSessionInfo(entrant *Car, leaderBoard []*LeaderboardLine) error {

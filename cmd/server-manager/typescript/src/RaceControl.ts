@@ -36,6 +36,8 @@ const EventCollisionWithCar = 10,
     EventTyresChanged = 101
 ;
 
+const GolangZeroTime = "0001-01-01T00:00:00Z";
+
 interface SimpleCollision {
     WorldPos: CarUpdateVector3F
 }
@@ -394,7 +396,7 @@ class LiveMap implements WebsocketHandler {
                 for (const connectedGUID in this.raceControl.status.ConnectedDrivers!.Drivers) {
                     const driver = this.raceControl.status.ConnectedDrivers!.Drivers[connectedGUID];
 
-                    if (!this.dots.has(driver.CarInfo.DriverGUID)) {
+                    if (driver.LoadedTime.toString() !== GolangZeroTime && !this.dots.has(driver.CarInfo.DriverGUID)) {
                         // in the event that a user just loaded the race control page, place the
                         // already loaded dots onto the map
                         let $driverDot = this.buildDriverDot(driver.CarInfo, driver.LastPos as CarUpdateVector3F).show();
@@ -791,7 +793,7 @@ class LiveTimings implements WebsocketHandler {
             if (this.raceControl.status.ConnectedDrivers) {
                 const driver = this.raceControl.status.ConnectedDrivers.Drivers[closedConnection.DriverGUID];
 
-                if (driver && (driver.LoadedTime.toString() === "0001-01-01T00:00:00Z" || !driver.TotalNumLaps)) {
+                if (driver && (driver.LoadedTime.toString() === GolangZeroTime || !driver.TotalNumLaps)) {
                     // a driver joined but never loaded, or hasn't completed any laps. remove them from the connected drivers table.
                     this.$connectedDriversTable.find("tr[data-guid='" + closedConnection.DriverGUID + "']").remove();
                     this.removeDriverFromAdminSelects(driver.CarInfo)
@@ -965,9 +967,11 @@ class LiveTimings implements WebsocketHandler {
 
             let currentLapTimeText = "";
 
-            if (moment(carInfo.LastLapCompletedTime).utc().isAfter(moment(this.raceControl.status!.SessionStartTime).utc())) {
-                // only show current lap time text if the last lap completed time is after session start.
-                currentLapTimeText = msToTime(moment().utc().diff(moment(carInfo.LastLapCompletedTime).utc()), false, 1);
+            if (driver.LoadedTime.toString() !== GolangZeroTime) {
+                if (moment(carInfo.LastLapCompletedTime).utc().isSameOrAfter(moment(this.raceControl.status!.SessionStartTime).utc())) {
+                    // only show current lap time text if the last lap completed time is after session start.
+                    currentLapTimeText = msToTime(moment().utc().diff(moment(carInfo.LastLapCompletedTime).utc()), false, 1);
+                }
             }
 
             let $currentLap = $tr.find(".current-lap");

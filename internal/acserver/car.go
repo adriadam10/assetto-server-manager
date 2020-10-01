@@ -76,8 +76,6 @@ func NewConnection(tcpConn net.Conn) Connection {
 }
 
 func (c *Connection) Close() {
-	closeTCPConnection(c.tcpConn)
-
 	c.tcpConn = nil
 	c.udpAddr = nil
 }
