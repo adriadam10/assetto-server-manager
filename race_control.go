@@ -271,7 +271,11 @@ func (rc *RaceControl) OnNewSession(sessionInfo udp.SessionInfo) error {
 			emptyCarInfoMutex.Lock()
 			defer emptyCarInfoMutex.Unlock()
 
+			loadedTime := driver.LoadedTime
+			connectedTime := driver.ConnectedTime
 			*driver = *NewRaceControlDriver(driver.CarInfo)
+			driver.LoadedTime = loadedTime
+			driver.ConnectedTime = connectedTime
 
 			return nil
 		})
@@ -625,7 +629,21 @@ func (rc *RaceControl) OnClientDisconnect(client udp.SessionCarInfo) error {
 		go rc.handleDriverSwap(ticker, config, client, driver)
 	}
 
-	_, err := rc.broadcaster.Send(client)
+	chat := udp.Chat{
+		CarID:      acserver.ServerCarID,
+		Message:    fmt.Sprintf("%s disconnected from the server", driverName(driver.CarInfo.DriverName)),
+		Time:       time.Now(),
+		DriverGUID: "0",
+		DriverName: "Server",
+	}
+
+	err := rc.OnChatMessage(chat)
+
+	if err != nil {
+		logrus.WithError(err).Errorf("Couldn't add driver disconnected message to live timings chat")
+	}
+
+	_, err = rc.broadcaster.Send(client)
 
 	return err
 }
@@ -889,6 +907,8 @@ func (rc *RaceControl) OnClientLoaded(loadedCar udp.ClientLoaded) error {
 	if err != nil {
 		return err
 	}
+
+	driver.CurrentCar().LastLapCompletedTime = time.Now()
 
 	solWarning := ""
 	liveLink := ""
