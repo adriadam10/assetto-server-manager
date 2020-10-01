@@ -3,7 +3,6 @@ package acsm
 import (
 	"errors"
 	"fmt"
-	"justapengu.in/acsm/internal/acserver"
 	"math/rand"
 	"net/http"
 	"net/url"
@@ -14,6 +13,7 @@ import (
 	"sync"
 	"time"
 
+	"justapengu.in/acsm/internal/acserver"
 	"justapengu.in/acsm/pkg/udp"
 	"justapengu.in/acsm/pkg/when"
 

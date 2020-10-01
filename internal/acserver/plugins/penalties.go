@@ -178,7 +178,7 @@ func (p *PenaltiesPlugin) OnLapCompleted(carID acserver.CarID, lap acserver.Lap)
 
 					chatMessage = fmt.Sprintf("You have been given %.0f%% restrictor for cutting the track", eventConfig.CustomCutsBoPAmount)
 				//case acserver.CutPenaltyDriveThrough:
-					// @TODO maybe, 2 laps to complete, on fail kick, if only 2 laps remaining add 30s to race time
+				// @TODO maybe, 2 laps to complete, on fail kick, if only 2 laps remaining add 30s to race time
 				case acserver.CutPenaltyWarn:
 					chatMessage = "Please avoid cutting the track! Your behaviour has been noted for admins to review in the results file"
 				}
