@@ -1,5 +1,7 @@
 package acsm
 
+import "justapengu.in/acsm/internal/acserver"
+
 // ConfigDefault is the default server config (ish) as supplied via the assetto corsa server.
 func ConfigDefault() ServerConfig {
 	return ServerConfig{
@@ -112,6 +114,14 @@ func ConfigDefault() ServerConfig {
 					WindVariationDirection:      15,
 				},
 			},
+
+			CustomCutsEnabled: false,
+			CustomCutsOnlyIfCleanSet: false,
+			CustomCutsIgnoreFirstLap: true,
+			CustomCutsPenaltyType: acserver.CutPenaltyKick,
+			CustomCutsNumWarnings: 4,
+			CustomCutsBoPAmount: 50,
+			CustomCutsBoPNumLaps: 1,
 		},
 	}
 }

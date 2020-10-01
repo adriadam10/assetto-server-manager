@@ -86,9 +86,11 @@ type EventConfig struct {
 
 	CustomCutsEnabled        bool           `json:"custom_cuts_enabled" yaml:"custom_cuts_enabled"`
 	CustomCutsOnlyIfCleanSet bool           `json:"custom_cuts_only_if_clean_set" yaml:"custom_cuts_only_if_clean_set"`
+	CustomCutsIgnoreFirstLap bool			`json:"custom_cuts_ignore_first_lap" yaml:"custom_cuts_ignore_first_lap"`
 	CustomCutsNumWarnings    int            `json:"custom_cuts_num_warnings" yaml:"custom_cuts_num_warnings"`
 	CustomCutsPenaltyType    CutPenaltyType `json:"custom_cuts_penalty_type" yaml:"custom_cuts_penalty_type"`
 	CustomCutsBoPAmount      float32        `json:"custom_cuts_bop_amount" yaml:"custom_cuts_bop_amount"`
+	CustomCutsBoPNumLaps     int            `json:"custom_cuts_bop_num_laps" yaml:"custom_cuts_bop_num_laps"`
 }
 
 type CutPenaltyType int
@@ -97,8 +99,8 @@ const (
 	CutPenaltyKick CutPenaltyType = iota
 	CutPenaltyBallast
 	CutPenaltyRestrictor
-	CutPenaltyDriveThrough
-	CutPenaltyWarnAndMark
+	//CutPenaltyDriveThrough
+	CutPenaltyWarn
 )
 
 func (c EventConfig) Tyres() map[string]bool {

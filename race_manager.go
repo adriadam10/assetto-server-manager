@@ -3,6 +3,7 @@ package acsm
 import (
 	"errors"
 	"fmt"
+	"justapengu.in/acsm/internal/acserver"
 	"math/rand"
 	"net/http"
 	"net/url"
@@ -647,6 +648,14 @@ func (rm *RaceManager) BuildCustomRaceFromForm(r *http.Request) (*CurrentRaceCon
 		DisableDRSZones:           formValueAsInt(r.FormValue("DisableDRSZones")) == 1,
 
 		TimeAttack: timeAttack,
+
+		CustomCutsEnabled:        formValueAsInt(r.FormValue("CustomCutsEnabled")) == 1,
+		CustomCutsOnlyIfCleanSet: formValueAsInt(r.FormValue("CustomCutsOnlyIfCleanSet")) == 1,
+		CustomCutsIgnoreFirstLap: formValueAsInt(r.FormValue("CustomCutsIgnoreFirstLap")) == 1,
+		CustomCutsNumWarnings:    formValueAsInt(r.FormValue("CustomCutsNumWarnings")),
+		CustomCutsPenaltyType:    acserver.CutPenaltyType(formValueAsInt(r.FormValue("CustomCutsPenaltyType"))),
+		CustomCutsBoPAmount:      float32(formValueAsFloat(r.FormValue("CustomCutsBoPAmount"))),
+		CustomCutsBoPNumLaps:     formValueAsInt(r.FormValue("CustomCutsBoPNumLaps")),
 	}
 
 	// driver swap

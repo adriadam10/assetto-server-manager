@@ -19,6 +19,11 @@ type penaltyInfo struct {
 
 	totalCleanLapTime int64
 	totalCleanLaps    int64
+	totalLaps         int64
+	clearPenaltyIn    int
+
+	originalBallast    float32
+	originalRestrictor float32
 }
 
 func NewPenaltiesPlugin() *PenaltiesPlugin {
@@ -34,8 +39,9 @@ func (p *PenaltiesPlugin) Init(server acserver.ServerPlugin, logger acserver.Log
 
 func (p *PenaltiesPlugin) OnNewConnection(car acserver.Car) error {
 	p.penalties = append(p.penalties, &penaltyInfo{
-		carID:    car.CarID,
-		warnings: 0,
+		carID:              car.CarID,
+		originalBallast:    car.Ballast,
+		originalRestrictor: car.Restrictor,
 	})
 
 	return nil
@@ -86,7 +92,10 @@ func (p *PenaltiesPlugin) OnLapCompleted(carID acserver.CarID, lap acserver.Lap)
 	if !eventConfig.CustomCutsEnabled {
 		eventConfig.CustomCutsEnabled = true
 		eventConfig.CustomCutsNumWarnings = 2
-		eventConfig.CustomCutsPenaltyType = acserver.CutPenaltyWarnAndMark
+		eventConfig.CustomCutsPenaltyType = acserver.CutPenaltyBallast
+		eventConfig.CustomCutsBoPAmount = 100
+		eventConfig.CustomCutsBoPNumLaps = 2
+		eventConfig.CustomCutsIgnoreFirstLap = true // @TODO test
 	}
 
 	if eventConfig.CustomCutsEnabled && p.server.GetSessionInfo().SessionType == acserver.SessionTypeRace {
@@ -111,6 +120,27 @@ func (p *PenaltiesPlugin) OnLapCompleted(carID acserver.CarID, lap acserver.Lap)
 			return nil
 		}
 
+		penaltyInfo.totalLaps++
+
+		if penaltyInfo.clearPenaltyIn > 0 {
+			penaltyInfo.clearPenaltyIn--
+
+			if penaltyInfo.clearPenaltyIn == 0 {
+				err = p.server.UpdateBoP(entrant.CarID, penaltyInfo.originalBallast, penaltyInfo.originalRestrictor)
+
+				if err != nil {
+					p.logger.WithError(err).Error("Couldn't reset BoP to original")
+				} else {
+					err = p.server.SendChat("Your penalty BoP has been cleared", acserver.ServerCarID, entrant.CarID)
+
+					if err != nil {
+						p.logger.WithError(err).Error("Send chat returned an error")
+					}
+				}
+
+			}
+		}
+
 		if lap.Cuts == 0 {
 			penaltyInfo.totalCleanLaps++
 			penaltyInfo.totalCleanLapTime += lap.LapTime.Milliseconds()
@@ -118,6 +148,10 @@ func (p *PenaltiesPlugin) OnLapCompleted(carID acserver.CarID, lap acserver.Lap)
 
 		if penaltyInfo.totalCleanLaps != 0 {
 			averageCleanLap = int64(float32(penaltyInfo.totalCleanLapTime) / float32(penaltyInfo.totalCleanLaps))
+		}
+
+		if eventConfig.CustomCutsIgnoreFirstLap && penaltyInfo.totalLaps == 1 {
+			return nil
 		}
 
 		if ((penaltyInfo.totalCleanLaps == 0 && !eventConfig.CustomCutsOnlyIfCleanSet) || averageCleanLap > lap.LapTime.Milliseconds()) && lap.Cuts > 0 {
@@ -131,13 +165,14 @@ func (p *PenaltiesPlugin) OnLapCompleted(carID acserver.CarID, lap acserver.Lap)
 					// @TODO probably send a chat to explain why kick first
 					return p.server.KickUser(entrant.CarID, acserver.KickReasonGeneric)
 				case acserver.CutPenaltyBallast:
-					// @TODO option to reset ballast on the next lap complete?
 					err = p.server.UpdateBoP(entrant.CarID, eventConfig.CustomCutsBoPAmount, entrant.Restrictor)
 
 					if err != nil {
 						p.logger.WithError(err).Error("Couldn't apply ballast from cuts")
 						break
 					}
+
+					penaltyInfo.clearPenaltyIn += eventConfig.CustomCutsBoPNumLaps
 
 					chatMessage = fmt.Sprintf("You have been given %.1fkg of ballast for cutting the track", eventConfig.CustomCutsBoPAmount)
 				case acserver.CutPenaltyRestrictor:
@@ -148,12 +183,13 @@ func (p *PenaltiesPlugin) OnLapCompleted(carID acserver.CarID, lap acserver.Lap)
 						break
 					}
 
+					penaltyInfo.clearPenaltyIn += eventConfig.CustomCutsBoPNumLaps
+
 					chatMessage = fmt.Sprintf("You have been given %.0f%% restrictor for cutting the track", eventConfig.CustomCutsBoPAmount)
-				case acserver.CutPenaltyDriveThrough:
+				//case acserver.CutPenaltyDriveThrough:
 					// @TODO maybe, 2 laps to complete, on fail kick, if only 2 laps remaining add 30s to race time
-				case acserver.CutPenaltyWarnAndMark:
-					// @TODO mark results file?
-					chatMessage = "Please avoid cutting the track! Your behaviour has been noted for admins to review"
+				case acserver.CutPenaltyWarn:
+					chatMessage = "Please avoid cutting the track! Your behaviour has been noted for admins to review in the results file"
 				}
 
 				err = p.server.SendChat(chatMessage, acserver.ServerCarID, entrant.CarID)
