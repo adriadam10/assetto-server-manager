@@ -234,6 +234,8 @@ func (rc *RaceControl) OnCarUpdate(update udp.CarUpdate) error {
 	driver.LastSeen = time.Now()
 	driver.LastPos = update.Pos
 	driver.NormalisedSplinePos = update.NormalisedSplinePos
+	driver.SteerAngle = update.SteerAngle
+	driver.StatusBytes = update.StatusBytes
 
 	rc.ConnectedDrivers.sort()
 

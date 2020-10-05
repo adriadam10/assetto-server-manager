@@ -489,8 +489,22 @@ class LiveMap implements WebsocketHandler {
                 });
 
                 $rpmGaugeOuter.append($rpmGaugeInner);
-                $myDot!.find(".info").text(speed + speedUnits + " " + (update.Gear - 1));
-                $myDot!.find(".info").append($rpmGaugeOuter);
+
+                let $info = $myDot!.find(".info");
+                let $infoLeft = $info.find(".info-left");
+
+                $infoLeft.text(speed + speedUnits + " " + (update.Gear - 1));
+                $infoLeft.append($rpmGaugeOuter);
+
+                // add steering angle
+                let $wheel = $info.find(".steering-wheel");
+                $wheel.css({
+                    'transform': 'rotate(' + update.SteerAngle * 1.417 + 'deg)',
+                    '-webkit-transform': 'rotate(' + update.SteerAngle * 1.417 + 'deg)',
+                    '-moz-transform': 'rotate(' + update.SteerAngle * 1.417 + 'deg)',
+                    '-ms-transform': 'rotate(' + update.SteerAngle * 1.417 + 'deg)',
+                });
+
                 break;
 
             case EventNewSession:
@@ -534,7 +548,10 @@ class LiveMap implements WebsocketHandler {
         }
 
         const $driverName = $("<span class='name'/>").text(driverData.DriverInitials);
-        const $info = $("<span class='info'/>").text("0").hide();
+        const $info = $("<span class='info'/>").hide();
+
+        $info.append($("<div class='info-left'></div>").text("0"));
+        $info.append($("<div class='steering-wheel-wrapper'><img class='steering-wheel' src='/static/img/steering-wheel.png'/></div>"));
 
         const $dot = $("<div class='dot' style='background: " + randomColorForDriver(driverData.DriverGUID) + "'/>").append($driverName, $info).hide().appendTo(this.$map);
 
