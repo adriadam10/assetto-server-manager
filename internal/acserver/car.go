@@ -64,18 +64,26 @@ type Connection struct {
 	FailedChecksum     bool
 	priorities         map[CarID]int
 	jumpPacketCount    map[CarID]int
+
+	chatLimiter *time.Ticker
 }
 
+const chatLimit = time.Second * 4
+
 func NewConnection(tcpConn net.Conn) Connection {
+	chatLimiter := time.NewTicker(chatLimit)
+
 	return Connection{
 		tcpConn:         tcpConn,
 		PingCache:       make([]int32, numberOfPingsForAverage),
 		priorities:      make(map[CarID]int),
 		jumpPacketCount: make(map[CarID]int),
+		chatLimiter:     chatLimiter,
 	}
 }
 
 func (c *Connection) Close() {
+	c.chatLimiter.Stop()
 	c.tcpConn = nil
 	c.udpAddr = nil
 }

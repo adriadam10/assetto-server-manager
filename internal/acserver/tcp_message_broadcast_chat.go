@@ -40,7 +40,7 @@ func (b BroadcastChatMessageHandler) OnMessage(conn net.Conn, p *Packet) error {
 		return b.adminCommandManager.Command(entrant, chat.Message)
 	}
 
-	b.state.BroadcastChat(chat.CarID, chat.Message)
+	b.state.BroadcastChat(chat.CarID, chat.Message, true)
 
 	return nil
 }

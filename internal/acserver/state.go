@@ -42,11 +42,12 @@ type ServerState struct {
 	currentSession      SessionConfig
 
 	// fixed
-	drsZones        map[string]DRSZone
-	setups          map[string]Setup
-	messageOfTheDay string
-	blockList       []string
-	noJoinList      map[string]bool
+	drsZones             map[string]DRSZone
+	setups               map[string]Setup
+	messageOfTheDay      string
+	blockList            []string
+	noJoinList           map[string]bool
+	broadcastChatLimiter *time.Ticker
 }
 
 type Setup struct {
@@ -63,14 +64,15 @@ type DRSZone struct {
 
 func NewServerState(baseDirectory string, serverConfig *ServerConfig, raceConfig *EventConfig, entryList EntryList, plugin Plugin, logger Logger) (*ServerState, error) {
 	ss := &ServerState{
-		serverConfig:  serverConfig,
-		raceConfig:    raceConfig,
-		entryList:     entryList,
-		plugin:        plugin,
-		logger:        logger,
-		randomSeed:    rand.Uint32(),
-		noJoinList:    make(map[string]bool),
-		baseDirectory: baseDirectory,
+		serverConfig:         serverConfig,
+		raceConfig:           raceConfig,
+		entryList:            entryList,
+		plugin:               plugin,
+		logger:               logger,
+		randomSeed:           rand.Uint32(),
+		noJoinList:           make(map[string]bool),
+		baseDirectory:        baseDirectory,
+		broadcastChatLimiter: time.NewTicker(chatLimit),
 	}
 
 	if err := ss.init(); err != nil {
@@ -242,7 +244,7 @@ func (ss *ServerState) initMOTD() error {
 const BlockListFileName = "blocklist.json"
 
 func (ss *ServerState) initBlockList() error {
-	ss.logger.Debug("Loading server blocklist.json")
+	ss.logger.Debugf("Loading server blocklist from: %s", BlockListFileName)
 
 	blockListFile, err := ioutil.ReadFile(filepath.Join(ss.baseDirectory, BlockListFileName))
 
@@ -262,7 +264,7 @@ func (ss *ServerState) initBlockList() error {
 			ss.blockList = blockList
 		}
 	} else {
-		ss.logger.Debug("Server %s not found, skipping", BlockListFileName)
+		ss.logger.Debugf("Server %s not found, skipping", BlockListFileName)
 	}
 
 	return nil
@@ -434,7 +436,7 @@ type Chat struct {
 	Time    time.Time
 }
 
-func (ss *ServerState) BroadcastChat(carID CarID, message string) {
+func (ss *ServerState) BroadcastChat(carID CarID, message string, rateLimit bool) {
 	p := NewPacket(nil)
 
 	p.Write(TCPMessageBroadcastChat)
@@ -456,10 +458,14 @@ func (ss *ServerState) BroadcastChat(carID CarID, message string) {
 		}()
 	}
 
+	if rateLimit {
+		<-ss.broadcastChatLimiter.C
+	}
+
 	ss.BroadcastAllTCP(p)
 }
 
-func (ss *ServerState) SendChat(fromCarID CarID, toCarID CarID, message string) error {
+func (ss *ServerState) SendChat(fromCarID CarID, toCarID CarID, message string, rateLimit bool) error {
 	p := NewPacket(nil)
 
 	p.Write(TCPMessageSendChat)
@@ -474,6 +480,10 @@ func (ss *ServerState) SendChat(fromCarID CarID, toCarID CarID, message string) 
 
 	if !car.IsConnected() {
 		return nil
+	}
+
+	if rateLimit {
+		<-car.Connection.chatLimiter.C
 	}
 
 	if fromCarID != ServerCarID {
@@ -1055,4 +1065,8 @@ func (ss *ServerState) BroadcastSessionStart(startTime int64) {
 			}
 		}
 	}
+}
+
+func (ss *ServerState) Close() {
+	ss.broadcastChatLimiter.Stop()
 }

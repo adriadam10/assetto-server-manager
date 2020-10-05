@@ -34,15 +34,26 @@ type ServerPlugin interface {
 	GetCarInfo(id CarID) (Car, error)
 	GetSessionInfo() SessionInfo
 	GetEventConfig() EventConfig
-	SendChat(message string, from, to CarID) error
-	BroadcastChat(message string, from CarID)
+
+	// SendChat sends a chat message to a car on the server.
+	// Note that setting rateLimit to true will block until sending completes.
+	SendChat(message string, from, to CarID, rateLimit bool) error
+
+	// BroadcastChat sends a chat message to all cars on the server.
+	// Note that setting rateLimit to true will block until sending completes.
+	BroadcastChat(message string, from CarID, rateLimit bool)
+
 	UpdateBoP(carIDToUpdate CarID, ballast, restrictor float32) error
 	KickUser(carIDToKick CarID, reason KickReason) error
+
 	NextSession()
 	RestartSession()
 	SetCurrentSession(index uint8, config *SessionConfig)
+
 	AdminCommand(command string) error
+
 	GetLeaderboard() []*LeaderboardLine
+
 	SetUpdateInterval(interval time.Duration)
 }
 

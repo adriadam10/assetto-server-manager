@@ -157,6 +157,8 @@ func (s *Server) Stop() (err error) {
 		return err
 	}
 
+	s.state.Close()
+
 	return nil
 }
 
@@ -275,12 +277,12 @@ func (s *Server) GetEventConfig() EventConfig {
 	return *s.state.raceConfig
 }
 
-func (s *Server) SendChat(message string, from, to CarID) error {
-	return s.state.SendChat(from, to, message)
+func (s *Server) SendChat(message string, from, to CarID, rateLimit bool) error {
+	return s.state.SendChat(from, to, message, rateLimit)
 }
 
-func (s *Server) BroadcastChat(message string, from CarID) {
-	s.state.BroadcastChat(from, message)
+func (s *Server) BroadcastChat(message string, from CarID, rateLimit bool) {
+	s.state.BroadcastChat(from, message, rateLimit)
 }
 
 func (s *Server) UpdateBoP(carIDToUpdate CarID, ballast, restrictor float32) error {

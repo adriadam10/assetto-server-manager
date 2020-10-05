@@ -198,11 +198,11 @@ func (d dummyServer) GetEventConfig() acserver.EventConfig {
 	return acserver.EventConfig{}
 }
 
-func (d dummyServer) SendChat(message string, from, to acserver.CarID) error {
+func (d dummyServer) SendChat(message string, from, to acserver.CarID, rateLimit bool) error {
 	return nil
 }
 
-func (d dummyServer) BroadcastChat(message string, from acserver.CarID) {
+func (d dummyServer) BroadcastChat(message string, from acserver.CarID, rateLimit bool) {
 
 }
 

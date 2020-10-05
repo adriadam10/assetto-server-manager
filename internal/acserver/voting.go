@@ -124,7 +124,7 @@ func (vm *VotingManager) SetVote(voteType MessageType, forOrAgainst uint8, kickI
 	if vm.currentVote == nil {
 		vm.logger.Debugf("Vote started type: 0x%x, num votes: %d", voteType, forOrAgainst)
 
-		vm.state.BroadcastChat(ServerCarID, fmt.Sprintf("%s has started a vote! %d seconds remaining", entrant.Driver.Name, vm.state.serverConfig.VoteDuration))
+		vm.state.BroadcastChat(ServerCarID, fmt.Sprintf("%s has started a vote! %d seconds remaining", entrant.Driver.Name, vm.state.serverConfig.VoteDuration), false)
 
 		// start new vote
 		vm.currentVote = &Vote{
@@ -152,7 +152,7 @@ func (vm *VotingManager) SetVote(voteType MessageType, forOrAgainst uint8, kickI
 		if voteType == vm.currentVote.VoteType {
 			vm.currentVote.NumVotes += forOrAgainst
 		} else {
-			err := vm.state.SendChat(ServerCarID, entrant.CarID, "A vote is already in progress! Please wait for it to finish.")
+			err := vm.state.SendChat(ServerCarID, entrant.CarID, "A vote is already in progress! Please wait for it to finish.", false)
 
 			if err != nil {
 				return err
@@ -190,7 +190,7 @@ func (vm *VotingManager) StepVote(write uint32) {
 		p.Write(write) //@TODO wat is this?
 
 		vm.logger.Debugf("Vote failed! Percentage of votes in favour: %.2f, quorum: %.0f", votePercent, votingQuorum)
-		vm.state.BroadcastChat(ServerCarID, fmt.Sprintf("Vote failed! Percentage of votes in favour: %.2f, quorum: %.0f", votePercent, votingQuorum))
+		vm.state.BroadcastChat(ServerCarID, fmt.Sprintf("Vote failed! Percentage of votes in favour: %.2f, quorum: %.0f", votePercent, votingQuorum), false)
 
 		vm.state.BroadcastAllTCP(p)
 	} else {
@@ -198,12 +198,11 @@ func (vm *VotingManager) StepVote(write uint32) {
 		switch vm.currentVote.VoteType {
 		case TCPMessageVoteNextSession:
 			vm.logger.Debugf("Vote passed! Moving to next session. Percentage of votes in favour: %.2f, quorum: %.0f", votePercent, votingQuorum)
-			vm.state.BroadcastChat(ServerCarID, fmt.Sprintf("Vote passed! Moving to next session. Percentage of votes in favour: %.2f, quorum: %.0f", votePercent, votingQuorum))
 
 			vm.sessionManager.NextSession(true)
 		case TCPMessageVoteRestartSession:
 			vm.logger.Debugf("Vote passed! Restarting session. Percentage of votes in favour: %.2f, quorum: %.0f", votePercent, votingQuorum)
-			vm.state.BroadcastChat(ServerCarID, fmt.Sprintf("Vote passed! Restarting session. Percentage of votes in favour: %.2f, quorum: %.0f", votePercent, votingQuorum))
+			vm.state.BroadcastChat(ServerCarID, fmt.Sprintf("Vote passed! Restarting session. Percentage of votes in favour: %.2f, quorum: %.0f", votePercent, votingQuorum), false)
 
 			vm.sessionManager.RestartSession()
 		case TCPMessageVoteKick:
@@ -211,7 +210,7 @@ func (vm *VotingManager) StepVote(write uint32) {
 
 			if err == nil {
 				vm.logger.Debugf("Vote passed! Kicking %s. Percentage of votes in favour: %.2f, quorum: %.0f", entrantToKick.Driver.Name, votePercent, votingQuorum)
-				vm.state.BroadcastChat(ServerCarID, fmt.Sprintf("Vote passed! Kicking %s. Percentage of votes in favour: %.2f, quorum: %.0f", entrantToKick.Driver.Name, votePercent, votingQuorum))
+				vm.state.BroadcastChat(ServerCarID, fmt.Sprintf("Vote passed! Kicking %s. Percentage of votes in favour: %.2f, quorum: %.0f", entrantToKick.Driver.Name, votePercent, votingQuorum), false)
 
 				if err := vm.state.Kick(entrantToKick.CarID, KickReasonVotedToBeBanned); err != nil {
 					vm.logger.WithError(err).Errorf("Could not kick car ID: %d", entrantToKick.CarID)

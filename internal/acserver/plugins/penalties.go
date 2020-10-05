@@ -122,7 +122,7 @@ func (p *PenaltiesPlugin) OnLapCompleted(carID acserver.CarID, lap acserver.Lap)
 				if err != nil {
 					p.logger.WithError(err).Error("Couldn't reset BoP to original")
 				} else {
-					err = p.server.SendChat("Your penalty BoP has been cleared", acserver.ServerCarID, entrant.CarID)
+					err = p.server.SendChat("Your penalty BoP has been cleared", acserver.ServerCarID, entrant.CarID, true)
 
 					if err != nil {
 						p.logger.WithError(err).Error("Send chat returned an error")
@@ -183,7 +183,7 @@ func (p *PenaltiesPlugin) OnLapCompleted(carID acserver.CarID, lap acserver.Lap)
 					chatMessage = "Please avoid cutting the track! Your behaviour has been noted for admins to review in the results file"
 				}
 
-				err = p.server.SendChat(chatMessage, acserver.ServerCarID, entrant.CarID)
+				err = p.server.SendChat(chatMessage, acserver.ServerCarID, entrant.CarID, true)
 
 				if err != nil {
 					p.logger.WithError(err).Error("Send chat returned an error")
@@ -191,7 +191,7 @@ func (p *PenaltiesPlugin) OnLapCompleted(carID acserver.CarID, lap acserver.Lap)
 
 				penaltyInfo.warnings = 0
 			} else {
-				err = p.server.SendChat(fmt.Sprintf("You cut the track %d times this lap and gained time! (warning %d/%d)", lap.Cuts, penaltyInfo.warnings, eventConfig.CustomCutsNumWarnings), acserver.ServerCarID, entrant.CarID)
+				err = p.server.SendChat(fmt.Sprintf("You cut the track %d times this lap and gained time! (warning %d/%d)", lap.Cuts, penaltyInfo.warnings, eventConfig.CustomCutsNumWarnings), acserver.ServerCarID, entrant.CarID, true)
 
 				if err != nil {
 					p.logger.WithError(err).Error("Send chat returned an error")

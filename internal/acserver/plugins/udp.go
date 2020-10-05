@@ -138,9 +138,9 @@ func (u *UDPPlugin) handleConnection(data []byte) error {
 
 		p.Read(&carID)
 
-		return u.server.SendChat(p.ReadUTF32String(), acserver.ServerCarID, carID)
+		return u.server.SendChat(p.ReadUTF32String(), acserver.ServerCarID, carID, true)
 	case EventBroadcastChat:
-		u.server.BroadcastChat(p.ReadUTF32String(), acserver.ServerCarID)
+		u.server.BroadcastChat(p.ReadUTF32String(), acserver.ServerCarID, true)
 	case EventGetSessionInfo:
 		response := sessionInfoPacket(EventSessionInfo, u.server.GetSessionInfo())
 
