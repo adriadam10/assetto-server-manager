@@ -169,6 +169,8 @@ type CarUpdate struct {
 	Gear                uint8   `json:"Gear"`
 	EngineRPM           uint16  `json:"EngineRPM"`
 	NormalisedSplinePos float32 `json:"NormalisedSplinePos"`
+	SteerAngle          uint8   `json:"SteerAngle"`
+	StatusBytes         uint32  `json:"StatusBytes"`
 }
 
 func (CarUpdate) Event() Event {

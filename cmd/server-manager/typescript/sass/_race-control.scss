@@ -139,7 +139,7 @@
   position: relative;
   top: 12px;
   left: 10px;
-  min-width: 80px;
+  min-width: 100px;
   background: rgba(0, 0, 0, 0.45);
   color: white;
   border-radius: 4px;
@@ -256,6 +256,23 @@ td .dot-inactive {
 
 .damage-zone-toast-body {
 
+}
+
+.info-left {
+  display: inline-block;
+  width: 70px;
+}
+
+.steering-wheel-wrapper {
+  position: absolute;
+  display: inline-block;
+  margin-left: 3px;
+  top: 5px;
+}
+
+.steering-wheel {
+  width: 20px;
+  height: 20px;
 }
 
 @keyframes cssAnimation {

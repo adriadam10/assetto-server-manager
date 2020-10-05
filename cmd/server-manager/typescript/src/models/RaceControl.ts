@@ -347,6 +347,8 @@ class RaceControlDriverMapRaceControlDriver {
     LastSeen: Date;
     LastPos: RaceControlDriverMapRaceControlDriverVector3F;
     NormalisedSplinePos: number;
+    SteerAngle: number;
+    StatusBytes: number;
     Collisions: RaceControlDriverMapRaceControlDriverCollision[];
     Cars: { [key: string]: RaceControlDriverMapRaceControlDriverRaceControlCarLapInfo };
 
@@ -361,6 +363,8 @@ class RaceControlDriverMapRaceControlDriver {
         this.LastSeen = ('LastSeen' in d) ? ParseDate(d.LastSeen) : new Date();
         this.LastPos = new RaceControlDriverMapRaceControlDriverVector3F(d.LastPos);
         this.NormalisedSplinePos = ('NormalisedSplinePos' in d) ? d.NormalisedSplinePos as number : 0;
+        this.SteerAngle = ('SteerAngle' in d) ? d.SteerAngle as number : 0;
+        this.StatusBytes = ('StatusBytes' in d) ? d.StatusBytes as number : 0;
         this.Collisions = Array.isArray(d.Collisions) ? d.Collisions.map((v: any) => new RaceControlDriverMapRaceControlDriverCollision(v)) : [];
         this.Cars = ('Cars' in d) ? d.Cars as { [key: string]: RaceControlDriverMapRaceControlDriverRaceControlCarLapInfo } : {};
     }
@@ -373,6 +377,8 @@ class RaceControlDriverMapRaceControlDriver {
         cfg.Position = 'number';
         cfg.LastSeen = 'string';
         cfg.NormalisedSplinePos = 'number';
+        cfg.SteerAngle = 'number';
+        cfg.StatusBytes = 'number';
         return ToObject(this, cfg);
     }
 }

@@ -145,6 +145,8 @@ class CarUpdate {
     Gear: number;
     EngineRPM: number;
     NormalisedSplinePos: number;
+    SteerAngle: number;
+    StatusBytes: number;
 
     constructor(data?: any) {
         const d: any = (data && typeof data === 'object') ? ToObject(data) : {};
@@ -154,6 +156,8 @@ class CarUpdate {
         this.Gear = ('Gear' in d) ? d.Gear as number : 0;
         this.EngineRPM = ('EngineRPM' in d) ? d.EngineRPM as number : 0;
         this.NormalisedSplinePos = ('NormalisedSplinePos' in d) ? d.NormalisedSplinePos as number : 0;
+        this.SteerAngle = ('SteerAngle' in d) ? d.SteerAngle as number : 0;
+        this.StatusBytes = ('StatusBytes' in d) ? d.StatusBytes as number : 0;
     }
 
     toObject(): any {
@@ -162,6 +166,8 @@ class CarUpdate {
         cfg.Gear = 'number';
         cfg.EngineRPM = 'number';
         cfg.NormalisedSplinePos = 'number';
+        cfg.SteerAngle = 'number';
+        cfg.StatusBytes = 'number';
         return ToObject(this, cfg);
     }
 }

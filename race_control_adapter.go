@@ -154,6 +154,8 @@ func (r *UDPPluginAdapter) OnCarUpdate(carUpdate acserver.Car) error {
 		Gear:                carUpdate.PluginStatus.GearIndex,
 		EngineRPM:           carUpdate.PluginStatus.EngineRPM,
 		NormalisedSplinePos: carUpdate.PluginStatus.NormalisedSplinePos,
+		SteerAngle:          carUpdate.Status.SteerAngle,
+		StatusBytes:         carUpdate.Status.StatusBytes,
 	})
 
 	return nil
