@@ -1425,14 +1425,16 @@ func (rc *RaceControl) splitAndBroadcastChat(message string, account *Account) e
 
 	messageWithUser := "(" + name + ") " + message
 
-	wrapped := strings.Split(wordwrap.WrapString(
-		messageWithUser,
-		acChatLineLimit,
-	), "\n")
+	go func() {
+		wrapped := strings.Split(wordwrap.WrapString(
+			messageWithUser,
+			acChatLineLimit,
+		), "\n")
 
-	for _, message := range wrapped {
-		rc.server.BroadcastChat(message, acserver.ServerCarID, true)
-	}
+		for _, message := range wrapped {
+			rc.server.BroadcastChat(message, acserver.ServerCarID, true)
+		}
+	}()
 
 	chat, err := udp.NewChat(message, 0, name, udp.DriverGUID(guid))
 
@@ -1455,18 +1457,20 @@ func (rc *RaceControl) splitAndSendChat(message, guid string) error {
 		}
 	}
 
-	wrapped := strings.Split(wordwrap.WrapString(
-		message,
-		acChatLineLimit,
-	), "\n")
+	go func() {
+		wrapped := strings.Split(wordwrap.WrapString(
+			message,
+			acChatLineLimit,
+		), "\n")
 
-	for _, message := range wrapped {
-		err := rc.server.SendChat(message, acserver.ServerCarID, acserver.CarID(carID), true)
+		for _, message := range wrapped {
+			err := rc.server.SendChat(message, acserver.ServerCarID, acserver.CarID(carID), true)
 
-		if err != nil {
-			return err
+			if err != nil {
+				logrus.WithError(err).Errorf("Failed to send chat message")
+			}
 		}
-	}
+	}()
 
 	return nil
 }

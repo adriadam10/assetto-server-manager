@@ -35,7 +35,12 @@ type ServerPlugin interface {
 	GetSessionInfo() SessionInfo
 	GetEventConfig() EventConfig
 
+	// SendChat sends a chat message to a car on the server.
+	// Note that setting rateLimit to true will block until sending completes.
 	SendChat(message string, from, to CarID, rateLimit bool) error
+
+	// BroadcastChat sends a chat message to all cars on the server.
+	// Note that setting rateLimit to true will block until sending completes.
 	BroadcastChat(message string, from CarID, rateLimit bool)
 
 	UpdateBoP(carIDToUpdate CarID, ballast, restrictor float32) error
