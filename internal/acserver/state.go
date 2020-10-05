@@ -244,7 +244,7 @@ func (ss *ServerState) initMOTD() error {
 const BlockListFileName = "blocklist.json"
 
 func (ss *ServerState) initBlockList() error {
-	ss.logger.Debug("Loading server blocklist.json")
+	ss.logger.Debugf("Loading server blocklist from: %s", BlockListFileName)
 
 	blockListFile, err := ioutil.ReadFile(filepath.Join(ss.baseDirectory, BlockListFileName))
 
@@ -264,7 +264,7 @@ func (ss *ServerState) initBlockList() error {
 			ss.blockList = blockList
 		}
 	} else {
-		ss.logger.Debug("Server %s not found, skipping", BlockListFileName)
+		ss.logger.Debugf("Server %s not found, skipping", BlockListFileName)
 	}
 
 	return nil

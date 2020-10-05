@@ -23,6 +23,10 @@ We've also changed the following things in Server Manager itself:
 * Added tyre information to Live Timings.
 * Live Timings will now accurately show driver order even mid lap in Race Sessions. If one driver overtakes another, you should see their positions change in the Live Timings table!
 
+Fixed:
+
+* Fixes an issue where Live Timings lap counts could reset if a driver does not cleanly disconnect from the Assetto Corsa Server.
+
 Removed:
 
 * Support for starting plugins using the old 'run_on_start' method in config.yml has been removed.

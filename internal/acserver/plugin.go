@@ -33,14 +33,22 @@ type Plugin interface {
 type ServerPlugin interface {
 	GetCarInfo(id CarID) (Car, error)
 	GetSessionInfo() SessionInfo
+	GetEventConfig() EventConfig
+
 	SendChat(message string, from, to CarID, rateLimit bool) error
 	BroadcastChat(message string, from CarID, rateLimit bool)
+
+	UpdateBoP(carIDToUpdate CarID, ballast, restrictor float32) error
 	KickUser(carIDToKick CarID, reason KickReason) error
+
 	NextSession()
 	RestartSession()
 	SetCurrentSession(index uint8, config *SessionConfig)
+
 	AdminCommand(command string) error
+
 	GetLeaderboard() []*LeaderboardLine
+
 	SetUpdateInterval(interval time.Duration)
 }
 

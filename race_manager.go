@@ -13,6 +13,7 @@ import (
 	"sync"
 	"time"
 
+	"justapengu.in/acsm/internal/acserver"
 	"justapengu.in/acsm/pkg/udp"
 	"justapengu.in/acsm/pkg/when"
 
@@ -647,6 +648,14 @@ func (rm *RaceManager) BuildCustomRaceFromForm(r *http.Request) (*CurrentRaceCon
 		DisableDRSZones:           formValueAsInt(r.FormValue("DisableDRSZones")) == 1,
 
 		TimeAttack: timeAttack,
+
+		CustomCutsEnabled:        formValueAsInt(r.FormValue("CustomCutsEnabled")) == 1,
+		CustomCutsOnlyIfCleanSet: formValueAsInt(r.FormValue("CustomCutsOnlyIfCleanSet")) == 1,
+		CustomCutsIgnoreFirstLap: formValueAsInt(r.FormValue("CustomCutsIgnoreFirstLap")) == 1,
+		CustomCutsNumWarnings:    formValueAsInt(r.FormValue("CustomCutsNumWarnings")),
+		CustomCutsPenaltyType:    acserver.CutPenaltyType(formValueAsInt(r.FormValue("CustomCutsPenaltyType"))),
+		CustomCutsBoPAmount:      float32(formValueAsFloat(r.FormValue("CustomCutsBoPAmount"))),
+		CustomCutsBoPNumLaps:     formValueAsInt(r.FormValue("CustomCutsBoPNumLaps")),
 	}
 
 	// driver swap
@@ -971,6 +980,8 @@ type RaceTemplateVars struct {
 	RaceWeekendSession              *RaceWeekendSession
 	RaceWeekendHasAtLeastOneSession bool
 
+	CutPenaltyOptions map[acserver.CutPenaltyType]string
+
 	ShowOverridePasswordCard bool
 }
 
@@ -1092,6 +1103,7 @@ func (rm *RaceManager) BuildRaceOpts(r *http.Request) (*RaceTemplateVars, error)
 		ForceStopTime:            forceStopTime,
 		ForceStopWithDrivers:     forceStopWithDrivers,
 		ForcedApps:               forcedApps,
+		CutPenaltyOptions:        acserver.CutPenaltyOptions,
 	}
 
 	err = rm.applyCurrentRaceSetupToOptions(opts, race.CurrentRaceConfig)
