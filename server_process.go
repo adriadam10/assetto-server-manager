@@ -226,7 +226,12 @@ func (sp *AssettoServerProcess) startRaceEvent(raceEvent RaceEvent, serverOption
 
 	var activePlugins []acserver.Plugin
 
-	activePlugins = append(activePlugins, sp.plugin, plugins.NewPenaltiesPlugin())
+	activePlugins = append(
+		activePlugins,
+		sp.plugin,
+		plugins.NewPenaltiesPlugin(),
+		plugins.NewPitLanePlugin(ServerInstallPath),
+	)
 
 	if udpPluginPortsSetup {
 		udpPlugin, err := plugins.NewUDPPlugin(serverOptions.UDPPluginLocalPort, serverOptions.UDPPluginAddress)
