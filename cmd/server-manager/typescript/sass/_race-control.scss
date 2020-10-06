@@ -216,21 +216,8 @@ td .dot-inactive {
   margin-left: -2.5rem;
 }
 
-.damage-zone-mask-relative {
-  height: 90px;
-  width: 175px;
-
-  -webkit-mask-size: contain;
-}
-
-.damage-zone-mask-absolute {
-  height: 90px;
-  width: 175px;
-  top: 63px;
-  position: absolute;
-  left: 12px;
-
-  -webkit-mask-size: contain;
+.damage-zone-svg {
+  margin-top: 10px;
 }
 
 .damage-zone-polite {
