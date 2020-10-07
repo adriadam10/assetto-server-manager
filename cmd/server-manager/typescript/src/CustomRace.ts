@@ -41,12 +41,24 @@ export namespace CustomRace {
                 let $this = $(e.currentTarget) as JQuery<HTMLInputElement>;
                 let value = $this.val() as number;
 
+                let $customCutsBoPAmountWrapper = $("#CustomCutsBoPAmountWrapper");
+                let $customCutsBoPNumLapsWrapper = $("#CustomCutsBoPNumLapsWrapper");
+
+                let $customCutsBoPAmount = $("#CustomCutsBoPAmount");
+                let $customCutsBoPNumLaps = $("#CustomCutsBoPNumLaps");
+
                 if (value == 1 || value == 2) {
-                    $("#CustomCutsBoPAmountWrapper").show();
-                    $("#CustomCutsBoPNumLapsWrapper").show();
+                    $customCutsBoPAmountWrapper.show();
+                    $customCutsBoPNumLapsWrapper.show();
+
+                    $customCutsBoPAmount.attr("min", "0");
+                    $customCutsBoPNumLaps.attr("min", "1");
                 } else {
-                    $("#CustomCutsBoPAmountWrapper").hide();
-                    $("#CustomCutsBoPNumLapsWrapper").hide();
+                    $customCutsBoPAmountWrapper.hide();
+                    $customCutsBoPNumLapsWrapper.hide();
+
+                    $customCutsBoPAmount.attr("min", "");
+                    $customCutsBoPNumLaps.attr("min", "");
                 }
             })
         }
