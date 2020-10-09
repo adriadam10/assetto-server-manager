@@ -3,6 +3,7 @@ package acserver
 import (
 	"fmt"
 	"math/rand"
+	"sync"
 )
 
 type WeatherConfig struct {
@@ -50,6 +51,7 @@ type WeatherManager struct {
 	plugin Plugin
 	logger Logger
 
+	mutex               sync.Mutex
 	currentWeather      *CurrentWeather
 	nextWeatherUpdate   int64
 	currentWeatherIndex int
@@ -81,10 +83,18 @@ func NewWeatherManager(state *ServerState, plugin Plugin, logger Logger) *Weathe
 	}
 }
 
+func (wm *WeatherManager) GetCurrentWeather() CurrentWeather {
+	wm.mutex.Lock()
+	defer wm.mutex.Unlock()
+
+	return *wm.currentWeather
+}
+
 func (wm *WeatherManager) ChangeWeather(weatherConfig *WeatherConfig, weatherUpdateOffsetSeconds int64) {
 	ambient, road := wm.calculateTemperatures(weatherConfig)
 	windSpeed, windDirection := wm.calculateWind(weatherConfig)
 
+	wm.mutex.Lock()
 	wm.currentWeather = &CurrentWeather{
 		Ambient:       ambient,
 		Road:          road,
@@ -92,8 +102,8 @@ func (wm *WeatherManager) ChangeWeather(weatherConfig *WeatherConfig, weatherUpd
 		WindSpeed:     windSpeed,
 		WindDirection: windDirection,
 	}
-
 	wm.logger.Infof("Changed weather to: %s", wm.currentWeather.String())
+	wm.mutex.Unlock()
 
 	if weatherConfig.Duration > 0 {
 		wm.nextWeatherUpdate = currentTimeMillisecond() + (weatherUpdateOffsetSeconds * 1000) + (weatherConfig.Duration * 60000)
@@ -112,13 +122,11 @@ func (wm *WeatherManager) ChangeWeather(weatherConfig *WeatherConfig, weatherUpd
 		}
 	}
 
-	go func() {
-		err := wm.plugin.OnWeatherChange(*wm.currentWeather)
+	err := wm.plugin.OnWeatherChange(wm.GetCurrentWeather())
 
-		if err != nil {
-			wm.logger.WithError(err).Error("On weather change plugin returned an error")
-		}
-	}()
+	if err != nil {
+		wm.logger.WithError(err).Error("On weather change plugin returned an error")
+	}
 }
 
 func (wm *WeatherManager) calculateTemperatures(weatherConfig *WeatherConfig) (ambient, road uint8) {
@@ -168,6 +176,8 @@ func (wm *WeatherManager) calculateWind(weatherConfig *WeatherConfig) (speed, di
 }
 
 func (wm *WeatherManager) SendWeather(entrant *Car) error {
+	wm.mutex.Lock()
+	defer wm.mutex.Unlock()
 	wm.logger.Infof("Sending weather (%s), to entrant: %s", wm.currentWeather.String(), entrant.String())
 
 	bw := NewPacket(nil)

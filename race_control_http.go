@@ -297,6 +297,9 @@ func (rch *RaceControlHandler) websocket(w http.ResponseWriter, r *http.Request)
 	// new client, send them an initial race control message.
 	client.receive <- message
 
+	rch.raceControl.mutex.Lock()
+	defer rch.raceControl.mutex.Unlock()
+
 	// send stored chat messages to new client
 	for _, message := range rch.raceControl.ChatMessages {
 		encoded, err := encodeRaceControlMessage(message)

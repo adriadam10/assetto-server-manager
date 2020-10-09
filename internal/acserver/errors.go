@@ -9,3 +9,15 @@ func errorGroup(errs ...error) error {
 
 	return nil
 }
+
+type groupedError []error
+
+func (e groupedError) Err() error {
+	for _, err := range e {
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}

@@ -15,18 +15,20 @@ type HandshakeMessageHandler struct {
 	entryListManager *EntryListManager
 	weatherManager   *WeatherManager
 	checksumManager  *ChecksumManager
+	dynamicTrack     *DynamicTrack
 
 	plugin Plugin
 	logger Logger
 }
 
-func NewHandshakeMessageHandler(state *ServerState, sessionManager *SessionManager, entryListManager *EntryListManager, weatherManager *WeatherManager, checksumManager *ChecksumManager, plugin Plugin, logger Logger) *HandshakeMessageHandler {
+func NewHandshakeMessageHandler(state *ServerState, sessionManager *SessionManager, entryListManager *EntryListManager, weatherManager *WeatherManager, checksumManager *ChecksumManager, dynamicTrack *DynamicTrack, plugin Plugin, logger Logger) *HandshakeMessageHandler {
 	return &HandshakeMessageHandler{
 		state:            state,
 		sessionManager:   sessionManager,
 		entryListManager: entryListManager,
 		weatherManager:   weatherManager,
 		checksumManager:  checksumManager,
+		dynamicTrack:     dynamicTrack,
 		plugin:           plugin,
 		logger:           logger,
 	}
@@ -100,7 +102,7 @@ func (m HandshakeMessageHandler) OnMessage(conn net.Conn, p *Packet) error {
 
 	driverIsAdmin := m.state.serverConfig.AdminPassword != "" && password == m.state.serverConfig.AdminPassword
 
-	entrant, err := m.entryListManager.ConnectCar(conn, driver, carModel, driverIsAdmin)
+	car, err := m.entryListManager.ConnectCar(conn, driver, carModel, driverIsAdmin)
 
 	if err == ErrNoAvailableSlots {
 		m.logger.WithError(err).Errorf("Could not connect driver (%s/%s) to car.", driver.Name, driver.GUID)
@@ -110,7 +112,7 @@ func (m HandshakeMessageHandler) OnMessage(conn net.Conn, p *Packet) error {
 		return m.state.closeTCPConnectionWithError(conn, TCPHandshakeAuthFailed)
 	}
 
-	m.logger.Infof("Received handshake request from: %s", entrant.String())
+	m.logger.Infof("Received handshake request from: %s", car.String())
 
 	w := NewPacket(nil)
 
@@ -120,8 +122,8 @@ func (m HandshakeMessageHandler) OnMessage(conn net.Conn, p *Packet) error {
 	w.Write(m.state.serverConfig.ClientSendIntervalInHertz)
 	w.WriteString(m.state.raceConfig.Track)
 	w.WriteString(m.state.raceConfig.TrackLayout)
-	w.WriteString(entrant.Model)
-	w.WriteString(entrant.Skin)
+	w.WriteString(car.Model)
+	w.WriteString(car.Skin)
 	w.Write(m.weatherManager.sunAngle)
 	w.Write(m.state.raceConfig.AllowedTyresOut)
 	w.Write(m.state.raceConfig.TyreBlanketsAllowed)
@@ -142,7 +144,7 @@ func (m HandshakeMessageHandler) OnMessage(conn net.Conn, p *Packet) error {
 	w.Write(m.state.raceConfig.RacePitWindowStart)
 	w.Write(m.state.raceConfig.RacePitWindowEnd)
 	w.Write(m.state.raceConfig.ReversedGridRacePositions)
-	w.Write(entrant.CarID)
+	w.Write(car.CarID)
 
 	sessions := m.state.raceConfig.InGameSessions()
 
@@ -159,12 +161,12 @@ func (m HandshakeMessageHandler) OnMessage(conn net.Conn, p *Packet) error {
 	w.Write(m.state.currentSession.SessionType)
 	w.Write(m.state.currentSession.Time)
 	w.Write(m.state.currentSession.Laps)
-	w.Write(m.state.raceConfig.DynamicTrack.CurrentGrip)
+	w.Write(m.dynamicTrack.CurrentGrip())
 
-	carPos := uint8(entrant.CarID)
+	carPos := uint8(car.CarID)
 
 	for pos, leaderboardLine := range m.state.Leaderboard() {
-		if leaderboardLine.Car.CarID == entrant.CarID {
+		if leaderboardLine.Car.CarID == car.CarID {
 			carPos = uint8(pos)
 			break
 		}
@@ -172,14 +174,14 @@ func (m HandshakeMessageHandler) OnMessage(conn net.Conn, p *Packet) error {
 
 	w.Write(carPos)
 
-	entrant.Driver.JoinTime = currentTimeMillisecond()
+	car.Driver.JoinTime = currentTimeMillisecond()
 	w.Write(m.sessionManager.ElapsedSessionTime().Milliseconds())
 
 	checksumFiles := m.checksumManager.GetFiles()
 
 	w.Write(uint8(len(checksumFiles)))
 
-	m.logger.Infof("Sending checksum request to %s. If they cannot connect (checksum mismatch or cannot compare checksum) they are likely missing one of the following files:", entrant.Driver.Name)
+	m.logger.Infof("Sending checksum request to %s. If they cannot connect (checksum mismatch or cannot compare checksum) they are likely missing one of the following files:", car.Driver.Name)
 
 	for _, file := range checksumFiles {
 		m.logger.Infof("- %s", file.Filename)
@@ -194,15 +196,13 @@ func (m HandshakeMessageHandler) OnMessage(conn net.Conn, p *Packet) error {
 		return err
 	}
 
-	entrant.Connection.HasSentFirstUpdate = false
+	car.SetHasSentFirstUpdate(false)
 
-	go func() {
-		err := m.plugin.OnNewConnection(*entrant)
+	err = m.plugin.OnNewConnection(car.Copy())
 
-		if err != nil {
-			m.logger.WithError(err).Error("On new connection plugin returned an error")
-		}
-	}()
+	if err != nil {
+		m.logger.WithError(err).Error("On new connection plugin returned an error")
+	}
 
 	return nil
 }

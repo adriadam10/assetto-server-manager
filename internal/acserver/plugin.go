@@ -1,10 +1,7 @@
 package acserver
 
 import (
-	"context"
 	"time"
-
-	"golang.org/x/sync/errgroup"
 )
 
 type Plugin interface {
@@ -15,23 +12,23 @@ type Plugin interface {
 	OnWeatherChange(weather CurrentWeather) error
 	OnEndSession(sessionFile string) error
 
-	OnNewConnection(car Car) error
-	OnClientLoaded(car Car) error
-	OnSectorCompleted(split Split) error
+	OnNewConnection(car CarInfo) error
+	OnClientLoaded(car CarInfo) error
+	OnSectorCompleted(car CarInfo, split Split) error
 	OnLapCompleted(carID CarID, lap Lap) error
-	OnCarUpdate(carUpdate Car) error
-	OnTyreChange(car Car, tyres string) error
+	OnCarUpdate(carUpdate CarInfo) error
+	OnTyreChange(car CarInfo, tyres string) error
 
 	OnClientEvent(event ClientEvent) error
 	OnCollisionWithCar(event ClientEvent) error
 	OnCollisionWithEnv(event ClientEvent) error
 
 	OnChat(chat Chat) error
-	OnConnectionClosed(car Car) error
+	OnConnectionClosed(car CarInfo) error
 }
 
 type ServerPlugin interface {
-	GetCarInfo(id CarID) (Car, error)
+	GetCarInfo(id CarID) (CarInfo, error)
 	GetSessionInfo() SessionInfo
 	GetEventConfig() EventConfig
 
@@ -66,211 +63,163 @@ func MultiPlugin(plugins ...Plugin) Plugin {
 }
 
 func (mp *multiPlugin) Init(server ServerPlugin, logger Logger) error {
-	g, _ := errgroup.WithContext(context.Background())
+	errs := make(groupedError, 0)
 
 	for _, plugin := range mp.plugins {
-		plugin := plugin
-		g.Go(func() error {
-			return plugin.Init(server, logger)
-		})
+		errs = append(errs, plugin.Init(server, logger))
 	}
 
-	return g.Wait()
+	return errs.Err()
 }
 
 func (mp *multiPlugin) OnCollisionWithCar(event ClientEvent) error {
-	g, _ := errgroup.WithContext(context.Background())
+	errs := make(groupedError, 0)
 
 	for _, plugin := range mp.plugins {
-		plugin := plugin
-		g.Go(func() error {
-			return plugin.OnCollisionWithCar(event)
-		})
+		errs = append(errs, plugin.OnCollisionWithCar(event))
 	}
 
-	return g.Wait()
+	return errs.Err()
 }
 
 func (mp *multiPlugin) OnCollisionWithEnv(event ClientEvent) error {
-	g, _ := errgroup.WithContext(context.Background())
+	errs := make(groupedError, 0)
 
 	for _, plugin := range mp.plugins {
-		plugin := plugin
-		g.Go(func() error {
-			return plugin.OnCollisionWithEnv(event)
-		})
+		errs = append(errs, plugin.OnCollisionWithEnv(event))
 	}
 
-	return g.Wait()
+	return errs.Err()
 }
 
 func (mp *multiPlugin) OnNewSession(newSession SessionInfo) error {
-	g, _ := errgroup.WithContext(context.Background())
+	errs := make(groupedError, 0)
 
 	for _, plugin := range mp.plugins {
-		plugin := plugin
-		g.Go(func() error {
-			return plugin.OnNewSession(newSession)
-		})
+		errs = append(errs, plugin.OnNewSession(newSession))
 	}
 
-	return g.Wait()
+	return errs.Err()
 }
 
-func (mp *multiPlugin) OnNewConnection(car Car) error {
-	g, _ := errgroup.WithContext(context.Background())
+func (mp *multiPlugin) OnNewConnection(car CarInfo) error {
+	errs := make(groupedError, 0)
 
 	for _, plugin := range mp.plugins {
-		plugin := plugin
-		g.Go(func() error {
-			return plugin.OnNewConnection(car)
-		})
+		errs = append(errs, plugin.OnNewConnection(car))
 	}
 
-	return g.Wait()
+	return errs.Err()
 }
 
-func (mp *multiPlugin) OnConnectionClosed(car Car) error {
-	g, _ := errgroup.WithContext(context.Background())
+func (mp *multiPlugin) OnConnectionClosed(car CarInfo) error {
+	errs := make(groupedError, 0)
 
 	for _, plugin := range mp.plugins {
-		plugin := plugin
-		g.Go(func() error {
-			return plugin.OnConnectionClosed(car)
-		})
+		errs = append(errs, plugin.OnConnectionClosed(car))
 	}
 
-	return g.Wait()
+	return errs.Err()
 }
 
-func (mp *multiPlugin) OnCarUpdate(carUpdate Car) error {
-	g, _ := errgroup.WithContext(context.Background())
+func (mp *multiPlugin) OnCarUpdate(carUpdate CarInfo) error {
+	errs := make(groupedError, 0)
 
 	for _, plugin := range mp.plugins {
-		plugin := plugin
-		g.Go(func() error {
-			return plugin.OnCarUpdate(carUpdate)
-		})
+		errs = append(errs, plugin.OnCarUpdate(carUpdate))
 	}
 
-	return g.Wait()
+	return errs.Err()
 }
 
-func (mp *multiPlugin) OnTyreChange(car Car, tyres string) error {
-	g, _ := errgroup.WithContext(context.Background())
+func (mp *multiPlugin) OnTyreChange(car CarInfo, tyres string) error {
+	errs := make(groupedError, 0)
 
 	for _, plugin := range mp.plugins {
-		plugin := plugin
-		g.Go(func() error {
-			return plugin.OnTyreChange(car, tyres)
-		})
+		errs = append(errs, plugin.OnTyreChange(car, tyres))
 	}
 
-	return g.Wait()
+	return errs.Err()
 }
 
 func (mp *multiPlugin) OnEndSession(sessionFile string) error {
-	g, _ := errgroup.WithContext(context.Background())
+	errs := make(groupedError, 0)
 
 	for _, plugin := range mp.plugins {
-		plugin := plugin
-		g.Go(func() error {
-			return plugin.OnEndSession(sessionFile)
-		})
+		errs = append(errs, plugin.OnEndSession(sessionFile))
 	}
 
-	return g.Wait()
+	return errs.Err()
 }
 
 func (mp *multiPlugin) OnVersion(version uint16) error {
-	g, _ := errgroup.WithContext(context.Background())
+	errs := make(groupedError, 0)
 
 	for _, plugin := range mp.plugins {
-		plugin := plugin
-		g.Go(func() error {
-			return plugin.OnVersion(version)
-		})
+		errs = append(errs, plugin.OnVersion(version))
 	}
 
-	return g.Wait()
+	return errs.Err()
 }
 
 func (mp *multiPlugin) OnChat(chat Chat) error {
-	g, _ := errgroup.WithContext(context.Background())
+	errs := make(groupedError, 0)
 
 	for _, plugin := range mp.plugins {
-		plugin := plugin
-		g.Go(func() error {
-			return plugin.OnChat(chat)
-		})
+		errs = append(errs, plugin.OnChat(chat))
 	}
 
-	return g.Wait()
+	return errs.Err()
 }
 
-func (mp *multiPlugin) OnClientLoaded(car Car) error {
-	g, _ := errgroup.WithContext(context.Background())
+func (mp *multiPlugin) OnClientLoaded(car CarInfo) error {
+	errs := make(groupedError, 0)
 
 	for _, plugin := range mp.plugins {
-		plugin := plugin
-		g.Go(func() error {
-			return plugin.OnClientLoaded(car)
-		})
+		errs = append(errs, plugin.OnClientLoaded(car))
 	}
 
-	return g.Wait()
+	return errs.Err()
 }
 
 func (mp *multiPlugin) OnLapCompleted(carID CarID, lap Lap) error {
-	g, _ := errgroup.WithContext(context.Background())
+	errs := make(groupedError, 0)
 
 	for _, plugin := range mp.plugins {
-		plugin := plugin
-		g.Go(func() error {
-			return plugin.OnLapCompleted(carID, lap)
-		})
+		errs = append(errs, plugin.OnLapCompleted(carID, lap))
 	}
 
-	return g.Wait()
+	return errs.Err()
 }
 
 func (mp *multiPlugin) OnClientEvent(event ClientEvent) error {
-	g, _ := errgroup.WithContext(context.Background())
+	errs := make(groupedError, 0)
 
 	for _, plugin := range mp.plugins {
-		plugin := plugin
-		g.Go(func() error {
-			return plugin.OnClientEvent(event)
-		})
+		errs = append(errs, plugin.OnClientEvent(event))
 	}
 
-	return g.Wait()
+	return errs.Err()
 }
 
-func (mp *multiPlugin) OnSectorCompleted(split Split) error {
-	g, _ := errgroup.WithContext(context.Background())
+func (mp *multiPlugin) OnSectorCompleted(car CarInfo, split Split) error {
+	errs := make(groupedError, 0)
 
 	for _, plugin := range mp.plugins {
-		plugin := plugin
-		g.Go(func() error {
-			return plugin.OnSectorCompleted(split)
-		})
+		errs = append(errs, plugin.OnSectorCompleted(car, split))
 	}
 
-	return g.Wait()
+	return errs.Err()
 }
 
 func (mp *multiPlugin) OnWeatherChange(weather CurrentWeather) error {
-	g, _ := errgroup.WithContext(context.Background())
+	errs := make(groupedError, 0)
 
 	for _, plugin := range mp.plugins {
-		plugin := plugin
-		g.Go(func() error {
-			return plugin.OnWeatherChange(weather)
-		})
+		errs = append(errs, plugin.OnWeatherChange(weather))
 	}
 
-	return g.Wait()
+	return errs.Err()
 }
 
 type nilPlugin struct{}
@@ -287,19 +236,19 @@ func (n nilPlugin) OnNewSession(_ SessionInfo) error {
 	return nil
 }
 
-func (n nilPlugin) OnNewConnection(_ Car) error {
+func (n nilPlugin) OnNewConnection(_ CarInfo) error {
 	return nil
 }
 
-func (n nilPlugin) OnConnectionClosed(_ Car) error {
+func (n nilPlugin) OnConnectionClosed(_ CarInfo) error {
 	return nil
 }
 
-func (n nilPlugin) OnCarUpdate(_ Car) error {
+func (n nilPlugin) OnCarUpdate(_ CarInfo) error {
 	return nil
 }
 
-func (n nilPlugin) OnTyreChange(car Car, tyres string) error {
+func (n nilPlugin) OnTyreChange(car CarInfo, tyres string) error {
 	return nil
 }
 
@@ -315,7 +264,7 @@ func (n nilPlugin) OnChat(_ Chat) error {
 	return nil
 }
 
-func (n nilPlugin) OnClientLoaded(_ Car) error {
+func (n nilPlugin) OnClientLoaded(_ CarInfo) error {
 	return nil
 }
 
@@ -331,7 +280,7 @@ func (n nilPlugin) Init(_ ServerPlugin, _ Logger) error {
 	return nil
 }
 
-func (n nilPlugin) OnSectorCompleted(_ Split) error {
+func (n nilPlugin) OnSectorCompleted(_ CarInfo, _ Split) error {
 	return nil
 }
 

@@ -50,12 +50,14 @@ func (cct *connectCarTest) entryList() EntryList {
 
 	for i := 0; i < cct.numEntrants; i++ {
 		c := &Car{
-			Driver: Driver{
-				Name: fmt.Sprintf("Driver %d", i),
-				Team: "",
+			CarInfo: CarInfo{
+				Driver: Driver{
+					Name: fmt.Sprintf("Driver %d", i),
+					Team: "",
+				},
+				CarID: CarID(i),
+				Model: connectCarTestCars[i%len(connectCarTestCars)],
 			},
-			CarID: CarID(i),
-			Model: connectCarTestCars[i%len(connectCarTestCars)],
 		}
 
 		if totalLockedEntrants < cct.numLockedEntrants {
@@ -197,36 +199,44 @@ func TestEntryListManager_ConnectCar(t *testing.T) {
 	t.Run("Pickup mode: Car connects, disconnects, and is given the same slot on reconnecting", func(t *testing.T) {
 		entryList := EntryList{
 			{
-				Driver: Driver{
-					Name: "Driver A",
-					GUID: "A",
+				CarInfo: CarInfo{
+					Driver: Driver{
+						Name: "Driver A",
+						GUID: "A",
+					},
+					CarID: 0,
+					Model: "ks_ferrari_f2004",
 				},
-				CarID: 0,
-				Model: "ks_ferrari_f2004",
 			},
 			{
-				Driver: Driver{
-					Name: "",
-					GUID: "",
+				CarInfo: CarInfo{
+					Driver: Driver{
+						Name: "",
+						GUID: "",
+					},
+					CarID: 1,
+					Model: "ks_ferrari_f2004",
 				},
-				CarID: 1,
-				Model: "ks_ferrari_f2004",
 			},
 			{
-				Driver: Driver{
-					Name: "Driver E",
-					GUID: "E",
+				CarInfo: CarInfo{
+					Driver: Driver{
+						Name: "Driver E",
+						GUID: "E",
+					},
+					CarID: 2,
+					Model: "ks_ferrari_f2004",
 				},
-				CarID: 2,
-				Model: "ks_ferrari_f2004",
 			},
 			{
-				Driver: Driver{
-					Name: "",
-					GUID: "",
+				CarInfo: CarInfo{
+					Driver: Driver{
+						Name: "",
+						GUID: "",
+					},
+					CarID: 3,
+					Model: "ks_ferrari_f2004",
 				},
-				CarID: 3,
-				Model: "ks_ferrari_f2004",
 			},
 		}
 
@@ -267,28 +277,34 @@ func TestEntryListManager_ConnectCar(t *testing.T) {
 	t.Run("Pickup mode: Car connects, disconnects, new car connects and is given the old car's slot", func(t *testing.T) {
 		entryList := EntryList{
 			{
-				Driver: Driver{
-					Name: "Driver A",
-					GUID: "A",
+				CarInfo: CarInfo{
+					Driver: Driver{
+						Name: "Driver A",
+						GUID: "A",
+					},
+					CarID: 0,
+					Model: "ks_ferrari_f2004",
 				},
-				CarID: 0,
-				Model: "ks_ferrari_f2004",
 			},
 			{
-				Driver: Driver{
-					Name: "",
-					GUID: "",
+				CarInfo: CarInfo{
+					Driver: Driver{
+						Name: "",
+						GUID: "",
+					},
+					CarID: 1,
+					Model: "ks_ferrari_f2004",
 				},
-				CarID: 1,
-				Model: "ks_ferrari_f2004",
 			},
 			{
-				Driver: Driver{
-					Name: "Driver E",
-					GUID: "E",
+				CarInfo: CarInfo{
+					Driver: Driver{
+						Name: "Driver E",
+						GUID: "E",
+					},
+					CarID: 2,
+					Model: "ks_ferrari_f2004",
 				},
-				CarID: 2,
-				Model: "ks_ferrari_f2004",
 			},
 		}
 
@@ -346,13 +362,15 @@ func (t *bookCarTest) entryList() EntryList {
 
 	for i := 0; i < t.numFilledSlots; i++ {
 		c := &Car{
-			Driver: Driver{
-				Name: fmt.Sprintf("Driver %d", i),
-				Team: "",
-				GUID: fmt.Sprintf("%d", i),
+			CarInfo: CarInfo{
+				Driver: Driver{
+					Name: fmt.Sprintf("Driver %d", i),
+					Team: "",
+					GUID: fmt.Sprintf("%d", i),
+				},
+				CarID: CarID(i),
+				Model: connectCarTestCars[i%len(connectCarTestCars)],
 			},
-			CarID: CarID(i),
-			Model: connectCarTestCars[i%len(connectCarTestCars)],
 		}
 		e = append(e, c)
 	}
@@ -487,13 +505,15 @@ func TestEntryListManager_UnBookCar(t *testing.T) {
 
 	for i := 0; i < 10; i++ {
 		c := &Car{
-			Driver: Driver{
-				Name: fmt.Sprintf("Driver %d", i),
-				Team: "",
-				GUID: fmt.Sprintf("%d", i),
+			CarInfo: CarInfo{
+				Driver: Driver{
+					Name: fmt.Sprintf("Driver %d", i),
+					Team: "",
+					GUID: fmt.Sprintf("%d", i),
+				},
+				CarID: CarID(i),
+				Model: connectCarTestCars[i%len(connectCarTestCars)],
 			},
-			CarID: CarID(i),
-			Model: connectCarTestCars[i%len(connectCarTestCars)],
 		}
 
 		e = append(e, c)

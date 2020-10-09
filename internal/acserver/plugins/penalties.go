@@ -37,7 +37,7 @@ func (p *PenaltiesPlugin) Init(server acserver.ServerPlugin, logger acserver.Log
 	return nil
 }
 
-func (p *PenaltiesPlugin) OnNewConnection(car acserver.Car) error {
+func (p *PenaltiesPlugin) OnNewConnection(car acserver.CarInfo) error {
 	p.penalties = append(p.penalties, &penaltyInfo{
 		carID:              car.CarID,
 		originalBallast:    car.Ballast,
@@ -47,7 +47,7 @@ func (p *PenaltiesPlugin) OnNewConnection(car acserver.Car) error {
 	return nil
 }
 
-func (p *PenaltiesPlugin) OnConnectionClosed(car acserver.Car) error {
+func (p *PenaltiesPlugin) OnConnectionClosed(car acserver.CarInfo) error {
 	for i, penalty := range p.penalties {
 		if penalty.carID == car.CarID {
 			copy(p.penalties[i:], p.penalties[i+1:])
@@ -61,7 +61,7 @@ func (p *PenaltiesPlugin) OnConnectionClosed(car acserver.Car) error {
 	return nil
 }
 
-func (p *PenaltiesPlugin) OnCarUpdate(car acserver.Car) error {
+func (p *PenaltiesPlugin) OnCarUpdate(car acserver.CarInfo) error {
 	return nil
 }
 
@@ -81,7 +81,7 @@ func (p *PenaltiesPlugin) OnChat(chat acserver.Chat) error {
 	return nil
 }
 
-func (p *PenaltiesPlugin) OnClientLoaded(car acserver.Car) error {
+func (p *PenaltiesPlugin) OnClientLoaded(car acserver.CarInfo) error {
 	return nil
 }
 
@@ -215,7 +215,7 @@ func (p *PenaltiesPlugin) OnCollisionWithEnv(event acserver.ClientEvent) error {
 	return nil
 }
 
-func (p *PenaltiesPlugin) OnSectorCompleted(split acserver.Split) error {
+func (p *PenaltiesPlugin) OnSectorCompleted(car acserver.CarInfo, split acserver.Split) error {
 	return nil
 }
 
@@ -223,6 +223,6 @@ func (p *PenaltiesPlugin) OnWeatherChange(_ acserver.CurrentWeather) error {
 	return nil
 }
 
-func (p *PenaltiesPlugin) OnTyreChange(car acserver.Car, tyres string) error {
+func (p *PenaltiesPlugin) OnTyreChange(car acserver.CarInfo, tyres string) error {
 	return nil
 }

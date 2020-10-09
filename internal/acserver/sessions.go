@@ -3,6 +3,7 @@ package acserver
 import (
 	"context"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/sirupsen/logrus"
@@ -33,7 +34,19 @@ type sessionParams struct {
 	numCompletedLaps               int
 }
 
-func (s SessionConfig) FinishTime() int64 {
+func (s *SessionConfig) CompleteLap() {
+	s.numCompletedLaps++
+}
+
+func (s *SessionConfig) ResetLaps() {
+	s.numCompletedLaps = 0
+}
+
+func (s *SessionConfig) ClearData() {
+	s.sessionParams = sessionParams{}
+}
+
+func (s *SessionConfig) FinishTime() int64 {
 	if s.Laps > 0 {
 		logrus.Errorf("SessionConfig.FinishTime was called on a session which has laps.")
 		return 0
@@ -42,7 +55,7 @@ func (s SessionConfig) FinishTime() int64 {
 	return s.startTime + int64(s.Time)*60*1000
 }
 
-func (s SessionConfig) String() string {
+func (s *SessionConfig) String() string {
 	var sessionLength string
 
 	if s.Laps > 0 {
@@ -54,7 +67,7 @@ func (s SessionConfig) String() string {
 	return fmt.Sprintf("%s - Name: %s, Length: %s, Wait Time: %ds, Open Rule: %s, Solo: %t", s.SessionType, s.Name, sessionLength, s.WaitTime, s.IsOpen, s.Solo)
 }
 
-func (s SessionConfig) IsZero() bool {
+func (s *SessionConfig) IsZero() bool {
 	return s.SessionType == 0 && s.Name == "" && s.Time == 0 && s.Laps == 0
 }
 
@@ -64,15 +77,18 @@ type SessionManager struct {
 	plugin         Plugin
 	logger         Logger
 	weatherManager *WeatherManager
+	dynamicTrack   *DynamicTrack
 	serverStopFn   func() error
+	mutex          sync.RWMutex
 
 	baseDirectory string
 }
 
-func NewSessionManager(state *ServerState, weatherManager *WeatherManager, lobby *Lobby, plugin Plugin, logger Logger, serverStopFn func() error, baseDirectory string) *SessionManager {
+func NewSessionManager(state *ServerState, weatherManager *WeatherManager, lobby *Lobby, dynamicTrack *DynamicTrack, plugin Plugin, logger Logger, serverStopFn func() error, baseDirectory string) *SessionManager {
 	return &SessionManager{
 		state:          state,
 		lobby:          lobby,
+		dynamicTrack:   dynamicTrack,
 		weatherManager: weatherManager,
 		serverStopFn:   serverStopFn,
 		plugin:         plugin,
@@ -81,7 +97,10 @@ func NewSessionManager(state *ServerState, weatherManager *WeatherManager, lobby
 	}
 }
 
-func (sm *SessionManager) NextSession(force bool) {
+func (sm *SessionManager) SaveResultsAndBuildLeaderboard(forceAdvance bool) []*LeaderboardLine {
+	sm.mutex.Lock()
+	defer sm.mutex.Unlock()
+
 	var previousSessionLeaderboard []*LeaderboardLine
 
 	if !sm.state.currentSession.IsZero() {
@@ -100,13 +119,11 @@ func (sm *SessionManager) NextSession(force bool) {
 			if err != nil {
 				sm.logger.WithError(err).Error("Could not save results file!")
 			} else {
-				go func() {
-					err := sm.plugin.OnEndSession(results.SessionFile)
+				err := sm.plugin.OnEndSession(results.SessionFile)
 
-					if err != nil {
-						sm.logger.WithError(err).Error("On end session plugin returned an error")
-					}
-				}()
+				if err != nil {
+					sm.logger.WithError(err).Error("On end session plugin returned an error")
+				}
 			}
 
 			if sm.state.raceConfig.ReversedGridRacePositions != 0 && !sm.state.currentSession.reverseGridRaceStarted && int(sm.state.currentSessionIndex) == len(sm.state.raceConfig.Sessions)-1 {
@@ -128,7 +145,7 @@ func (sm *SessionManager) NextSession(force bool) {
 		} else {
 			sm.logger.Infof("Session '%s' had no completed laps. Will not save results JSON", sm.state.currentSession.Name)
 
-			if force {
+			if forceAdvance {
 				sm.state.currentSessionIndex++
 			} else {
 				switch sm.state.currentSession.SessionType {
@@ -149,10 +166,16 @@ func (sm *SessionManager) NextSession(force bool) {
 		sm.ClearSessionData()
 	}
 
+	return previousSessionLeaderboard
+}
+
+func (sm *SessionManager) NextSession(force bool) {
+	previousSessionLeaderboard := sm.SaveResultsAndBuildLeaderboard(force)
+
 	if int(sm.state.currentSessionIndex) >= len(sm.state.raceConfig.Sessions) {
 		if sm.state.raceConfig.LoopMode {
 			sm.logger.Infof("Loop Mode is enabled. Server will restart from first session.")
-			sm.state.raceConfig.DynamicTrack.Init(sm.logger)
+			sm.dynamicTrack.Init()
 			sm.state.currentSessionIndex = 0
 		} else {
 			_ = sm.serverStopFn()
@@ -160,12 +183,14 @@ func (sm *SessionManager) NextSession(force bool) {
 		}
 	}
 
+	sm.mutex.Lock()
 	sm.state.currentSession = *sm.state.raceConfig.Sessions[sm.state.currentSessionIndex]
 	sm.state.currentSession.startTime = currentTimeMillisecond() + int64(sm.state.currentSession.WaitTime*1000)
 	sm.state.currentSession.moveToNextSessionAt = 0
 	sm.state.BroadcastSessionStart(sm.state.currentSession.startTime)
 
 	sm.state.currentSession.sessionOverBroadcast = false
+	sm.mutex.Unlock()
 
 	for _, entrant := range sm.state.entryList {
 		if entrant.IsConnected() {
@@ -179,33 +204,31 @@ func (sm *SessionManager) NextSession(force bool) {
 
 	sm.logger.Infof("Advanced to next session: %s", sm.state.currentSession)
 
-	sm.state.raceConfig.DynamicTrack.OnNewSession(sm.state.currentSession.SessionType)
+	sm.dynamicTrack.OnNewSession(sm.state.currentSession.SessionType)
 	sm.UpdateLobby()
 
-	go func() {
-		err := sm.plugin.OnNewSession(SessionInfo{
-			Version:         CurrentResultsVersion,
-			SessionIndex:    sm.state.currentSessionIndex,
-			SessionCount:    uint8(len(sm.state.raceConfig.Sessions)),
-			ServerName:      sm.state.serverConfig.Name,
-			Track:           sm.state.raceConfig.Track,
-			TrackConfig:     sm.state.raceConfig.TrackLayout,
-			Name:            sm.state.currentSession.Name,
-			NumMinutes:      sm.state.currentSession.Time,
-			NumLaps:         sm.state.currentSession.Laps,
-			WaitTime:        sm.state.currentSession.WaitTime,
-			AmbientTemp:     sm.weatherManager.currentWeather.Ambient,
-			RoadTemp:        sm.weatherManager.currentWeather.Road,
-			WeatherGraphics: sm.weatherManager.currentWeather.GraphicsName,
-			ElapsedTime:     sm.ElapsedSessionTime(),
-			SessionType:     sm.state.currentSession.SessionType,
-			IsSolo:          sm.state.currentSession.Solo,
-		})
+	err := sm.plugin.OnNewSession(SessionInfo{
+		Version:         CurrentResultsVersion,
+		SessionIndex:    sm.state.currentSessionIndex,
+		SessionCount:    uint8(len(sm.state.raceConfig.Sessions)),
+		ServerName:      sm.state.serverConfig.Name,
+		Track:           sm.state.raceConfig.Track,
+		TrackConfig:     sm.state.raceConfig.TrackLayout,
+		Name:            sm.state.currentSession.Name,
+		NumMinutes:      sm.state.currentSession.Time,
+		NumLaps:         sm.state.currentSession.Laps,
+		WaitTime:        sm.state.currentSession.WaitTime,
+		AmbientTemp:     sm.weatherManager.currentWeather.Ambient,
+		RoadTemp:        sm.weatherManager.currentWeather.Road,
+		WeatherGraphics: sm.weatherManager.currentWeather.GraphicsName,
+		ElapsedTime:     sm.ElapsedSessionTime(),
+		SessionType:     sm.state.currentSession.SessionType,
+		IsSolo:          sm.state.currentSession.Solo,
+	})
 
-		if err != nil {
-			sm.logger.WithError(err).Error("On new session plugin returned an error")
-		}
-	}()
+	if err != nil {
+		sm.logger.WithError(err).Error("On new session plugin returned an error")
+	}
 }
 
 func (sm *SessionManager) loop(ctx context.Context) {
@@ -218,11 +241,11 @@ func (sm *SessionManager) loop(ctx context.Context) {
 			sm.logger.Debugf("Stopping SessionManager Loop")
 			return
 		case <-tick.C:
-			if sm.state.currentSession.moveToNextSessionAt == 0 && sm.CurrentSessionHasFinished() && !sm.state.currentSession.sessionOverBroadcast {
+			if sm.CanBroadcastEndSession() {
 				carsAreConnecting := false
 
 				for _, car := range sm.state.entryList {
-					if car.IsConnected() && !car.Connection.HasSentFirstUpdate {
+					if car.IsConnected() && !car.HasSentFirstUpdate() {
 						carsAreConnecting = true
 						break
 					}
@@ -244,11 +267,11 @@ func (sm *SessionManager) loop(ctx context.Context) {
 				sm.state.currentSession.sessionOverBroadcast = true
 			}
 
-			if sm.state.currentSession.sessionOverBroadcast && currentTimeMillisecond() > sm.state.currentSession.moveToNextSessionAt {
+			if sm.CanMoveToNextSession() {
 				carsAreConnecting := false
 
 				for _, car := range sm.state.entryList {
-					if car.IsConnected() && !car.Connection.HasSentFirstUpdate {
+					if car.IsConnected() && !car.HasSentFirstUpdate() {
 						carsAreConnecting = true
 						break
 					}
@@ -267,12 +290,28 @@ func (sm *SessionManager) loop(ctx context.Context) {
 	}
 }
 
+func (sm *SessionManager) CanMoveToNextSession() bool {
+	sm.mutex.RLock()
+	defer sm.mutex.RUnlock()
+	return sm.state.currentSession.sessionOverBroadcast && currentTimeMillisecond() > sm.state.currentSession.moveToNextSessionAt
+}
+
+func (sm *SessionManager) CanBroadcastEndSession() bool {
+	sm.mutex.RLock()
+	defer sm.mutex.RUnlock()
+
+	return sm.state.currentSession.moveToNextSessionAt == 0 && sm.CurrentSessionHasFinished() && !sm.state.currentSession.sessionOverBroadcast
+}
+
 func (sm *SessionManager) RestartSession() {
 	sm.state.currentSessionIndex--
 	sm.NextSession(true)
 }
 
 func (sm *SessionManager) CurrentSessionHasFinished() bool {
+	sm.mutex.RLock()
+	defer sm.mutex.RUnlock()
+
 	switch sm.state.currentSession.SessionType {
 	case SessionTypeRace:
 		var remainingLaps int
@@ -340,6 +379,9 @@ func (sm *SessionManager) CurrentSessionHasFinished() bool {
 }
 
 func (sm *SessionManager) RemainingSessionTime() time.Duration {
+	sm.mutex.RLock()
+	defer sm.mutex.RUnlock()
+
 	return time.Duration(sm.state.currentSession.FinishTime()-currentTimeMillisecond()) * time.Millisecond
 }
 
@@ -411,10 +453,10 @@ func (sm *SessionManager) ElapsedSessionTime() time.Duration {
 
 func (sm *SessionManager) ClearSessionData() {
 	sm.logger.Infof("Clearing session data for all cars")
-	sm.state.currentSession.sessionParams = sessionParams{}
+	sm.state.currentSession.ClearData()
 
 	for _, car := range sm.state.entryList {
-		car.SessionData = SessionData{}
+		car.ClearSessionData()
 	}
 }
 
@@ -458,6 +500,13 @@ func (sm *SessionManager) UpdateLobby() {
 	if err := sm.lobby.Try("Update lobby with new session", updateFunc); err != nil {
 		sm.logger.WithError(err).Error("All attempts to update lobby with new session failed")
 	}
+}
+
+func (sm *SessionManager) GetCurrentSession() SessionConfig {
+	sm.mutex.RLock()
+	defer sm.mutex.RUnlock()
+
+	return sm.state.currentSession
 }
 
 func ReverseLeaderboard(numToReverse int, leaderboard []*LeaderboardLine) {

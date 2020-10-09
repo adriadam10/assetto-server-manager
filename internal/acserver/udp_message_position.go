@@ -59,13 +59,14 @@ func (pm *PositionMessageHandler) OnMessage(_ net.PacketConn, addr net.Addr, p *
 		carUpdate.StatusBytes |= forceHeadlightByte
 	}
 
-	if car.Connection.HasSentFirstUpdate && carUpdate.Timestamp < car.PluginStatus.Timestamp {
+	if car.HasSentFirstUpdate() && carUpdate.Timestamp < car.PluginStatus.Timestamp {
 		pm.logger.Warnf("Position packet out of order for %s previous: %d received: %d", car.Driver.Name, car.PluginStatus.Timestamp, carUpdate.Timestamp)
 
 		return nil
 	}
 
-	if !car.Connection.HasSentFirstUpdate || (pm.state.currentSession.SessionType != SessionTypeQualifying || (pm.state.currentSession.SessionType == SessionTypeQualifying && !pm.state.currentSession.Solo)) {
+	if !car.HasSentFirstUpdate() || (pm.state.currentSession.SessionType != SessionTypeQualifying || (pm.state.currentSession.SessionType == SessionTypeQualifying && !pm.state.currentSession.Solo)) {
+		car.mutex.Lock()
 		car.Status = carUpdate
 
 		if pm.state.currentSession.SessionType == SessionTypeQualifying && pm.state.currentSession.Solo {
@@ -75,57 +76,61 @@ func (pm *PositionMessageHandler) OnMessage(_ net.PacketConn, addr net.Addr, p *
 				Z: 0,
 			}
 		}
+		car.mutex.Unlock()
 	}
 
-	car.Status.Timestamp += car.Connection.TimeOffset
-	car.PluginStatus = carUpdate
-	car.HasUpdateToBroadcast = true
+	car.SetHasUpdateToBroadcast(true)
 
-	diff := int(car.Connection.TargetTimeOffset) - int(car.Connection.TimeOffset)
+	car.mutex.Lock()
+	{
+		car.Status.Timestamp += car.Connection.TimeOffset
+		car.PluginStatus = carUpdate
 
-	var v13, v14 int
+		diff := int(car.Connection.TargetTimeOffset) - int(car.Connection.TimeOffset)
 
-	if diff >= 0 {
-		v13 = diff
-		v14 = diff
-	} else {
-		v14 = int(car.Connection.TimeOffset) - int(car.Connection.TargetTimeOffset)
-	}
+		var v13, v14 int
 
-	if v13 > 0 || v13 == 0 && v14 > 1000 {
-		car.Connection.TimeOffset = car.Connection.TargetTimeOffset
-	} else if v13 == 0 && v14 < 3 || v13 < 0 {
-		car.Connection.TimeOffset = car.Connection.TargetTimeOffset
-	} else {
-		if diff > 0 {
-			car.Connection.TimeOffset = car.Connection.TimeOffset + 3
+		if diff >= 0 {
+			v13 = diff
+			v14 = diff
+		} else {
+			v14 = int(car.Connection.TimeOffset) - int(car.Connection.TargetTimeOffset)
 		}
 
-		if diff < 0 {
-			car.Connection.TimeOffset = car.Connection.TimeOffset - 3
+		if v13 > 0 || v13 == 0 && v14 > 1000 {
+			car.Connection.TimeOffset = car.Connection.TargetTimeOffset
+		} else if v13 == 0 && v14 < 3 || v13 < 0 {
+			car.Connection.TimeOffset = car.Connection.TargetTimeOffset
+		} else {
+			if diff > 0 {
+				car.Connection.TimeOffset = car.Connection.TimeOffset + 3
+			}
+
+			if diff < 0 {
+				car.Connection.TimeOffset = car.Connection.TimeOffset - 3
+			}
 		}
 	}
+	car.mutex.Unlock()
 
-	if !car.Connection.HasSentFirstUpdate {
+	if !car.HasSentFirstUpdate() {
 		if car.Connection.FailedChecksum {
 			if err := pm.state.Kick(car.CarID, KickReasonChecksumFailed); err != nil {
 				return err
 			}
 		}
 
-		car.Connection.HasSentFirstUpdate = true
+		car.SetHasSentFirstUpdate(true)
 
 		if err := pm.SendFirstUpdate(car); err != nil {
 			return err
 		}
 
-		go func() {
-			err := pm.plugin.OnClientLoaded(*car)
+		err := pm.plugin.OnClientLoaded(car.Copy())
 
-			if err != nil {
-				pm.logger.WithError(err).Error("On client loaded plugin returned an error")
-			}
-		}()
+		if err != nil {
+			pm.logger.WithError(err).Error("On client loaded plugin returned an error")
+		}
 	}
 
 	return nil
@@ -195,9 +200,11 @@ func (pm *PositionMessageHandler) SendFirstUpdate(car *Car) error {
 		if err := bw.WriteTCP(car.Connection.tcpConn); err != nil {
 			return err
 		}
-
-		car.Driver.LoadTime = time.Now()
 	}
+
+	car.mutex.Lock()
+	car.Driver.LoadTime = time.Now()
+	car.mutex.Unlock()
 
 	// send bop for car
 	if err := pm.state.SendBoP(car); err != nil {

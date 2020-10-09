@@ -189,10 +189,12 @@ func TestCar_ShouldSendUpdate(t *testing.T) {
 			for carID, carDetails := range test.cars {
 				conn := NewConnection(&net.TCPConn{})
 				conn.udpAddr = &net.UDPAddr{}
-				conn.HasSentFirstUpdate = true
+				conn.hasSentFirstUpdate = true
 
 				car := &Car{
-					CarID:      carID,
+					CarInfo: CarInfo{
+						CarID: carID,
+					},
 					Connection: conn,
 					Status:     CarUpdate{Position: carDetails.position},
 				}

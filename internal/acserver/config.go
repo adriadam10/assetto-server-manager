@@ -79,7 +79,7 @@ type EventConfig struct {
 	WindBaseDirection      int `json:"wind_base_direction" yaml:"wind_base_direction"`
 	WindVariationDirection int `json:"wind_variation_direction" yaml:"wind_variation_direction"`
 
-	DynamicTrack DynamicTrack `json:"dynamic_track" yaml:"dynamic_track"`
+	DynamicTrack DynamicTrackConfig `json:"dynamic_track" yaml:"dynamic_track"`
 
 	Sessions Sessions         `json:"sessions" yaml:"sessions"`
 	Weather  []*WeatherConfig `json:"weather" yaml:"weather"`

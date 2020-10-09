@@ -70,7 +70,7 @@ require (
 	golang.org/x/sync v0.0.0-20200625203802-6e8e738ad208
 	golang.org/x/sys v0.0.0-20200909081042-eff7692f9009 // indirect
 	golang.org/x/text v0.3.3
-	golang.org/x/tools v0.0.0-20200928201943-a0ef9b62deab // indirect
+	golang.org/x/tools v0.0.0-20201008025239-9df69603baec // indirect
 	google.golang.org/protobuf v1.25.0 // indirect
 	gopkg.in/ini.v1 v1.42.0 // indirect
 	gopkg.in/yaml.v2 v2.3.0

@@ -45,7 +45,7 @@ func (c ChecksumMessageHandler) OnMessage(conn net.Conn, p *Packet) error {
 
 			entrant.Connection.FailedChecksum = true
 
-			if entrant.Connection.HasSentFirstUpdate {
+			if entrant.HasSentFirstUpdate() {
 				err := c.state.Kick(entrant.CarID, KickReasonChecksumFailed)
 
 				if err != nil {

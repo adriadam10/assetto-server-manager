@@ -15,13 +15,13 @@ func NewTyreChangeMessageHandler(state *ServerState) *TyreChangeMessageHandler {
 func (t TyreChangeMessageHandler) OnMessage(conn net.Conn, p *Packet) error {
 	tyre := p.ReadString()
 
-	entrant, err := t.state.GetCarByTCPConn(conn)
+	car, err := t.state.GetCarByTCPConn(conn)
 
 	if err != nil {
 		return err
 	}
 
-	return t.state.ChangeTyre(entrant.CarID, tyre)
+	return t.state.ChangeTyre(car, tyre)
 }
 
 func (t TyreChangeMessageHandler) MessageType() MessageType {

@@ -18,6 +18,7 @@ type Server struct {
 	entryListManager    *EntryListManager
 	weatherManager      *WeatherManager
 	checksumManager     *ChecksumManager
+	dynamicTrack        *DynamicTrack
 
 	tcp  *TCP
 	udp  *UDP
@@ -49,7 +50,9 @@ func NewServer(ctx context.Context, baseDirectory string, serverConfig *ServerCo
 		raceConfig.PickupModeEnabled = false
 	}
 
-	state, err := NewServerState(baseDirectory, serverConfig, raceConfig, entryList, plugin, logger)
+	dynamicTrack := NewDynamicTrack(logger, raceConfig.DynamicTrack)
+
+	state, err := NewServerState(baseDirectory, serverConfig, raceConfig, entryList, plugin, logger, dynamicTrack)
 
 	if err != nil {
 		return nil, err
@@ -79,9 +82,10 @@ func NewServer(ctx context.Context, baseDirectory string, serverConfig *ServerCo
 	}
 
 	server.weatherManager = NewWeatherManager(state, plugin, logger)
-	server.sessionManager = NewSessionManager(state, server.weatherManager, lobby, plugin, logger, server.Stop, baseDirectory)
+	server.sessionManager = NewSessionManager(state, server.weatherManager, lobby, dynamicTrack, plugin, logger, server.Stop, baseDirectory)
 	server.adminCommandManager = NewAdminCommandManager(state, server.sessionManager, server.weatherManager, logger)
 	server.entryListManager = NewEntryListManager(state, logger)
+	server.dynamicTrack = dynamicTrack
 
 	return server, nil
 }
@@ -108,17 +112,15 @@ func (s *Server) Start() error {
 
 	s.state.udp = s.udp
 
-	go func() {
-		err := s.plugin.OnVersion(CurrentProtocolVersion)
+	err := s.plugin.OnVersion(CurrentProtocolVersion)
 
-		if err != nil {
-			s.logger.WithError(err).Error("On version plugin returned an error")
-		}
-	}()
+	if err != nil {
+		s.logger.WithError(err).Error("On version plugin returned an error")
+	}
 
 	go s.loop()
 
-	err := s.http.Listen()
+	err = s.http.Listen()
 
 	if err != nil {
 		return err
@@ -191,12 +193,14 @@ func (s *Server) loop() {
 			currentTime := currentTimeMillisecond()
 
 			for _, car := range s.state.entryList {
-				if car.IsConnected() && car.Connection.HasSentFirstUpdate {
-					if car.HasUpdateToBroadcast {
+				if car.IsConnected() && car.HasSentFirstUpdate() {
+					if car.HasUpdateToBroadcast() {
 						s.state.BroadcastCarUpdate(car)
 
-						car.HasUpdateToBroadcast = false
+						car.SetHasUpdateToBroadcast(false)
 					}
+
+					car.UpdatePriorities(s.state.entryList)
 
 					if currentTime-lastSendTime >= serverTickRate {
 						if err := s.state.SendStatus(car, currentTime); err != nil {
@@ -215,8 +219,6 @@ func (s *Server) loop() {
 							s.logger.WithError(err).Error("Could not write ping")
 						}
 					}
-
-					car.UpdatePriorities(s.state.entryList)
 				}
 			}
 
@@ -242,17 +244,20 @@ func (s *Server) loop() {
 	}
 }
 
-func (s *Server) GetCarInfo(id CarID) (Car, error) {
+func (s *Server) GetCarInfo(id CarID) (CarInfo, error) {
 	car, err := s.state.GetCarByID(id)
 
 	if err != nil {
-		return Car{}, err
+		return CarInfo{}, err
 	}
 
-	return *car, nil
+	return car.Copy(), nil
 }
 
 func (s *Server) GetSessionInfo() SessionInfo {
+	currentWeather := s.weatherManager.GetCurrentWeather()
+	currentSession := s.sessionManager.GetCurrentSession()
+
 	return SessionInfo{
 		Version:         CurrentResultsVersion,
 		SessionIndex:    s.state.currentSessionIndex,
@@ -260,16 +265,16 @@ func (s *Server) GetSessionInfo() SessionInfo {
 		ServerName:      s.state.serverConfig.Name,
 		Track:           s.state.raceConfig.Track,
 		TrackConfig:     s.state.raceConfig.TrackLayout,
-		Name:            s.state.currentSession.Name,
-		NumMinutes:      s.state.currentSession.Time,
-		NumLaps:         s.state.currentSession.Laps,
-		WaitTime:        s.state.currentSession.WaitTime,
-		AmbientTemp:     s.weatherManager.currentWeather.Ambient,
-		RoadTemp:        s.weatherManager.currentWeather.Road,
-		WeatherGraphics: s.weatherManager.currentWeather.GraphicsName,
+		Name:            currentSession.Name,
+		NumMinutes:      currentSession.Time,
+		NumLaps:         currentSession.Laps,
+		WaitTime:        currentSession.WaitTime,
+		AmbientTemp:     currentWeather.Ambient,
+		RoadTemp:        currentWeather.Road,
+		WeatherGraphics: currentWeather.GraphicsName,
 		ElapsedTime:     s.sessionManager.ElapsedSessionTime(),
-		SessionType:     s.state.currentSession.SessionType,
-		IsSolo:          s.state.currentSession.Solo,
+		SessionType:     currentSession.SessionType,
+		IsSolo:          currentSession.Solo,
 	}
 }
 
@@ -325,9 +330,11 @@ func (s *Server) SetCurrentSession(index uint8, config *SessionConfig) {
 
 func (s *Server) AdminCommand(command string) error {
 	serverEntrant := &Car{
-		Driver:  Driver{Name: "Server"},
-		CarID:   ServerCarID,
-		IsAdmin: true,
+		CarInfo: CarInfo{
+			Driver:  Driver{Name: "Server"},
+			CarID:   ServerCarID,
+			IsAdmin: true,
+		},
 	}
 
 	return s.adminCommandManager.Command(serverEntrant, command)
@@ -354,11 +361,11 @@ func (s *Server) pluginPositionUpdate() {
 		select {
 		case <-ticker.C:
 			for _, car := range s.state.entryList {
-				if !car.IsConnected() || !car.Connection.HasSentFirstUpdate {
+				if !car.IsConnected() || !car.HasSentFirstUpdate() {
 					continue
 				}
 
-				if err := s.plugin.OnCarUpdate(*car); err != nil {
+				if err := s.plugin.OnCarUpdate(car.Copy()); err != nil {
 					s.logger.WithError(err).Errorf("Could not send car update for car: %d", car.CarID)
 				}
 			}

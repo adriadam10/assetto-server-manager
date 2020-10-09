@@ -43,7 +43,7 @@ type RaceControl struct {
 	penaltiesManager *PenaltiesManager
 	server           acserver.ServerPlugin
 
-	carIDToGUIDMutex sync.RWMutex
+	mutex sync.RWMutex
 
 	serverProcessStopped chan struct{}
 
@@ -63,8 +63,8 @@ type RaceControl struct {
 }
 
 func (rc *RaceControl) MarshalJSON() ([]byte, error) {
-	rc.carIDToGUIDMutex.RLock()
-	defer rc.carIDToGUIDMutex.RUnlock()
+	rc.mutex.RLock()
+	defer rc.mutex.RUnlock()
 	return json.Marshal(rc.RaceControlBroadcastData)
 }
 
@@ -167,8 +167,10 @@ func (rc *RaceControl) UDPCallback(message udp.Message) {
 		driver, err = rc.findConnectedDriverByCarID(m.CarID)
 
 		if err == nil {
+			driver.mutex.Lock()
 			m.DriverGUID = driver.CarInfo.DriverGUID
 			m.DriverName = driver.CarInfo.DriverName
+			driver.mutex.Unlock()
 		} else if m.DriverGUID == "" && m.DriverName == "" {
 			m.DriverGUID = "0"
 			m.DriverName = "Server"
@@ -204,6 +206,8 @@ func (rc *RaceControl) OnVersion(version udp.Version) error {
 	go panicCapture(rc.requestSessionInfo)
 
 	// clear chat messages on new server start
+	rc.mutex.Lock()
+	defer rc.mutex.Unlock()
 	rc.ChatMessages = []udp.Chat{}
 
 	_, err := rc.broadcaster.Send(version)
@@ -220,13 +224,11 @@ func (rc *RaceControl) OnCarUpdate(update udp.CarUpdate) error {
 		return err
 	}
 
-	driver.mutex.Lock()
-	defer driver.mutex.Unlock()
-
 	speed := metersPerSecondToKilometersPerHour(
 		math.Sqrt(math.Pow(float64(update.Velocity.X), 2) + math.Pow(float64(update.Velocity.Z), 2)),
 	)
 
+	driver.mutex.Lock()
 	if speed > driver.CurrentCar().TopSpeedThisLap {
 		driver.CurrentCar().TopSpeedThisLap = speed
 	}
@@ -236,6 +238,7 @@ func (rc *RaceControl) OnCarUpdate(update udp.CarUpdate) error {
 	driver.NormalisedSplinePos = update.NormalisedSplinePos
 	driver.SteerAngle = update.SteerAngle
 	driver.StatusBytes = update.StatusBytes
+	driver.mutex.Unlock()
 
 	rc.ConnectedDrivers.sort()
 
@@ -353,9 +356,9 @@ func (rc *RaceControl) OnNewSession(sessionInfo udp.SessionInfo) error {
 func (rc *RaceControl) clearAllDrivers() {
 	rc.ConnectedDrivers = NewDriverMap(ConnectedDrivers, rc.SortDrivers)
 	rc.DisconnectedDrivers = NewDriverMap(DisconnectedDrivers, rc.SortDrivers)
-	rc.carIDToGUIDMutex.Lock()
+	rc.mutex.Lock()
 	rc.CarIDToGUID = make(map[udp.CarID]udp.DriverGUID)
-	rc.carIDToGUIDMutex.Unlock()
+	rc.mutex.Unlock()
 }
 
 var sessionInfoRequestInterval = time.Second * 30
@@ -415,6 +418,8 @@ func (rc *RaceControl) disconnectDriver(driver *RaceControlDriver) error {
 
 // OnSessionUpdate is called every sessionRequestInterval.
 func (rc *RaceControl) OnSessionUpdate(sessionInfo udp.SessionInfo) (bool, error) {
+	rc.mutex.Lock()
+	defer rc.mutex.Unlock()
 	oldSessionInfo := rc.SessionInfo
 
 	// we can't just copy over the session information, we must copy individual
@@ -562,9 +567,9 @@ func (rc *RaceControl) addFileToTimeAttackEvent(file string) error {
 // OnClientConnect stores CarID -> DriverGUID mappings. if a driver is known to have previously been in this event,
 // they will be moved from DisconnectedDrivers to ConnectedDrivers.
 func (rc *RaceControl) OnClientConnect(client udp.SessionCarInfo) error {
-	rc.carIDToGUIDMutex.Lock()
+	rc.mutex.Lock()
 	rc.CarIDToGUID[client.CarID] = client.DriverGUID
-	rc.carIDToGUIDMutex.Unlock()
+	rc.mutex.Unlock()
 
 	client.DriverInitials = driverInitials(client.DriverName)
 	client.DriverName = driverName(client.DriverName)
@@ -587,7 +592,6 @@ func (rc *RaceControl) OnClientConnect(client udp.SessionCarInfo) error {
 	}
 
 	driver.mutex.Lock()
-	defer driver.mutex.Unlock()
 	driver.CarInfo = client
 
 	if _, ok := driver.Cars[driver.CarInfo.CarModel]; !ok {
@@ -598,6 +602,7 @@ func (rc *RaceControl) OnClientConnect(client udp.SessionCarInfo) error {
 	driver.LastSeen = time.Time{}
 	driver.CurrentCar().LastLapCompletedTime = time.Now()
 	driver.CurrentCar().CurrentLapSplits = make(map[uint8]RaceControlCarSplit)
+	driver.mutex.Unlock()
 
 	rc.ConnectedDrivers.Add(driver.CarInfo.DriverGUID, driver)
 
@@ -614,12 +619,11 @@ func (rc *RaceControl) OnClientDisconnect(client udp.SessionCarInfo) error {
 		return fmt.Errorf("racecontrol: client disconnected without ever being connected: %s (%s)", client.DriverName, client.DriverGUID)
 	}
 
-	driver.mutex.Lock()
-	defer driver.mutex.Unlock()
-
 	logrus.Debugf("Driver %s (%s) disconnected", driver.CarInfo.DriverName, driver.CarInfo.DriverGUID)
 
+	driver.mutex.Lock()
 	driver.LoadedTime = time.Time{}
+	driver.mutex.Unlock()
 
 	rc.ConnectedDrivers.Del(driver.CarInfo.DriverGUID)
 
@@ -888,9 +892,9 @@ func (rc *RaceControl) positionHasChanged(initialPosition, currentPosition udp.V
 // findConnectedDriverByCarID looks for a driver in ConnectedDrivers by their CarID. This is the only place CarID
 // is used for a look-up, and it uses the CarIDToGUID map to perform the lookup.
 func (rc *RaceControl) findConnectedDriverByCarID(carID udp.CarID) (*RaceControlDriver, error) {
-	rc.carIDToGUIDMutex.RLock()
+	rc.mutex.RLock()
 	driverGUID, ok := rc.CarIDToGUID[carID]
-	rc.carIDToGUIDMutex.RUnlock()
+	rc.mutex.RUnlock()
 
 	if !ok {
 		return nil, fmt.Errorf("racecontrol: could not find DriverGUID for CarID: %d", carID)
@@ -912,6 +916,9 @@ func (rc *RaceControl) OnClientLoaded(loadedCar udp.ClientLoaded) error {
 	if err != nil {
 		return err
 	}
+
+	driver.mutex.Lock()
+	defer driver.mutex.Unlock()
 
 	serverConfig, err := rc.store.LoadServerOptions()
 
@@ -1044,13 +1051,12 @@ func (rc *RaceControl) OnLapCompleted(lap udp.LapCompleted) error {
 		return err
 	}
 
-	driver.mutex.Lock()
-	defer driver.mutex.Unlock()
+	defer rc.persistTimingData()
 
 	lapDuration := lapToDuration(int(lap.LapTime))
 
 	logrus.Debugf("Lap completed by driver: %s (%s), %s", driver.CarInfo.DriverName, driver.CarInfo.DriverGUID, lapDuration)
-
+	driver.mutex.Lock()
 	driver.TotalNumLaps++
 	currentCar := driver.CurrentCar()
 
@@ -1066,16 +1072,28 @@ func (rc *RaceControl) OnLapCompleted(lap udp.LapCompleted) error {
 	}
 
 	currentCar.TopSpeedThisLap = 0
+	driver.mutex.Unlock()
 
 	rc.ConnectedDrivers.sort()
 
 	if rc.SessionInfo.Type == acserver.SessionTypeRace {
 		// calculate split
 		if driver.Position == 1 {
+			driver.mutex.Lock()
 			driver.Split = time.Duration(0).String()
+			driver.mutex.Unlock()
 		} else {
 			_ = rc.ConnectedDrivers.Each(func(otherDriverGUID udp.DriverGUID, otherDriver *RaceControlDriver) error {
+				if driver == otherDriver {
+					return nil
+				}
+
+				otherDriver.mutex.Lock()
+				defer otherDriver.mutex.Unlock()
+
 				if otherDriver.Position == driver.Position-1 {
+					driver.mutex.Lock()
+					defer driver.mutex.Unlock()
 					driverCar := driver.CurrentCar()
 					otherDriverCar := otherDriver.CurrentCar()
 
@@ -1098,6 +1116,9 @@ func (rc *RaceControl) OnLapCompleted(lap udp.LapCompleted) error {
 
 		// gaps are calculated vs best lap
 		_ = rc.ConnectedDrivers.Each(func(driverGUID udp.DriverGUID, driver *RaceControlDriver) error {
+			driver.mutex.Lock()
+			defer driver.mutex.Unlock()
+
 			if previousCar == nil {
 				driver.Split = "0s"
 			} else {
@@ -1116,8 +1137,6 @@ func (rc *RaceControl) OnLapCompleted(lap udp.LapCompleted) error {
 		})
 	}
 
-	rc.persistTimingData()
-
 	return nil
 }
 
@@ -1128,10 +1147,10 @@ func (rc *RaceControl) OnSplitComplete(split udp.SplitCompleted) error {
 		return err
 	}
 
-	splitDuration := lapToDuration(int(split.Time))
-
 	driver.mutex.Lock()
 	defer driver.mutex.Unlock()
+
+	splitDuration := lapToDuration(int(split.Time))
 
 	currentCar := driver.CurrentCar()
 
@@ -1202,6 +1221,8 @@ func (rc *RaceControl) OnChatMessage(chat udp.Chat) error {
 		return err
 	}
 
+	rc.mutex.Lock()
+	defer rc.mutex.Unlock()
 	rc.ChatMessages = append(rc.ChatMessages, chat)
 
 	if len(rc.ChatMessages) > chatMessageLimit {
@@ -1236,6 +1257,11 @@ func chatMessagePlugin(chat udp.Chat) error {
 }
 
 func (rc *RaceControl) SortDrivers(driverGroup RaceControlDriverGroup, driverA, driverB *RaceControlDriver) bool {
+	driverA.mutex.Lock()
+	defer driverA.mutex.Unlock()
+	driverB.mutex.Lock()
+	defer driverB.mutex.Unlock()
+
 	driverACar := driverA.CurrentCar()
 	driverBCar := driverB.CurrentCar()
 
@@ -1282,6 +1308,9 @@ func (rc *RaceControl) OnCollisionWithCar(collision udp.CollisionWithCar) error 
 		return err
 	}
 
+	driver.mutex.Lock()
+	defer driver.mutex.Unlock()
+
 	c := Collision{
 		ID:          uuid.New().String(),
 		Type:        CollisionWithCar,
@@ -1289,9 +1318,6 @@ func (rc *RaceControl) OnCollisionWithCar(collision udp.CollisionWithCar) error 
 		Speed:       metersPerSecondToKilometersPerHour(float64(collision.ImpactSpeed)),
 		DamageZones: collision.DamageZones,
 	}
-
-	driver.mutex.Lock()
-	defer driver.mutex.Unlock()
 
 	otherDriver, err := rc.findConnectedDriverByCarID(collision.OtherCarID)
 

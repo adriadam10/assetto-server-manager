@@ -100,10 +100,12 @@ func TestReverseLeaderboard(t *testing.T) {
 			for _, row := range test.finishingGrid {
 				leaderboard = append(leaderboard, &LeaderboardLine{
 					Car: &Car{
-						Driver: Driver{
-							Name: row.name,
+						CarInfo: CarInfo{
+							Driver: Driver{
+								Name: row.name,
+							},
+							SessionData: SessionData{HasCompletedSession: row.finished},
 						},
-						SessionData: SessionData{HasCompletedSession: row.finished},
 					},
 					Time:    row.time,
 					NumLaps: row.numLaps,
