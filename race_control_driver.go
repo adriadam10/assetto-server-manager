@@ -71,6 +71,25 @@ func (rcd *RaceControlDriver) CurrentCar() *RaceControlCarLapInfo {
 	return &RaceControlCarLapInfo{}
 }
 
+func (rcd *RaceControlDriver) ClearSessionInfo() {
+	rcd.mutex.Lock()
+	defer rcd.mutex.Unlock()
+
+	carInfo := rcd.CarInfo
+	loadedTime := rcd.LoadedTime
+	connectedTime := rcd.ConnectedTime
+
+	rcd.RaceControlDriverData = RaceControlDriverData{
+		CarInfo:       carInfo,
+		LoadedTime:    loadedTime,
+		ConnectedTime: connectedTime,
+
+		Cars: map[string]*RaceControlCarLapInfo{
+			carInfo.CarModel: NewRaceControlCarLapInfo(carInfo.CarModel),
+		},
+	}
+}
+
 func (rcd *RaceControlDriver) MarshalJSON() ([]byte, error) {
 	rcd.mutex.Lock()
 	defer rcd.mutex.Unlock()

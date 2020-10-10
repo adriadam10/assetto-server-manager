@@ -273,7 +273,7 @@ func readLegacyConfigs() (*TempConfig, error) {
 		MaxClients:                sc.MaxClients,
 		RaceOverTime:              uint32(sc.RaceOverTime),
 		StartRule:                 acserver.StartRule(sc.StartRule),
-		DynamicTrack: acserver.DynamicTrack{
+		DynamicTrack: acserver.DynamicTrackConfig{
 			SessionStart:    sc.DynamicTrack.SessionStart,
 			Randomness:      sc.DynamicTrack.Randomness,
 			SessionTransfer: sc.DynamicTrack.SessionTransfer,

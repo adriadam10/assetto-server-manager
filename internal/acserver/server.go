@@ -223,7 +223,7 @@ func (s *Server) loop() {
 			}
 
 			if sleepTime != idleSleepTime {
-				s.weatherManager.Step(currentTime)
+				s.weatherManager.Step(currentTime, s.sessionManager.GetCurrentSession())
 			}
 
 			if s.state.entryList.NumConnected() == 0 {
@@ -260,7 +260,7 @@ func (s *Server) GetSessionInfo() SessionInfo {
 
 	return SessionInfo{
 		Version:         CurrentResultsVersion,
-		SessionIndex:    s.state.currentSessionIndex,
+		SessionIndex:    s.sessionManager.GetSessionIndex(),
 		SessionCount:    uint8(len(s.state.raceConfig.Sessions)),
 		ServerName:      s.state.serverConfig.Name,
 		Track:           s.state.raceConfig.Track,
@@ -323,7 +323,8 @@ func (s *Server) SetCurrentSession(index uint8, config *SessionConfig) {
 	}
 
 	s.state.raceConfig.Sessions[index] = config
-	s.state.currentSessionIndex = index
+
+	s.sessionManager.SetSessionIndex(index)
 
 	s.sessionManager.RestartSession()
 }
@@ -341,7 +342,9 @@ func (s *Server) AdminCommand(command string) error {
 }
 
 func (s *Server) GetLeaderboard() []*LeaderboardLine {
-	return s.state.Leaderboard()
+	currentSession := s.sessionManager.GetCurrentSession()
+
+	return s.state.Leaderboard(currentSession.SessionType)
 }
 
 func (s *Server) SetUpdateInterval(interval time.Duration) {

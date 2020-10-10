@@ -87,6 +87,10 @@ func (wm *WeatherManager) GetCurrentWeather() CurrentWeather {
 	wm.mutex.Lock()
 	defer wm.mutex.Unlock()
 
+	if wm.currentWeather == nil {
+		return CurrentWeather{}
+	}
+
 	return *wm.currentWeather
 }
 
@@ -103,7 +107,6 @@ func (wm *WeatherManager) ChangeWeather(weatherConfig *WeatherConfig, weatherUpd
 		WindDirection: windDirection,
 	}
 	wm.logger.Infof("Changed weather to: %s", wm.currentWeather.String())
-	wm.mutex.Unlock()
 
 	if weatherConfig.Duration > 0 {
 		wm.nextWeatherUpdate = currentTimeMillisecond() + (weatherUpdateOffsetSeconds * 1000) + (weatherConfig.Duration * 60000)
@@ -111,6 +114,7 @@ func (wm *WeatherManager) ChangeWeather(weatherConfig *WeatherConfig, weatherUpd
 		wm.logger.Infof("Weather progression completed.")
 		wm.weatherProgression = false
 	}
+	wm.mutex.Unlock()
 
 	for _, car := range wm.state.entryList {
 		if !car.IsConnected() {
@@ -209,11 +213,13 @@ func (wm *WeatherManager) SendSunAngleToCar(car *Car) error {
 	return bw.WriteTCP(car.Connection.tcpConn)
 }
 
-func (wm *WeatherManager) OnNewSession() {
+func (wm *WeatherManager) OnNewSession(session SessionConfig) {
+	wm.mutex.Lock()
 	wm.currentWeatherIndex = 0
 	wm.weatherProgression = false
 	wm.nextWeatherUpdate = 0
 	wm.sunAngle = wm.state.raceConfig.SunAngle
+	wm.mutex.Unlock()
 
 	sessionWeatherIndex := -1
 
@@ -221,7 +227,7 @@ func (wm *WeatherManager) OnNewSession() {
 	var weathersForCurrentSession []*WeatherConfig
 
 	for _, weather := range wm.state.raceConfig.Weather {
-		if weather.AppliesToSession(wm.state.currentSession.SessionType) {
+		if weather.AppliesToSession(session.SessionType) {
 			weathersForCurrentSession = append(weathersForCurrentSession, weather)
 			allWeathersForSessionHaveZeroDuration = allWeathersForSessionHaveZeroDuration && weather.Duration == 0
 		}
@@ -241,12 +247,12 @@ func (wm *WeatherManager) OnNewSession() {
 		}
 	} else {
 		for weatherIndex, weather := range wm.state.raceConfig.Weather {
-			if weather.AppliesToSession(wm.state.currentSession.SessionType) && sessionWeatherIndex < 0 {
+			if weather.AppliesToSession(session.SessionType) && sessionWeatherIndex < 0 {
 				sessionWeatherIndex = weatherIndex
 				continue
 			}
 
-			if weather.AppliesToSession(wm.state.currentSession.SessionType) && sessionWeatherIndex >= 0 {
+			if weather.AppliesToSession(session.SessionType) && sessionWeatherIndex >= 0 {
 				wm.logger.Debugf("Session has multiple weathers. Enabling weather progression.")
 				wm.weatherProgression = true
 				break
@@ -255,9 +261,11 @@ func (wm *WeatherManager) OnNewSession() {
 	}
 
 	if sessionWeatherIndex >= 0 {
+		wm.mutex.Lock()
 		wm.currentWeatherIndex = sessionWeatherIndex
+		wm.mutex.Unlock()
 
-		wm.ChangeWeather(wm.state.raceConfig.Weather[wm.currentWeatherIndex], int64(wm.state.currentSession.WaitTime))
+		wm.ChangeWeather(wm.state.raceConfig.Weather[wm.currentWeatherIndex], int64(session.WaitTime))
 	} else if sessionWeatherIndex < 0 {
 		wm.logger.Debugf("No weather defined for session. Falling back to sensible defaults.")
 
@@ -272,7 +280,7 @@ func (wm *WeatherManager) OnNewSession() {
 			WindBaseSpeedMax:       15,
 			WindBaseDirection:      30,
 			WindVariationDirection: 15,
-		}, int64(wm.state.currentSession.WaitTime))
+		}, int64(session.WaitTime))
 	}
 }
 
@@ -281,7 +289,7 @@ const (
 	maxSunAngle = 80
 )
 
-func (wm *WeatherManager) Step(currentTime int64) {
+func (wm *WeatherManager) Step(currentTime int64, currentSession SessionConfig) {
 	// @TODO (improvement) at 1x this loses between 0.5 and 1s evey 60s
 	if currentTime-wm.lastSunUpdate > wm.sunAngleUpdateInterval || wm.lastSunUpdate == 0 {
 		// @TODO with CSP exceeding -80 and 80 works fine, and you can loop!
@@ -298,18 +306,25 @@ func (wm *WeatherManager) Step(currentTime int64) {
 		wm.lastSunUpdate = currentTime
 	}
 
-	if wm.weatherProgression && wm.nextWeatherUpdate < currentTime {
-		wm.NextWeather()
+	if wm.ShouldProgressToNextWeather(currentTime) {
+		wm.NextWeather(currentSession)
 	}
 }
 
-func (wm *WeatherManager) NextWeather() {
+func (wm *WeatherManager) ShouldProgressToNextWeather(currentTime int64) bool {
+	wm.mutex.Lock()
+	defer wm.mutex.Unlock()
+
+	return wm.weatherProgression && wm.nextWeatherUpdate < currentTime
+}
+
+func (wm *WeatherManager) NextWeather(currentSession SessionConfig) {
 	nextWeatherIndex := -1
 
 	for i := wm.currentWeatherIndex + 1; i < len(wm.state.raceConfig.Weather); i++ {
 		weather := wm.state.raceConfig.Weather[i]
 
-		if weather.AppliesToSession(wm.state.currentSession.SessionType) {
+		if weather.AppliesToSession(currentSession.SessionType) {
 			nextWeatherIndex = i
 			break
 		}
@@ -318,7 +333,7 @@ func (wm *WeatherManager) NextWeather() {
 	if nextWeatherIndex <= 0 {
 		// see if we can loop back
 		for weatherIndex, weather := range wm.state.raceConfig.Weather {
-			if weather.AppliesToSession(wm.state.currentSession.SessionType) {
+			if weather.AppliesToSession(currentSession.SessionType) {
 				nextWeatherIndex = weatherIndex
 				break
 			}

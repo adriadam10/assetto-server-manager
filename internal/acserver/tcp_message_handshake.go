@@ -59,7 +59,9 @@ func (m HandshakeMessageHandler) OnMessage(conn net.Conn, p *Packet) error {
 	carModel := p.ReadString()
 	password := p.ReadString()
 
-	if m.state.currentSession.SessionType == SessionTypeBooking {
+	currentSession := m.sessionManager.GetCurrentSession()
+
+	if currentSession.SessionType == SessionTypeBooking {
 		p := NewPacket(nil)
 		p.Write(TCPHandshakeStillBooking)
 		p.Write(uint32(m.sessionManager.RemainingSessionTime().Seconds()))
@@ -156,16 +158,16 @@ func (m HandshakeMessageHandler) OnMessage(conn net.Conn, p *Packet) error {
 		w.Write(session.Time)
 	}
 
-	w.WriteString(m.state.currentSession.Name)
-	w.Write(m.state.currentSessionIndex)
-	w.Write(m.state.currentSession.SessionType)
-	w.Write(m.state.currentSession.Time)
-	w.Write(m.state.currentSession.Laps)
+	w.WriteString(currentSession.Name)
+	w.Write(m.sessionManager.GetSessionIndex())
+	w.Write(currentSession.SessionType)
+	w.Write(currentSession.Time)
+	w.Write(currentSession.Laps)
 	w.Write(m.dynamicTrack.CurrentGrip())
 
 	carPos := uint8(car.CarID)
 
-	for pos, leaderboardLine := range m.state.Leaderboard() {
+	for pos, leaderboardLine := range m.state.Leaderboard(currentSession.SessionType) {
 		if leaderboardLine.Car.CarID == car.CarID {
 			carPos = uint8(pos)
 			break

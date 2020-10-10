@@ -247,8 +247,6 @@ func (rc *RaceControl) OnCarUpdate(update udp.CarUpdate) error {
 	return err
 }
 
-var emptyCarInfoMutex = sync.Mutex{}
-
 // OnNewSession occurs every new session. If the session is the first in an event and it is not a looped practice,
 // then all driver information is cleared.
 func (rc *RaceControl) OnNewSession(sessionInfo udp.SessionInfo) error {
@@ -273,14 +271,7 @@ func (rc *RaceControl) OnNewSession(sessionInfo udp.SessionInfo) error {
 
 	if emptyCarInfo {
 		_ = rc.ConnectedDrivers.Each(func(driverGUID udp.DriverGUID, driver *RaceControlDriver) error {
-			emptyCarInfoMutex.Lock()
-			defer emptyCarInfoMutex.Unlock()
-
-			loadedTime := driver.LoadedTime
-			connectedTime := driver.ConnectedTime
-			*driver = *NewRaceControlDriver(driver.CarInfo)
-			driver.LoadedTime = loadedTime
-			driver.ConnectedTime = connectedTime
+			driver.ClearSessionInfo()
 
 			return nil
 		})

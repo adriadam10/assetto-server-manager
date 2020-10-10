@@ -13,7 +13,7 @@ import (
 const CurrentResultsVersion = 2
 
 // @TODO extend! -top speed on best lap
-func (ss *ServerState) GenerateResults() *SessionResults {
+func (ss *ServerState) GenerateResults(sessionInfo SessionConfig) *SessionResults {
 	var result []*SessionResult
 	var cars []*SessionCar
 	var events []*SessionEvent
@@ -38,7 +38,7 @@ func (ss *ServerState) GenerateResults() *SessionResults {
 		})
 	}
 
-	for _, leaderboardLine := range ss.Leaderboard() {
+	for _, leaderboardLine := range ss.Leaderboard(sessionInfo.SessionType) {
 		carID := int(leaderboardLine.Car.CarID)
 
 		sessionDriver := &SessionDriver{
@@ -142,9 +142,9 @@ func (ss *ServerState) GenerateResults() *SessionResults {
 		Result:      result,
 		TrackConfig: ss.raceConfig.TrackLayout,
 		TrackName:   ss.raceConfig.Track,
-		Type:        ss.currentSession.SessionType.ResultsString(),
+		Type:        sessionInfo.SessionType.ResultsString(),
 		Date:        resultDate,
-		SessionFile: fmt.Sprintf("%d_%d_%d_%d_%d_%s.json", resultDate.Year(), resultDate.Month(), resultDate.Day(), resultDate.Hour(), resultDate.Minute(), ss.currentSession.SessionType.ResultsString()),
+		SessionFile: fmt.Sprintf("%d_%d_%d_%d_%d_%s.json", resultDate.Year(), resultDate.Month(), resultDate.Day(), resultDate.Hour(), resultDate.Minute(), sessionInfo.SessionType.ResultsString()),
 	}
 }
 

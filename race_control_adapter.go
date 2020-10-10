@@ -1,8 +1,6 @@
 package acsm
 
 import (
-	"fmt"
-
 	"justapengu.in/acsm/internal/acserver"
 	"justapengu.in/acsm/pkg/udp"
 )
@@ -101,7 +99,6 @@ func (r *UDPPluginAdapter) OnNewConnection(car acserver.CarInfo) error {
 }
 
 func (r *UDPPluginAdapter) OnClientLoaded(car acserver.CarInfo) error {
-	fmt.Println("LOADED")
 	r.UDPCallback(udp.ClientLoaded(car.CarID))
 
 	return nil

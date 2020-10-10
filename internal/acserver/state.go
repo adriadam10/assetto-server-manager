@@ -39,9 +39,6 @@ type ServerState struct {
 	// modifiable
 	randomSeed uint32
 
-	currentSessionIndex uint8
-	currentSession      SessionConfig
-
 	// fixed
 	drsZones             map[string]DRSZone
 	setups               map[string]Setup
@@ -502,22 +499,6 @@ func (ss *ServerState) SendChat(fromCarID CarID, toCarID CarID, message string, 
 	return p.WriteTCP(car.Connection.tcpConn)
 }
 
-func (ss *ServerState) BroadcastDamageZones(entrant *Car) error {
-	if ss.currentSession.SessionType == SessionTypeQualifying && ss.currentSession.Solo {
-		return nil
-	}
-
-	p := NewPacket(nil)
-
-	p.Write(TCPMessageDamageZones)
-	p.Write(entrant.CarID)
-	p.Write(entrant.DamageZones)
-
-	ss.BroadcastOthersTCP(p, entrant.CarID)
-
-	return nil
-}
-
 func (ss *ServerState) ChangeTyre(car *Car, tyre string) error {
 	car.ChangeTyres(tyre)
 
@@ -536,110 +517,6 @@ func (ss *ServerState) ChangeTyre(car *Car, tyre string) error {
 	if err != nil {
 		ss.logger.WithError(err).Error("On tyre change plugin returned an error")
 	}
-
-	return nil
-}
-
-func (ss *ServerState) CompleteLap(carID CarID, lap *LapCompleted, target *Car) error {
-	if carID != ServerCarID {
-		ss.logger.Infof("CarID: %d just completed lap: %s (%d cuts) (splits: %v)", carID, time.Duration(lap.LapTime)*time.Millisecond, lap.Cuts, lap.Splits)
-		ss.currentSession.CompleteLap()
-		ss.dynamicTrack.OnLapCompleted()
-	}
-
-	car, err := ss.GetCarByID(carID)
-
-	if err != nil {
-		return err
-	}
-
-	if car.SessionData.HasCompletedSession {
-		// entrants which have completed the session can't complete more laps
-		return nil
-	}
-
-	l := car.AddLap(lap)
-
-	if carID != ServerCarID {
-		err := ss.plugin.OnLapCompleted(car.CarID, *l)
-
-		if err != nil {
-			ss.logger.WithError(err).Error("On lap completed plugin returned an error")
-		}
-
-		// last sector only
-		var cutsInSectorsSoFar uint8
-
-		for _, sector := range car.SessionData.Sectors {
-			cutsInSectorsSoFar += sector.Cuts
-		}
-
-		cutsInFinalSector := lap.Cuts - cutsInSectorsSoFar
-
-		split := Split{
-			Index: lap.NumSplits - 1,
-			Time:  lap.Splits[lap.NumSplits-1],
-			Cuts:  cutsInFinalSector,
-		}
-
-		err = ss.plugin.OnSectorCompleted(car.Copy(), split)
-
-		if err != nil {
-			ss.logger.WithError(err).Error("On sector completed plugin returned an error")
-		}
-	}
-
-	leaderboard := ss.Leaderboard()
-
-	if ss.currentSession.Laps > 0 {
-		car.SessionData.HasCompletedSession = car.SessionData.LapCount == int(ss.currentSession.Laps)
-	} else {
-		if currentTimeMillisecond() > ss.currentSession.FinishTime() {
-			leader := leaderboard[0]
-
-			if ss.raceConfig.RaceExtraLap {
-				if car.SessionData.HasExtraLapToGo {
-					// everyone at this point has completed their extra lap
-					car.SessionData.HasCompletedSession = true
-				} else {
-					// the entrant has another lap to go if they are the leader, or the leader has an extra lap to go
-					car.SessionData.HasExtraLapToGo = leader.Car == car || leader.Car.SessionData.HasExtraLapToGo
-				}
-			} else {
-				// the entrant has completed the session if they are the leader or the leader has completed the session.
-				car.SessionData.HasCompletedSession = leader.Car == car || leader.Car.SessionData.HasCompletedSession
-			}
-		}
-	}
-
-	bw := NewPacket(nil)
-	bw.Write(TCPMessageLapCompleted)
-	bw.Write(carID)
-	bw.Write(lap.LapTime)
-	bw.Write(lap.Cuts)
-	bw.Write(uint8(len(ss.entryList)))
-
-	for _, leaderBoardLine := range leaderboard {
-		bw.Write(leaderBoardLine.Car.CarID)
-
-		switch ss.currentSession.SessionType {
-		case SessionTypeRace:
-			bw.Write(uint32(leaderBoardLine.Time.Milliseconds()))
-		default:
-			bw.Write(uint32(leaderBoardLine.Time.Milliseconds()))
-		}
-
-		bw.Write(uint16(leaderBoardLine.NumLaps))
-		bw.Write(leaderBoardLine.Car.SessionData.HasCompletedSession)
-	}
-
-	bw.Write(ss.dynamicTrack.CurrentGrip())
-
-	if target != nil {
-		return bw.WriteTCP(target.Connection.tcpConn)
-	}
-
-	ss.BroadcastAllTCP(bw)
 
 	return nil
 }
@@ -874,50 +751,6 @@ func (ss *ServerState) closeTCPConnection(conn net.Conn) {
 	}
 }
 
-func (ss *ServerState) SendSessionInfo(entrant *Car, leaderBoard []*LeaderboardLine) error {
-	if leaderBoard == nil {
-		leaderBoard = ss.Leaderboard()
-	}
-
-	ss.logger.Debugf("Sending Client Session Information")
-
-	bw := NewPacket(nil)
-	bw.Write(TCPMessageCurrentSessionInfo)
-	bw.WriteString(ss.currentSession.Name)
-	bw.Write(ss.currentSessionIndex)        // session index
-	bw.Write(ss.currentSession.SessionType) // type
-	bw.Write(ss.currentSession.Time)        // time
-	bw.Write(ss.currentSession.Laps)        // laps
-	bw.Write(ss.dynamicTrack.CurrentGrip()) // dynamic track, grip
-
-	for _, leaderboardLine := range leaderBoard {
-		bw.Write(leaderboardLine.Car.CarID)
-	}
-
-	bw.Write(ss.currentSession.startTime - int64(entrant.Connection.TimeOffset))
-
-	return bw.WriteTCP(entrant.Connection.tcpConn)
-}
-
-func (ss *ServerState) BroadcastSessionCompleted() {
-	ss.logger.Infof("Broadcasting session completed packet for session: %s", ss.currentSession.SessionType)
-	p := NewPacket(nil)
-	p.Write(TCPMessageSessionCompleted)
-
-	for _, leaderboardLine := range ss.Leaderboard() {
-		p.Write(leaderboardLine.Car.CarID)
-		p.Write(uint32(leaderboardLine.Time.Milliseconds()))
-		p.Write(uint16(leaderboardLine.NumLaps))
-	}
-
-	// this bool here was previously used by Kunos to indicate to kick all users out post-session if loop mode was on
-	// i'd like us not to require this if at all possible, so hopefully we can ignore it for now and just return '1'
-	// (i.e. car can stay in server as sessions cycle)
-	p.Write(uint8(1))
-
-	ss.BroadcastAllTCP(p)
-}
-
 type LeaderboardLine struct {
 	Car         *Car
 	Time        time.Duration
@@ -929,7 +762,7 @@ func (l *LeaderboardLine) String() string {
 	return fmt.Sprintf("CarID: %d, Time: %s, NumLaps: %d", l.Car.CarID, l.Time, l.NumLaps)
 }
 
-func (ss *ServerState) Leaderboard() []*LeaderboardLine {
+func (ss *ServerState) Leaderboard(sessionType SessionType) []*LeaderboardLine {
 	var leaderboard []*LeaderboardLine
 
 	for _, car := range ss.entryList {
@@ -937,7 +770,7 @@ func (ss *ServerState) Leaderboard() []*LeaderboardLine {
 
 		lapCount := 0
 
-		switch ss.currentSession.SessionType {
+		switch sessionType {
 		case SessionTypeRace:
 			for _, lap := range car.SessionData.Laps {
 				duration += lap.LapTime
@@ -962,7 +795,7 @@ func (ss *ServerState) Leaderboard() []*LeaderboardLine {
 		})
 	}
 
-	switch ss.currentSession.SessionType {
+	switch sessionType {
 	case SessionTypeRace:
 		sort.SliceStable(leaderboard, func(i, j int) bool {
 			carI, carJ := leaderboard[i], leaderboard[j]
@@ -1009,28 +842,6 @@ func (ss *ServerState) Leaderboard() []*LeaderboardLine {
 	}
 
 	return leaderboard
-}
-
-func (ss *ServerState) BroadcastSessionStart(startTime int64) {
-	if ss.entryList.NumConnected() == 0 {
-		return
-	}
-
-	ss.logger.Infof("Broadcasting Session Start packet")
-
-	for _, entrant := range ss.entryList {
-		if entrant.IsConnected() && entrant.HasSentFirstUpdate() {
-			p := NewPacket(nil)
-			p.Write(TCPMessageSessionStart)
-			p.Write(int32(ss.currentSession.startTime - int64(entrant.Connection.TimeOffset)))
-			p.Write(uint32(startTime - int64(entrant.Connection.TimeOffset)))
-			p.Write(uint16(entrant.Connection.Ping))
-
-			if err := p.WriteTCP(entrant.Connection.tcpConn); err != nil {
-				ss.logger.WithError(err).Errorf("Could not send race start packet to %s", entrant.String())
-			}
-		}
-	}
 }
 
 func (ss *ServerState) Close() {

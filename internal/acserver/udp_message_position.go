@@ -7,14 +7,16 @@ import (
 
 type PositionMessageHandler struct {
 	state          *ServerState
+	sessionManager *SessionManager
 	weatherManager *WeatherManager
 	plugin         Plugin
 	logger         Logger
 }
 
-func NewPositionMessageHandler(state *ServerState, weatherManager *WeatherManager, plugin Plugin, logger Logger) *PositionMessageHandler {
+func NewPositionMessageHandler(state *ServerState, sessionManager *SessionManager, weatherManager *WeatherManager, plugin Plugin, logger Logger) *PositionMessageHandler {
 	ph := &PositionMessageHandler{
 		state:          state,
+		sessionManager: sessionManager,
 		weatherManager: weatherManager,
 		plugin:         plugin,
 		logger:         logger,
@@ -65,11 +67,13 @@ func (pm *PositionMessageHandler) OnMessage(_ net.PacketConn, addr net.Addr, p *
 		return nil
 	}
 
-	if !car.HasSentFirstUpdate() || (pm.state.currentSession.SessionType != SessionTypeQualifying || (pm.state.currentSession.SessionType == SessionTypeQualifying && !pm.state.currentSession.Solo)) {
+	currentSession := pm.sessionManager.GetCurrentSession()
+
+	if !car.HasSentFirstUpdate() || (currentSession.SessionType != SessionTypeQualifying || (currentSession.SessionType == SessionTypeQualifying && !currentSession.Solo)) {
 		car.mutex.Lock()
 		car.Status = carUpdate
 
-		if pm.state.currentSession.SessionType == SessionTypeQualifying && pm.state.currentSession.Solo {
+		if currentSession.SessionType == SessionTypeQualifying && currentSession.Solo {
 			car.Status.Velocity = Vector3F{
 				X: 0,
 				Y: 0,
@@ -158,7 +162,7 @@ func (pm *PositionMessageHandler) SendFirstUpdate(car *Car) error {
 	}
 
 	// send a lap completed message for car ID 0xFF to broadcast all other lap times to the connecting user.
-	if err := pm.state.CompleteLap(ServerCarID, &LapCompleted{}, car); err != nil {
+	if err := pm.sessionManager.CompleteLap(ServerCarID, &LapCompleted{}, car); err != nil {
 		return err
 	}
 
