@@ -373,7 +373,7 @@ func (c *Car) Copy() CarInfo {
 
 const numberOfPingsForAverage = 50
 
-func (c *Car) UpdatePing(time int64, timeOffset, theirTime uint32) {
+func (c *Car) UpdatePing(time int64, theirTime, timeOffset uint32) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
