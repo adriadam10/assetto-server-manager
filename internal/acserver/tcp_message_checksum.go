@@ -21,13 +21,13 @@ func NewChecksumMessageHandler(state *ServerState, checksumManager *ChecksumMana
 
 func (c ChecksumMessageHandler) OnMessage(conn net.Conn, p *Packet) error {
 	var checksum [16]byte
-	entrant, err := c.state.GetCarByTCPConn(conn)
+	car, err := c.state.GetCarByTCPConn(conn)
 
 	if err != nil {
 		return err
 	}
 
-	entrant.Connection.FailedChecksum = false
+	car.SetHasFailedChecksum(false)
 	checksumFiles := c.checksumManager.GetFiles()
 
 	for _, file := range checksumFiles {
@@ -41,12 +41,12 @@ func (c ChecksumMessageHandler) OnMessage(conn net.Conn, p *Packet) error {
 		c.logger.Debugf("Comparing %x with %x for %s", file.MD5, checksum[:], file.Filename)
 
 		if subtle.ConstantTimeCompare(file.MD5, checksum[:]) != 1 {
-			c.logger.Infof("Car: %d failed checksum on file '%s'. Kicking from server.", entrant.CarID, file.Filename)
+			c.logger.Infof("Car: %d failed checksum on file '%s'. Kicking from server.", car.CarID, file.Filename)
 
-			entrant.Connection.FailedChecksum = true
+			car.SetHasFailedChecksum(true)
 
-			if entrant.HasSentFirstUpdate() {
-				err := c.state.Kick(entrant.CarID, KickReasonChecksumFailed)
+			if car.HasSentFirstUpdate() {
+				err := c.state.Kick(car.CarID, KickReasonChecksumFailed)
 
 				if err != nil {
 					return err
@@ -56,7 +56,7 @@ func (c ChecksumMessageHandler) OnMessage(conn net.Conn, p *Packet) error {
 		}
 	}
 
-	c.logger.Debugf("Car: %d passed checksum for %d files", entrant.CarID, len(checksumFiles))
+	c.logger.Debugf("Car: %d passed checksum for %d files", car.CarID, len(checksumFiles))
 
 	return nil
 }

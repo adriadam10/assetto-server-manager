@@ -14,15 +14,13 @@ type PositionMessageHandler struct {
 }
 
 func NewPositionMessageHandler(state *ServerState, sessionManager *SessionManager, weatherManager *WeatherManager, plugin Plugin, logger Logger) *PositionMessageHandler {
-	ph := &PositionMessageHandler{
+	return &PositionMessageHandler{
 		state:          state,
 		sessionManager: sessionManager,
 		weatherManager: weatherManager,
 		plugin:         plugin,
 		logger:         logger,
 	}
-
-	return ph
 }
 
 const (
@@ -70,55 +68,23 @@ func (pm *PositionMessageHandler) OnMessage(_ net.PacketConn, addr net.Addr, p *
 	currentSession := pm.sessionManager.GetCurrentSession()
 
 	if !car.HasSentFirstUpdate() || (currentSession.SessionType != SessionTypeQualifying || (currentSession.SessionType == SessionTypeQualifying && !currentSession.Solo)) {
-		car.mutex.Lock()
-		car.Status = carUpdate
-
 		if currentSession.SessionType == SessionTypeQualifying && currentSession.Solo {
-			car.Status.Velocity = Vector3F{
+			carUpdate.Velocity = Vector3F{
 				X: 0,
 				Y: 0,
 				Z: 0,
 			}
 		}
-		car.mutex.Unlock()
+
+		car.SetStatus(carUpdate)
 	}
 
 	car.SetHasUpdateToBroadcast(true)
-
-	car.mutex.Lock()
-	{
-		car.Status.Timestamp += car.Connection.TimeOffset
-		car.PluginStatus = carUpdate
-
-		diff := int(car.Connection.TargetTimeOffset) - int(car.Connection.TimeOffset)
-
-		var v13, v14 int
-
-		if diff >= 0 {
-			v13 = diff
-			v14 = diff
-		} else {
-			v14 = int(car.Connection.TimeOffset) - int(car.Connection.TargetTimeOffset)
-		}
-
-		if v13 > 0 || v13 == 0 && v14 > 1000 {
-			car.Connection.TimeOffset = car.Connection.TargetTimeOffset
-		} else if v13 == 0 && v14 < 3 || v13 < 0 {
-			car.Connection.TimeOffset = car.Connection.TargetTimeOffset
-		} else {
-			if diff > 0 {
-				car.Connection.TimeOffset = car.Connection.TimeOffset + 3
-			}
-
-			if diff < 0 {
-				car.Connection.TimeOffset = car.Connection.TimeOffset - 3
-			}
-		}
-	}
-	car.mutex.Unlock()
+	car.SetPluginStatus(carUpdate)
+	car.AdjustTimeOffset()
 
 	if !car.HasSentFirstUpdate() {
-		if car.Connection.FailedChecksum {
+		if car.HasFailedChecksum() {
 			if err := pm.state.Kick(car.CarID, KickReasonChecksumFailed); err != nil {
 				return err
 			}
@@ -206,9 +172,7 @@ func (pm *PositionMessageHandler) SendFirstUpdate(car *Car) error {
 		}
 	}
 
-	car.mutex.Lock()
-	car.Driver.LoadTime = time.Now()
-	car.mutex.Unlock()
+	car.SetLoadedTime(time.Now())
 
 	// send bop for car
 	if err := pm.state.SendBoP(car); err != nil {

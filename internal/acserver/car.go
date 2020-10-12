@@ -69,9 +69,9 @@ type Connection struct {
 	hasSentFirstUpdate   bool
 	hasUpdateToBroadcast bool
 
-	FailedChecksum  bool
-	priorities      map[CarID]int
-	jumpPacketCount map[CarID]int
+	hasFailedChecksum bool
+	priorities        map[CarID]int
+	jumpPacketCount   map[CarID]int
 
 	chatLimiter *time.Ticker
 }
@@ -218,7 +218,7 @@ func (c *Car) GUIDs() []string {
 	return out
 }
 
-func (c *Car) SwapDrivers(newDriver Driver) {
+func (c *Car) SwapDrivers(newDriver Driver, conn Connection, isAdmin bool) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
@@ -243,6 +243,8 @@ func (c *Car) SwapDrivers(newDriver Driver) {
 	}
 
 	c.Drivers = append(c.Drivers, previousDriver)
+	c.Connection = conn
+	c.IsAdmin = isAdmin
 }
 
 func (c *Car) AddLap(lap *LapCompleted) *Lap {
@@ -464,4 +466,71 @@ func (c *Car) ClearSessionData() {
 	defer c.mutex.Unlock()
 
 	c.SessionData = SessionData{}
+}
+
+func (c *Car) SetStatus(carUpdate CarUpdate) {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+
+	c.Status = carUpdate
+}
+
+func (c *Car) SetPluginStatus(carUpdate CarUpdate) {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+
+	c.PluginStatus = carUpdate
+}
+
+func (c *Car) SetHasFailedChecksum(b bool) {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+
+	c.Connection.hasFailedChecksum = b
+}
+
+func (c *Car) HasFailedChecksum() bool {
+	c.mutex.RLock()
+	defer c.mutex.RUnlock()
+
+	return c.Connection.hasFailedChecksum
+}
+
+func (c *Car) AdjustTimeOffset() {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+
+	c.Status.Timestamp += c.Connection.TimeOffset
+
+	diff := int(c.Connection.TargetTimeOffset) - int(c.Connection.TimeOffset)
+
+	var v13, v14 int
+
+	if diff >= 0 {
+		v13 = diff
+		v14 = diff
+	} else {
+		v14 = int(c.Connection.TimeOffset) - int(c.Connection.TargetTimeOffset)
+	}
+
+	if v13 > 0 || v13 == 0 && v14 > 1000 {
+		c.Connection.TimeOffset = c.Connection.TargetTimeOffset
+	} else if v13 == 0 && v14 < 3 || v13 < 0 {
+		c.Connection.TimeOffset = c.Connection.TargetTimeOffset
+	} else {
+		if diff > 0 {
+			c.Connection.TimeOffset = c.Connection.TimeOffset + 3
+		}
+
+		if diff < 0 {
+			c.Connection.TimeOffset = c.Connection.TimeOffset - 3
+		}
+	}
+}
+
+func (c *Car) SetLoadedTime(t time.Time) {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+
+	c.Driver.LoadTime = t
 }

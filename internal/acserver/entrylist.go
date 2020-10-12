@@ -62,12 +62,7 @@ func (em *EntryListManager) ConnectCar(conn net.Conn, driver Driver, requestedMo
 			}
 
 			if car.HasGUID(driver.GUID) {
-				car.SwapDrivers(driver)
-
-				car.mutex.Lock()
-				car.IsAdmin = isAdmin
-				car.Connection = NewConnection(conn)
-				car.mutex.Unlock()
+				car.SwapDrivers(driver, NewConnection(conn), isAdmin)
 
 				return car, nil
 			}
@@ -82,11 +77,7 @@ func (em *EntryListManager) ConnectCar(conn net.Conn, driver Driver, requestedMo
 			}
 
 			if car.HasGUID(driver.GUID) && car.Model == requestedModel {
-				car.SwapDrivers(driver)
-				car.mutex.Lock()
-				car.IsAdmin = isAdmin
-				car.Connection = NewConnection(conn)
-				car.mutex.Unlock()
+				car.SwapDrivers(driver, NewConnection(conn), isAdmin)
 
 				return car, nil
 			}
@@ -99,12 +90,8 @@ func (em *EntryListManager) ConnectCar(conn net.Conn, driver Driver, requestedMo
 			}
 
 			if car.Model == requestedModel {
-				car.SwapDrivers(driver)
-				car.mutex.Lock()
-				car.IsAdmin = isAdmin
-				car.Connection = NewConnection(conn)
-				car.SessionData = SessionData{} // reset laps if we've taken someone else's car.
-				car.mutex.Unlock()
+				car.SwapDrivers(driver, NewConnection(conn), isAdmin)
+				car.ClearSessionData() // reset laps if we've taken someone else's car.
 
 				return car, nil
 			}
