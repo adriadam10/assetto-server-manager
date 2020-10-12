@@ -305,8 +305,8 @@ func (u *UDPPlugin) OnLapCompleted(carID acserver.CarID, lap acserver.Lap) error
 	for _, line := range leaderboard {
 		p.Write(line.Car.CarID)
 		p.Write(uint32(line.Time.Milliseconds()))
-		p.Write(uint16(line.Car.SessionData.LapCount))
-		if line.Car.SessionData.HasCompletedSession {
+		p.Write(uint16(line.Car.LapCount()))
+		if line.Car.HasCompletedSession() {
 			p.Write(uint8(1))
 		} else {
 			p.Write(uint8(0))

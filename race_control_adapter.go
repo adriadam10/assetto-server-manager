@@ -129,7 +129,7 @@ func (r *UDPPluginAdapter) OnLapCompleted(carID acserver.CarID, lap acserver.Lap
 	for _, line := range leaderboard {
 		completed := uint8(0)
 
-		if line.Car.SessionData.HasCompletedSession {
+		if line.Car.HasCompletedSession() {
 			completed = 1
 		}
 

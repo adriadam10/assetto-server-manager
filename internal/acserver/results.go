@@ -61,7 +61,7 @@ func (ss *ServerState) GenerateResults(sessionInfo SessionConfig) *SessionResult
 			TotalTime:  int(leaderboardLine.Car.TotalRaceTime().Milliseconds()),
 		})
 
-		for _, lap := range leaderboardLine.Car.SessionData.Laps {
+		for _, lap := range leaderboardLine.Car.GetLaps() {
 			var sectors []int
 
 			for _, sector := range lap.Sectors {

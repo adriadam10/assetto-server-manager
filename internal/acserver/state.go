@@ -769,19 +769,20 @@ func (ss *ServerState) Leaderboard(sessionType SessionType) []*LeaderboardLine {
 		var duration time.Duration
 
 		lapCount := 0
+		laps := car.GetLaps()
 
 		switch sessionType {
 		case SessionTypeRace:
-			for _, lap := range car.SessionData.Laps {
+			for _, lap := range laps {
 				duration += lap.LapTime
 			}
 
-			lapCount = len(car.SessionData.Laps)
+			lapCount = len(laps)
 		default:
 			bestLap := car.BestLap()
 			duration = bestLap.LapTime
 
-			for _, lap := range car.SessionData.Laps {
+			for _, lap := range laps {
 				if lap.Cuts == 0 {
 					lapCount++
 				}
@@ -822,11 +823,14 @@ func (ss *ServerState) Leaderboard(sessionType SessionType) []*LeaderboardLine {
 			}
 
 			if carI.Time == carJ.Time {
-				if len(carI.Car.SessionData.Laps) == len(carJ.Car.SessionData.Laps) {
+				carILaps := carI.Car.GetLaps()
+				carJLaps := carJ.Car.GetLaps()
+
+				if len(carILaps) == len(carJLaps) {
 					return carI.Car.CarID < carJ.Car.CarID
 				}
 
-				return len(carI.Car.SessionData.Laps) < len(carJ.Car.SessionData.Laps)
+				return len(carILaps) > len(carJLaps)
 			}
 
 			return carI.Time < carJ.Time

@@ -91,14 +91,15 @@ func NewConnection(tcpConn net.Conn) Connection {
 }
 
 type SessionData struct {
-	Laps                []*Lap
-	Sectors             []Split
-	Events              []*ClientEvent
-	LapCount            int
-	HasCompletedSession bool
-	HasExtraLapToGo     bool
-	P2PCount            int16
-	MandatoryPit        bool
+	Laps            []*Lap
+	Sectors         []Split
+	Events          []*ClientEvent
+	LapCount        int
+	HasExtraLapToGo bool
+	P2PCount        int16
+	MandatoryPit    bool
+
+	hasCompletedSession bool
 }
 
 func (c *Car) HasGUID(guid string) bool {
@@ -222,6 +223,9 @@ func (c *Car) SwapDrivers(newDriver Driver, conn Connection, isAdmin bool) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
+	c.Connection = conn
+	c.IsAdmin = isAdmin
+
 	if newDriver.GUID == c.Driver.GUID {
 		// the current driver was the last driver
 		return
@@ -243,8 +247,6 @@ func (c *Car) SwapDrivers(newDriver Driver, conn Connection, isAdmin bool) {
 	}
 
 	c.Drivers = append(c.Drivers, previousDriver)
-	c.Connection = conn
-	c.IsAdmin = isAdmin
 }
 
 func (c *Car) AddLap(lap *LapCompleted) *Lap {
@@ -273,7 +275,6 @@ func (c *Car) AddLap(lap *LapCompleted) *Lap {
 	c.SessionData.LapCount = int(lap.LapCount)
 
 	return l
-
 }
 
 // maximumLapTime is the max amount of lap time possible on the server
@@ -533,4 +534,32 @@ func (c *Car) SetLoadedTime(t time.Time) {
 	defer c.mutex.Unlock()
 
 	c.Driver.LoadTime = t
+}
+
+func (c *Car) HasCompletedSession() bool {
+	c.mutex.RLock()
+	defer c.mutex.RUnlock()
+
+	return c.SessionData.hasCompletedSession
+}
+
+func (c *Car) SetHasCompletedSession(b bool) {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+
+	c.SessionData.hasCompletedSession = b
+}
+
+func (c *Car) GetLaps() []*Lap {
+	c.mutex.RLock()
+	defer c.mutex.RUnlock()
+
+	return c.SessionData.Laps
+}
+
+func (c *Car) LapCount() int {
+	c.mutex.RLock()
+	defer c.mutex.RUnlock()
+
+	return c.SessionData.LapCount
 }

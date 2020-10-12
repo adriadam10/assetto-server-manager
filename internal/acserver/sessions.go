@@ -397,7 +397,7 @@ func (sm *SessionManager) CurrentSessionHasFinished() bool {
 		leader := leaderboard[0].Car
 		raceOverTime := time.Duration(int64(sm.state.raceConfig.RaceOverTime)*1000) * time.Millisecond
 
-		return time.Since(leader.SessionData.Laps[leader.SessionData.LapCount-1].CompletedTime) > raceOverTime
+		return time.Since(leader.GetLaps()[leader.LapCount()-1].CompletedTime) > raceOverTime
 	case SessionTypeBooking:
 		return sm.RemainingSessionTime() <= 0
 	default:
@@ -454,7 +454,7 @@ func (sm *SessionManager) LeaderHasFinishedSession() bool {
 	leaderHasCrossedLine := false
 
 	for pos, leaderboardLine := range sm.state.Leaderboard(sm.currentSession.Config.SessionType) {
-		if pos == 0 && leaderboardLine.Car.SessionData.HasCompletedSession {
+		if pos == 0 && leaderboardLine.Car.HasCompletedSession() {
 			leaderHasCrossedLine = true
 			break
 		}
@@ -471,7 +471,7 @@ func (sm *SessionManager) AllCarsHaveFinishedSession() bool {
 	finished := true
 
 	for _, entrant := range sm.state.entryList {
-		finished = finished && (!entrant.IsConnected() || entrant.SessionData.HasCompletedSession)
+		finished = finished && (!entrant.IsConnected() || entrant.HasCompletedSession())
 	}
 
 	return finished
@@ -639,7 +639,7 @@ func (sm *SessionManager) CompleteLap(carID CarID, lap *LapCompleted, target *Ca
 		return err
 	}
 
-	if car.SessionData.HasCompletedSession {
+	if car.HasCompletedSession() {
 		// entrants which have completed the session can't complete more laps
 		return nil
 	}
@@ -681,7 +681,7 @@ func (sm *SessionManager) CompleteLap(carID CarID, lap *LapCompleted, target *Ca
 	leaderboard := sm.state.Leaderboard(sm.currentSession.Config.SessionType)
 
 	if sm.currentSession.Config.Laps > 0 {
-		car.SessionData.HasCompletedSession = car.SessionData.LapCount == int(sm.currentSession.Config.Laps)
+		car.SetHasCompletedSession(car.LapCount() == int(sm.currentSession.Config.Laps))
 	} else {
 		if currentTimeMillisecond() > sm.currentSession.FinishTime() {
 			leader := leaderboard[0]
@@ -689,14 +689,14 @@ func (sm *SessionManager) CompleteLap(carID CarID, lap *LapCompleted, target *Ca
 			if sm.state.raceConfig.RaceExtraLap {
 				if car.SessionData.HasExtraLapToGo {
 					// everyone at this point has completed their extra lap
-					car.SessionData.HasCompletedSession = true
+					car.SetHasCompletedSession(true)
 				} else {
 					// the entrant has another lap to go if they are the leader, or the leader has an extra lap to go
 					car.SessionData.HasExtraLapToGo = leader.Car == car || leader.Car.SessionData.HasExtraLapToGo
 				}
 			} else {
 				// the entrant has completed the session if they are the leader or the leader has completed the session.
-				car.SessionData.HasCompletedSession = leader.Car == car || leader.Car.SessionData.HasCompletedSession
+				car.SetHasCompletedSession(leader.Car == car || leader.Car.HasCompletedSession())
 			}
 		}
 	}
@@ -719,7 +719,7 @@ func (sm *SessionManager) CompleteLap(carID CarID, lap *LapCompleted, target *Ca
 		}
 
 		bw.Write(uint16(leaderBoardLine.NumLaps))
-		bw.Write(leaderBoardLine.Car.SessionData.HasCompletedSession)
+		bw.Write(leaderBoardLine.Car.HasCompletedSession())
 	}
 
 	bw.Write(sm.state.dynamicTrack.CurrentGrip())
@@ -769,7 +769,7 @@ func ReverseLeaderboard(numToReverse int, leaderboard []*LeaderboardLine) {
 			break
 		}
 
-		if !line.Car.SessionData.HasCompletedSession {
+		if !line.Car.HasCompletedSession() {
 			numToReverse = i
 			break
 		}
