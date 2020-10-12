@@ -469,11 +469,18 @@ func (c *Car) ClearSessionData() {
 	c.SessionData = SessionData{}
 }
 
-func (c *Car) SetStatus(carUpdate CarUpdate) {
+func (c *Car) SetStatus(carUpdate CarUpdate, fullAssign bool) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
-	c.Status = carUpdate
+	if fullAssign {
+		c.Status = carUpdate
+	} else {
+		// solo sessions still require a timestamp and sequence number so that
+		// car positions can be correctly checked
+		c.Status.Timestamp = carUpdate.Timestamp
+		c.Status.Sequence = carUpdate.Sequence
+	}
 }
 
 func (c *Car) SetPluginStatus(carUpdate CarUpdate) {
