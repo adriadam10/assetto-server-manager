@@ -7,10 +7,12 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"sync"
 	"time"
 
+	"justapengu.in/acsm/internal/acserver"
 	"justapengu.in/acsm/pkg/udp"
 	"justapengu.in/acsm/pkg/when"
 
@@ -446,6 +448,7 @@ func (rwm *RaceWeekendManager) SaveRaceWeekendSession(r *http.Request) (raceWeek
 
 	session.OverridePassword = r.FormValue("OverridePassword") == "1"
 	session.ReplacementPassword = r.FormValue("ReplacementPassword")
+	session.WarmUpSessionTime = formValueAsInt(r.FormValue("RaceWeekendWarmUpSessionTime"))
 
 	if raceWeekend.HasLinkedChampionship() {
 		// points
@@ -568,9 +571,21 @@ func (rwm *RaceWeekendManager) StartSession(raceWeekendID string, raceWeekendSes
 	session.RaceConfig.LockedEntryList = 1
 	session.RaceConfig.PickupModeEnabled = 1
 
+	hasWarmUpSession := session.HasWarmUp() && !isPracticeSession
+
+	if hasWarmUpSession {
+		session.RaceConfig.Sessions[SessionTypePractice] = &SessionConfig{
+			Name:   "Warm Up",
+			Time:   session.WarmUpSessionTime,
+			IsOpen: SessionOpennessFreeJoin,
+		}
+
+		session.RaceConfig.QualifyMaxWaitPercentage = 120
+	}
+
 	// all race weekend sessions must be open so players can join
 	for _, acSession := range session.RaceConfig.Sessions {
-		acSession.IsOpen = 1
+		acSession.IsOpen = SessionOpennessFreeJoin
 	}
 
 	overridePassword := session.OverridePassword
@@ -596,6 +611,7 @@ func (rwm *RaceWeekendManager) StartSession(raceWeekendID string, raceWeekendSes
 		RaceConfig:          session.RaceConfig,
 		EntryList:           entryList,
 		ChampionshipID:      championshipID,
+		HasWarmUpSession:    hasWarmUpSession,
 	}
 
 	if isPracticeSession {
@@ -638,6 +654,11 @@ func (rwm *RaceWeekendManager) UDPCallback(message udp.Message) {
 
 		if err != nil {
 			logrus.WithError(err).Errorf("Could not read session results for race weekend: %s, session: %s", rwm.activeRaceWeekend.RaceWeekendID.String(), rwm.activeRaceWeekend.SessionID.String())
+			return
+		}
+
+		if results.Type == SessionTypePractice && rwm.activeRaceWeekend.HasWarmUpSession {
+			// don't stop the session after the warm up session has happened
 			return
 		}
 
@@ -1300,4 +1321,73 @@ func (rwm *RaceWeekendManager) DeScheduleSession(raceWeekendID, sessionID string
 	rwm.clearScheduledSessionTimer(session)
 
 	return rwm.UpsertRaceWeekend(raceWeekend)
+}
+
+func (rwm *RaceWeekendManager) SortLeaderboard(sessionType acserver.SessionType, leaderboard []*acserver.LeaderboardLine) {
+	rwm.mutex.Lock()
+	defer rwm.mutex.Unlock()
+
+	if !rwm.RaceWeekendSessionIsRunning() {
+		return
+	}
+
+	if sessionType != acserver.SessionTypePractice || !rwm.activeRaceWeekend.HasWarmUpSession {
+		// in-session leaderboard sorting only happens to keep the original leaderboard in place through a race weekend
+		// warm up session. do not change it for any other session.
+		return
+	}
+
+	raceWeekend, err := rwm.LoadRaceWeekend(rwm.activeRaceWeekend.RaceWeekendID.String())
+
+	if err != nil {
+		logrus.WithError(err).Errorf("Could not load active race weekend")
+		return
+	}
+
+	session, err := raceWeekend.FindSessionByID(rwm.activeRaceWeekend.SessionID.String())
+
+	if err != nil {
+		logrus.WithError(err).Errorf("Could not load active race weekend session")
+		return
+	}
+
+	entryList, err := session.GetRaceWeekendEntryList(raceWeekend, nil, "")
+
+	if err != nil {
+		logrus.WithError(err).Errorf("Could not load race weekend session entrylist")
+		return
+	}
+
+	guidToPositionMap := make(map[string]int)
+	gridPosition := 0
+
+	for _, entrant := range entryList {
+		if entrant.IsPlaceholder {
+			continue
+		}
+
+		guidToPositionMap[entrant.Car.GetGUID()] = gridPosition
+		gridPosition++
+	}
+
+	sort.Slice(leaderboard, func(i, j int) bool {
+		carI, carJ := leaderboard[i], leaderboard[j]
+
+		carIPos, carIOK := guidToPositionMap[carI.Car.Driver.GUID]
+		carJPos, carJOK := guidToPositionMap[carJ.Car.Driver.GUID]
+
+		if carIOK && carJOK {
+			return carIPos < carJPos
+		}
+
+		if carIOK {
+			return true
+		}
+
+		if carJOK {
+			return false
+		}
+
+		return false
+	})
 }

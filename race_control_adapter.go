@@ -5,6 +5,8 @@ import (
 	"justapengu.in/acsm/pkg/udp"
 )
 
+var _ acserver.Plugin = &UDPPluginAdapter{}
+
 type UDPPluginAdapter struct {
 	raceManager           *RaceManager
 	raceControl           *RaceControl
@@ -249,4 +251,8 @@ func (r *UDPPluginAdapter) OnConnectionClosed(car acserver.CarInfo) error {
 	r.UDPCallback(r.buildSessionCarInfo(udp.EventConnectionClosed, car))
 
 	return nil
+}
+
+func (r *UDPPluginAdapter) SortLeaderboard(sessionType acserver.SessionType, leaderboard []*acserver.LeaderboardLine) {
+	r.raceWeekendManager.SortLeaderboard(sessionType, leaderboard)
 }
