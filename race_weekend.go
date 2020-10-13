@@ -577,6 +577,7 @@ type RaceWeekendSession struct {
 	ParentIDs            []uuid.UUID
 	SortType             string
 	NumEntrantsToReverse int
+	WarmUpSessionTime    int
 
 	RaceConfig          CurrentRaceConfig
 	OverridePassword    bool
@@ -658,6 +659,10 @@ func (rws *RaceWeekendSession) SetRecurrenceRule(input string) error {
 
 func (rws *RaceWeekendSession) ClearRecurrenceRule() {
 	// no-op
+}
+
+func (rws *RaceWeekendSession) HasWarmUp() bool {
+	return rws.SessionType() == SessionTypeRace && rws.WarmUpSessionTime > 0
 }
 
 // NewRaceWeekendSession creates an empty RaceWeekendSession
@@ -995,6 +1000,7 @@ type ActiveRaceWeekend struct {
 	IsPracticeSession                        bool
 	RaceConfig                               CurrentRaceConfig
 	EntryList                                EntryList
+	HasWarmUpSession                         bool
 }
 
 func (a ActiveRaceWeekend) GetRaceConfig() CurrentRaceConfig {

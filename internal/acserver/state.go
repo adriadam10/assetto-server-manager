@@ -845,6 +845,8 @@ func (ss *ServerState) Leaderboard(sessionType SessionType) []*LeaderboardLine {
 		}
 	}
 
+	ss.plugin.SortLeaderboard(sessionType, leaderboard)
+
 	return leaderboard
 }
 
