@@ -1,9 +1,15 @@
 package plugins
 
 import (
+	"encoding/json"
 	"fmt"
+	"io/ioutil"
+	"os"
+	"path/filepath"
+	"time"
 
 	"justapengu.in/acsm/internal/acserver"
+	"justapengu.in/acsm/pkg/pitLaneDetection"
 )
 
 type PenaltiesPlugin struct {
@@ -11,6 +17,8 @@ type PenaltiesPlugin struct {
 	logger acserver.Logger
 
 	penalties []*penaltyInfo
+
+	pitLane *pitLaneDetection.PitLane
 }
 
 type penaltyInfo struct {
@@ -24,10 +32,19 @@ type penaltyInfo struct {
 
 	originalBallast    float32
 	originalRestrictor float32
+
+	driveThrough        bool
+	driveThroughActive  bool
+	driveThroughStarted time.Time
+	driveThroughLaps    int
 }
 
-func NewPenaltiesPlugin() *PenaltiesPlugin {
-	return &PenaltiesPlugin{}
+func NewPenaltiesPlugin(pitLane *pitLaneDetection.PitLane) *PenaltiesPlugin {
+	fmt.Println("New penalties plugin")
+
+	return &PenaltiesPlugin{
+		pitLane: pitLane,
+	}
 }
 
 func (p *PenaltiesPlugin) Init(server acserver.ServerPlugin, logger acserver.Logger) error {
@@ -62,6 +79,54 @@ func (p *PenaltiesPlugin) OnConnectionClosed(car acserver.Car) error {
 }
 
 func (p *PenaltiesPlugin) OnCarUpdate(car acserver.Car) error {
+
+	// @TODO issue is that when race is complete the driver is automatically sent to the pits, which counts as
+	// @TODO serving their drive though
+	//p.server.GetLeaderboard()[0].NumLaps
+	//p.server.GetEventConfig()
+	//p.server.GetCurrentSession()
+
+	// car.hasFinishedRace
+	// is true if:
+	// driver crosses line after race time = 0
+	// driver crosses line and laps == race laps
+
+	var penaltyInfo *penaltyInfo
+
+	for _, penalty := range p.penalties {
+		if penalty.carID == car.CarID {
+			penaltyInfo = penalty
+			break
+		}
+	}
+
+	if penaltyInfo == nil {
+		// @TODO some error?
+		return nil
+	}
+
+	if penaltyInfo.driveThrough {
+		for _, pitLaneCar := range p.pitLane.Cars {
+			if acserver.CarID(pitLaneCar.ID) == penaltyInfo.carID {
+				if pitLaneCar.IsInPits {
+					penaltyInfo.driveThroughActive = true
+					if time.Since(penaltyInfo.driveThroughStarted) > p.pitLane.AveragePitLaneTime {
+						penaltyInfo.driveThrough = false
+
+						err := p.server.SendChat("Drive though complete!", acserver.ServerCarID, car.CarID, true)
+
+						if err != nil {
+							p.logger.WithError(err).Error("Send chat returned an error")
+						}
+					}
+				} else {
+					penaltyInfo.driveThroughActive = false
+					penaltyInfo.driveThroughStarted = time.Now()
+				}
+			}
+		}
+	}
+
 	return nil
 }
 
@@ -70,7 +135,73 @@ func (p *PenaltiesPlugin) OnNewSession(newSession acserver.SessionInfo) error {
 }
 
 func (p *PenaltiesPlugin) OnEndSession(sessionFile string) error {
-	return nil
+	fmt.Println("End Session")
+	resultsNeedModifying := false
+
+	for _, penalty := range p.penalties {
+		fmt.Println(penalty.carID, penalty.driveThrough)
+		if penalty.driveThrough {
+			resultsNeedModifying = true
+		}
+	}
+
+	if !resultsNeedModifying {
+		return nil
+	}
+
+	fmt.Println("Results need modifying")
+
+	var results acserver.SessionResults
+
+	path := filepath.Join("assetto", "results", sessionFile)
+
+	data, err := ioutil.ReadFile(path)
+
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(data, &results)
+
+	if err != nil {
+		return err
+	}
+
+	for _, penalty := range p.penalties {
+		if penalty.driveThrough {
+			// driver finished session with unserved penalty, apply to results
+			for _, result := range results.Result {
+				if result.CarID == int(penalty.carID) {
+					result.HasPenalty = true
+					result.PenaltyTime = p.pitLane.AveragePitLaneTime + time.Second * 10
+					fmt.Println(fmt.Sprintf("adding %s penalty to driver", result.PenaltyTime))
+
+					if penalty.totalCleanLaps != 0 {
+						averageCleanLap := time.Millisecond * time.Duration(float32(penalty.totalCleanLapTime) / float32(penalty.totalCleanLaps))
+
+						fmt.Println(fmt.Sprintf("average clean lap: %s", averageCleanLap.String()))
+
+						if result.PenaltyTime > averageCleanLap {
+							result.LapPenalty = int(result.PenaltyTime / averageCleanLap)
+						}
+					}
+				}
+			}
+		}
+	}
+
+	file, err := os.Create(path)
+
+	if err != nil {
+		return err
+	}
+
+	defer file.Close()
+
+	encoder := json.NewEncoder(file)
+	encoder.SetIndent("", "\t")
+
+	return encoder.Encode(results)
 }
 
 func (p *PenaltiesPlugin) OnVersion(version uint16) error {
@@ -132,6 +263,21 @@ func (p *PenaltiesPlugin) OnLapCompleted(carID acserver.CarID, lap acserver.Lap)
 			}
 		}
 
+		if penaltyInfo.driveThroughLaps > -1 && penaltyInfo.driveThrough {
+			penaltyInfo.driveThroughLaps--
+
+			if penaltyInfo.driveThroughLaps == -1 {
+				// @TODO probably send a chat to explain why kick first
+				return p.server.KickUser(entrant.CarID, acserver.KickReasonGeneric)
+			}
+
+			err = p.server.SendChat(fmt.Sprintf("You have %d laps left to serve your drive through penalty", penaltyInfo.driveThroughLaps), acserver.ServerCarID, entrant.CarID, true)
+
+			if err != nil {
+				p.logger.WithError(err).Error("Send chat returned an error")
+			}
+		}
+
 		if lap.Cuts == 0 {
 			penaltyInfo.totalCleanLaps++
 			penaltyInfo.totalCleanLapTime += lap.LapTime.Milliseconds()
@@ -177,8 +323,13 @@ func (p *PenaltiesPlugin) OnLapCompleted(carID acserver.CarID, lap acserver.Lap)
 					penaltyInfo.clearPenaltyIn += eventConfig.CustomCutsBoPNumLaps
 
 					chatMessage = fmt.Sprintf("You have been given %.0f%% restrictor for cutting the track", eventConfig.CustomCutsBoPAmount)
-				//case acserver.CutPenaltyDriveThrough:
-				// @TODO maybe, 2 laps to complete, on fail kick, if only 2 laps remaining add 30s to race time
+				case acserver.CutPenaltyDriveThrough:
+					if !penaltyInfo.driveThrough {
+						penaltyInfo.driveThrough = true
+						penaltyInfo.driveThroughLaps = eventConfig.CustomCutsDriveThroughNumLaps
+					}
+
+					chatMessage = fmt.Sprintf("You have been given a Drive Through Penalty for cutting! Please serve within the next %d lap(s).", penaltyInfo.driveThroughLaps)
 				case acserver.CutPenaltyWarn:
 					chatMessage = "Please avoid cutting the track! Your behaviour has been noted for admins to review in the results file"
 				}

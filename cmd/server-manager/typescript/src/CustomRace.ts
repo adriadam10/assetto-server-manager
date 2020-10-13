@@ -48,6 +48,12 @@ export namespace CustomRace {
                     $("#CustomCutsBoPAmountWrapper").hide();
                     $("#CustomCutsBoPNumLapsWrapper").hide();
                 }
+
+                if (value == 4) {
+                    $("#CustomCutsDriveThroughNumLapsWrapper").show();
+                } else {
+                    $("#CustomCutsDriveThroughNumLapsWrapper").hide();
+                }
             })
         }
     }

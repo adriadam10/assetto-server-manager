@@ -55,30 +55,30 @@ func main() {
 		wg.Add(1)
 
 		go func() {
-			pitlaneSpline, err := ai.ReadPitLaneSpline(path)
+			fastLaneSpline, err := ai.ReadSpline(filepath.Join(path, "fast_lane.ai"))
 
 			if err != nil {
 				fmt.Println(err)
 				return
 			}
 
-			fastlaneSpline, err := ai.ReadSpline(filepath.Join(path, "fast_lane.ai"))
+			pitLaneSpline, err := ai.ReadPitLaneSpline(path, fastLaneSpline, 30, 3, 4)
 
 			if err != nil {
 				fmt.Println(err)
 				return
 			}
 
-			x, y := fastlaneSpline.Dimensions()
+			x, y := fastLaneSpline.Dimensions()
 
 			padding := 20
 			img := image.NewRGBA(image.Rectangle{Min: image.Pt(0, 0), Max: image.Pt(int(x)+(padding*2), int(y)+(padding*2))})
 			radius := 1
 
-			minX, minY := fastlaneSpline.Min()
+			minX, minY := fastLaneSpline.Min()
 
-			for i, point := range fastlaneSpline.Points {
-				extra := fastlaneSpline.ExtraPoints[i]
+			for i, point := range fastLaneSpline.Points {
+				extra := fastLaneSpline.ExtraPoints[i]
 
 				left := point.Position.Sub(extra.Normal.Mul(extra.SideLeft))
 				right := point.Position.Add(extra.Normal.Mul(extra.SideRight))
@@ -89,7 +89,7 @@ func main() {
 				draw.Draw(img, img.Bounds(), &circle{image.Pt(padding+int(right.X-minX), padding+int(right.Z-minY)), radius, color.RGBA{R: 0, G: 0, B: 150, A: 0xff}}, image.Pt(0, 0), draw.Over)
 			}
 
-			for _, point := range pitlaneSpline.Points {
+			for _, point := range pitLaneSpline.Points {
 				draw.Draw(img, img.Bounds(), &circle{image.Pt(padding+int(point.Position.X-minX), padding+int(point.Position.Z-minY)), radius, color.RGBA{R: 255, G: 125, B: 0, A: 0xff}}, image.Pt(0, 0), draw.Over)
 			}
 

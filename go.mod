@@ -5,6 +5,7 @@ require (
 	github.com/Masterminds/goutils v1.1.0 // indirect
 	github.com/Masterminds/semver v1.5.0
 	github.com/Masterminds/sprig v2.22.0+incompatible
+	github.com/OneOfOne/struct2ts v1.0.4 // indirect
 	github.com/RoaringBitmap/roaring v0.5.1 // indirect
 	github.com/alecthomas/chroma v0.8.1
 	github.com/blevesearch/bleve v1.0.10
@@ -18,7 +19,6 @@ require (
 	github.com/cznic/b v0.0.0-20181122101859-a26611c4d92d // indirect
 	github.com/cznic/mathutil v0.0.0-20181122101859-297441e03548 // indirect
 	github.com/cznic/strutil v0.0.0-20181122101858-275e90344537 // indirect
-	github.com/davecgh/go-spew v1.1.1
 	github.com/dimchansky/utfbom v1.1.0
 	github.com/dustin/go-humanize v1.0.0
 	github.com/erikstmartin/go-testdb v0.0.0-20160219214506-8d10e4a1bae5 // indirect

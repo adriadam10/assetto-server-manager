@@ -131,7 +131,7 @@ func (rc *RaceControl) UDPCallback(message udp.Message) {
 
 		sendUpdatedRaceControlStatus = true
 	case udp.CarUpdate:
-		err = rc.OnCarUpdate(m)
+		sendUpdatedRaceControlStatus, err = rc.OnCarUpdate(m)
 	case udp.SessionCarInfo:
 		if m.Event() == udp.EventNewConnection {
 			err = rc.OnClientConnect(m)
@@ -213,11 +213,11 @@ func (rc *RaceControl) OnVersion(version udp.Version) error {
 
 // OnCarUpdate occurs every udp.RealTimePosInterval and returns car position, speed, etc.
 // drivers top speeds are recorded per lap, as well as their last seen updated.
-func (rc *RaceControl) OnCarUpdate(update udp.CarUpdate) error {
+func (rc *RaceControl) OnCarUpdate(update udp.CarUpdate) (bool, error) {
 	driver, err := rc.findConnectedDriverByCarID(update.CarID)
 
 	if err != nil {
-		return err
+		return false, err
 	}
 
 	driver.mutex.Lock()
@@ -235,11 +235,27 @@ func (rc *RaceControl) OnCarUpdate(update udp.CarUpdate) error {
 	driver.LastPos = update.Pos
 	driver.NormalisedSplinePos = update.NormalisedSplinePos
 
+	wasInPits := driver.IsInPits
+
+	if rc.process.SharedPitLane().IsInPits(update) {
+		driver.IsInPits = true
+	} else {
+		driver.IsInPits = false
+	}
+
+	sendUpdatedRaceControlStatus := false
+
+	if driver.IsInPits != wasInPits {
+		sendUpdatedRaceControlStatus = true
+
+		rc.process.SharedPitLane().UpdateCar(uint8(update.CarID), driver.IsInPits)
+	}
+
 	rc.ConnectedDrivers.sort()
 
 	_, err = rc.broadcaster.Send(update)
 
-	return err
+	return sendUpdatedRaceControlStatus, err
 }
 
 var emptyCarInfoMutex = sync.Mutex{}
@@ -294,8 +310,6 @@ func (rc *RaceControl) OnNewSession(sessionInfo udp.SessionInfo) error {
 
 		return nil
 	})
-
-	var err error
 
 	trackInfo, err := rc.trackDataGateway.TrackInfo(sessionInfo.Track, sessionInfo.TrackConfig)
 

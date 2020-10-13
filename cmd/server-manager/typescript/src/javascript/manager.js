@@ -2093,7 +2093,8 @@ function handleTrackFilesLoop(fileList) {
         // get model/surfaces and drs zones and ui folder
         if ((fileList[x].name.startsWith("models") && fileList[x].name.endsWith(".ini")) ||
             (fileList[x].name === "surfaces.ini" || fileList[x].name === "drs_zones.ini") ||
-            (fileList[x].filepath.includes("/ui/") || fileList[x].name === "map.png" || fileList[x].name === "map.ini")) {
+            (fileList[x].filepath.includes("/ui/") || fileList[x].name === "map.png" || fileList[x].name === "map.ini") ||
+            (fileList[x].filepath.includes("/ai/"))) {
 
             filesToUploadLocal.push(fileList[x]);
         }

@@ -1942,6 +1942,25 @@
                     </div>
                 </div>
 
+                <div class="form-group row" style="{{ if (ne $f.CustomCutsPenaltyType 4) }}display: none;{{ end }}" id="CustomCutsDriveThroughNumLapsWrapper">
+                    <label for="CustomCutsDriveThroughNumLaps" class="col-sm-3 col-form-label">Number of Laps to Serve Drive Through</label>
+
+                    <div class="col-sm-9">
+                        <input
+                                type="number"
+                                id="CustomCutsDriveThroughNumLaps"
+                                name="CustomCutsDriveThroughNumLaps"
+                                class="form-control"
+                                value="{{ $f.CustomCutsDriveThroughNumLaps }}"
+                                min="1"
+                                step="1"
+                        >
+
+                        <small>If a driver does not complete their drive through within this number of laps they will be kicked.
+                        If a driver completes the race with a pending drive through penalty they will be given an automatic time penalty.</small>
+                    </div>
+                </div>
+
                 <div class="form-group row">
                     <label for="CustomCutsOnlyIfCleanSet" class="col-sm-3 col-form-label">Only Penalise with Clean Lap</label>
 

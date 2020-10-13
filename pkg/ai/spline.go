@@ -339,18 +339,12 @@ func ReadSpline(aiFile string) (*Spline, error) {
 	return &spline, nil
 }
 
-func ReadPitLaneSpline(dir string) (*Spline, error) {
-	fastLaneSpline, err := ReadSpline(filepath.Join(dir, "fast_lane.ai"))
-
-	if err != nil {
-		return nil, err
-	}
-
+func ReadPitLaneSpline(dir string, fastLaneSpline *Spline, maxSpeed float32, distance, maxDistance float64) (*Spline, error) {
 	pitLaneFullSpline, err := ReadSpline(filepath.Join(dir, "pit_lane.ai"))
 
 	if err != nil {
 		return nil, err
 	}
 
-	return pitLaneFullSpline.Subtract(fastLaneSpline, 3.0).FilterByMaxSpeed(30).FindLargestContinuousSegment(4.0), nil
+	return pitLaneFullSpline.Subtract(fastLaneSpline, distance).FilterByMaxSpeed(maxSpeed).FindLargestContinuousSegment(maxDistance), nil
 }

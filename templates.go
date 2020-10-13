@@ -239,6 +239,7 @@ func (tr *Renderer) init() error {
 	funcs["classColor"] = ChampionshipClassColor
 	funcs["carSkinURL"] = carSkinURL
 	funcs["trackLayoutURL"] = trackLayoutURL
+	funcs["trackSplineURL"] = trackSplineURL
 	funcs["stringArrayToCSV"] = stringArrayToCSV
 	funcs["dict"] = templateDict
 	funcs["asset"] = NewAssetHelper("/", "", "", map[string]string{"cb": BuildVersion}).GetURL

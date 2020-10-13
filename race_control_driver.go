@@ -41,6 +41,7 @@ type RaceControlDriver struct {
 	Split               string    `json:"Split"`
 	LastSeen            time.Time `json:"LastSeen" ts:"date"`
 	LastPos             udp.Vec   `json:"LastPos"`
+	IsInPits            bool      `json:"IsInPits"`
 	NormalisedSplinePos float32   `json:"NormalisedSplinePos"`
 
 	Collisions []Collision `json:"Collisions"`

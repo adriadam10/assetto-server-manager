@@ -346,6 +346,7 @@ class RaceControlDriverMapRaceControlDriver {
     Split: string;
     LastSeen: Date;
     LastPos: RaceControlDriverMapRaceControlDriverVector3F;
+    IsInPits: boolean;
     NormalisedSplinePos: number;
     Collisions: RaceControlDriverMapRaceControlDriverCollision[];
     Cars: { [key: string]: RaceControlDriverMapRaceControlDriverRaceControlCarLapInfo };
@@ -360,6 +361,7 @@ class RaceControlDriverMapRaceControlDriver {
         this.Split = ('Split' in d) ? d.Split as string : '';
         this.LastSeen = ('LastSeen' in d) ? ParseDate(d.LastSeen) : new Date();
         this.LastPos = new RaceControlDriverMapRaceControlDriverVector3F(d.LastPos);
+        this.IsInPits = ('IsInPits' in d) ? d.IsInPits as boolean : false;
         this.NormalisedSplinePos = ('NormalisedSplinePos' in d) ? d.NormalisedSplinePos as number : 0;
         this.Collisions = Array.isArray(d.Collisions) ? d.Collisions.map((v: any) => new RaceControlDriverMapRaceControlDriverCollision(v)) : [];
         this.Cars = ('Cars' in d) ? d.Cars as { [key: string]: RaceControlDriverMapRaceControlDriverRaceControlCarLapInfo } : {};
