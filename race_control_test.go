@@ -33,7 +33,7 @@ func (dummyServerProcess) Logs() string {
 
 func (dummyServerProcess) SharedPitLane() *pitlanedetection.PitLane {
 	return &pitlanedetection.PitLane{
-		PitLaneCapable:     false,
+		PitLaneCapable: false,
 	}
 }
 
