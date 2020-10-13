@@ -449,10 +449,6 @@
                                         </div>
                                     </div>
 
-                                {{ end }}
-
-
-                                {{ if eq $sessionType "RACE" }}
                                     <hr>
 
                                     <div class="row">
@@ -601,7 +597,7 @@
                                         {{ end }}
                                     {{ end }}
 
-                                    <div class="form-group row col-md-12 race-extra-lap" {{ if and (eq $session.Time 0) (ne $session.Laps 0) }} style="display: none;" {{ end }}>
+                                    <div class="form-group row race-extra-lap" {{ if and (eq $session.Time 0) (ne $session.Laps 0) }} style="display: none;" {{ end }}>
                                         <label for="RaceExtraLap" class="col-sm-3 col-form-label">Extra Lap</label>
 
 
@@ -621,6 +617,28 @@
                                             </small>
                                         </div>
                                     </div>
+
+                                    {{ if $.IsRaceWeekend }}
+                                        <div class="form-group row">
+                                            <label for="RaceWeekendWarmUpSessionTime" class="col-sm-3 col-form-label">Warm Up Session Time</label>
+
+                                            <div class="col-sm-9">
+                                                <input
+                                                        type="number"
+                                                        id="RaceWeekendWarmUpSessionTime"
+                                                        name="RaceWeekendWarmUpSessionTime"
+                                                        class="form-control"
+                                                        value="{{ $.RaceWeekendSession.WarmUpSessionTime }}"
+                                                        step="1"
+                                                >
+
+                                                <small>
+                                                    Warm up practice session length in minutes. If greater than 0, this option adds a 'Warm Up' Session to the beginning of the Race.
+                                                    This is a Practice session, but its results do not impact the already configured grid for the Race.
+                                                </small>
+                                            </div>
+                                        </div>
+                                    {{ end }}
                                 {{ else if eq $sessionType "QUALIFY" }}
                                     <hr>
 

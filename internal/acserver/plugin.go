@@ -25,6 +25,9 @@ type Plugin interface {
 
 	OnChat(chat Chat) error
 	OnConnectionClosed(car CarInfo) error
+
+	// SortLeaderboard is called whenever the Leaderboard is built.
+	SortLeaderboard(sessionType SessionType, leaderboard []*LeaderboardLine)
 }
 
 type ServerPlugin interface {
@@ -222,6 +225,12 @@ func (mp *multiPlugin) OnWeatherChange(weather CurrentWeather) error {
 	return errs.Err()
 }
 
+func (mp *multiPlugin) SortLeaderboard(sessionType SessionType, leaderboard []*LeaderboardLine) {
+	for _, plugin := range mp.plugins {
+		plugin.SortLeaderboard(sessionType, leaderboard)
+	}
+}
+
 type nilPlugin struct{}
 
 func (n nilPlugin) OnCollisionWithCar(_ ClientEvent) error {
@@ -286,4 +295,8 @@ func (n nilPlugin) OnSectorCompleted(_ CarInfo, _ Split) error {
 
 func (n nilPlugin) OnWeatherChange(_ CurrentWeather) error {
 	return nil
+}
+
+func (n nilPlugin) SortLeaderboard(_ SessionType, _ []*LeaderboardLine) {
+
 }

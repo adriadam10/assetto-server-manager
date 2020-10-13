@@ -162,6 +162,11 @@
 
                                 <br>
 
+                                {{ if $session.HasWarmUp }}
+                                    <small>Warm Up Session: {{ $session.WarmUpSessionTime }} minutes</small>
+                                    <br>
+                                {{ end }}
+
                                 {{ if isBefore $session.ScheduledTime }}
                                     <span class="text-warning">
                                         Scheduled
