@@ -1,7 +1,7 @@
 package acsm
 
 import (
-	"justapengu.in/acsm/pkg/pitLaneDetection"
+	"justapengu.in/acsm/pkg/pitlanedetection"
 	"math/rand"
 	"net/url"
 	"os"
@@ -31,7 +31,7 @@ func (dummyServerProcess) Logs() string {
 	return ""
 }
 
-func (dummyServerProcess) SharedPitLane() *pitLaneDetection.PitLane {
+func (dummyServerProcess) SharedPitLane() *pitlanedetection.PitLane {
 	return nil
 }
 

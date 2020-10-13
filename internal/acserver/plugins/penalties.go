@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"justapengu.in/acsm/internal/acserver"
-	"justapengu.in/acsm/pkg/pitLaneDetection"
+	"justapengu.in/acsm/pkg/pitlanedetection"
 )
 
 type PenaltiesPlugin struct {
@@ -18,7 +18,7 @@ type PenaltiesPlugin struct {
 
 	penalties []*penaltyInfo
 
-	pitLane *pitLaneDetection.PitLane
+	pitLane *pitlanedetection.PitLane
 }
 
 type penaltyInfo struct {
@@ -39,7 +39,7 @@ type penaltyInfo struct {
 	driveThroughLaps    int
 }
 
-func NewPenaltiesPlugin(pitLane *pitLaneDetection.PitLane) *PenaltiesPlugin {
+func NewPenaltiesPlugin(pitLane *pitlanedetection.PitLane) *PenaltiesPlugin {
 	return &PenaltiesPlugin{
 		pitLane: pitLane,
 	}
@@ -75,7 +75,6 @@ func (p *PenaltiesPlugin) OnConnectionClosed(car acserver.CarInfo) error {
 
 	return nil
 }
-
 
 func (p *PenaltiesPlugin) OnCarUpdate(car acserver.CarInfo) error {
 
@@ -167,14 +166,14 @@ func (p *PenaltiesPlugin) OnEndSession(sessionFile string) error {
 			continue
 		}
 
-		averageCleanLap := time.Millisecond * time.Duration(float32(penalty.totalCleanLapTime) / float32(penalty.totalCleanLaps))
+		averageCleanLap := time.Millisecond * time.Duration(float32(penalty.totalCleanLapTime)/float32(penalty.totalCleanLaps))
 
 		if penalty.driveThrough {
 			// driver finished session with unserved penalty, apply to results
 			for _, result := range results.Result {
 				if result.CarID == int(penalty.carID) {
 					result.HasPenalty = true
-					result.PenaltyTime += p.pitLane.AveragePitLaneTime + time.Second * 10
+					result.PenaltyTime += p.pitLane.AveragePitLaneTime + time.Second*10
 
 					p.logger.Debugf("adding %s penalty to driver for unserved drive through penalty", result.PenaltyTime)
 

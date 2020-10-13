@@ -8,7 +8,7 @@ import (
 	"io"
 	"io/ioutil"
 	"justapengu.in/acsm/pkg/ai"
-	"justapengu.in/acsm/pkg/pitLaneDetection"
+	"justapengu.in/acsm/pkg/pitlanedetection"
 	"net"
 	"os"
 	"os/exec"
@@ -37,7 +37,7 @@ type ServerProcess interface {
 	SetPlugin(acserver.Plugin)
 	NotifyDone(chan struct{})
 	Logs() string
-	SharedPitLane() *pitLaneDetection.PitLane
+	SharedPitLane() *pitlanedetection.PitLane
 }
 
 type eventStartPacket struct {
@@ -67,7 +67,7 @@ type AssettoServerProcess struct {
 	mutex          sync.Mutex
 	extraProcesses []*exec.Cmd
 
-	sharedPitLane *pitLaneDetection.PitLane
+	sharedPitLane *pitlanedetection.PitLane
 	logFile io.WriteCloser
 }
 
@@ -80,7 +80,7 @@ func NewAssettoServerProcess(store Store, contentManagerWrapper *ContentManagerW
 		logBuffer:             newLogBuffer(MaxLogSizeBytes),
 		store:                 store,
 		contentManagerWrapper: contentManagerWrapper,
-		sharedPitLane: &pitLaneDetection.PitLane{
+		sharedPitLane: &pitlanedetection.PitLane{
 			PitLaneSpline: &ai.Spline{},
 			TrackSpline:   &ai.Spline{},
 		},
@@ -248,7 +248,7 @@ func (sp *AssettoServerProcess) startRaceEvent(raceEvent RaceEvent, serverOption
 		layoutMetaDataForCalc = trackMetaData.Layouts[raceConfig.TrackLayout]
 	}
 
-	sp.sharedPitLane, err = pitLaneDetection.NewSharedPitLane(
+	sp.sharedPitLane, err = pitlanedetection.NewSharedPitLane(
 		ServerInstallPath,
 		raceConfig.Track,
 		raceConfig.TrackLayout,
@@ -259,7 +259,7 @@ func (sp *AssettoServerProcess) startRaceEvent(raceEvent RaceEvent, serverOption
 
 	if err != nil {
 		logrus.WithError(err).Errorf("Couldn't read track (%s) splines, pit lane detection disabled", raceConfig.Track)
-		sp.sharedPitLane = &pitLaneDetection.PitLane{
+		sp.sharedPitLane = &pitlanedetection.PitLane{
 			PitLaneCapable: false,
 		}
 	}
@@ -602,7 +602,7 @@ func (sp *AssettoServerProcess) Logs() string {
 	return sp.logBuffer.String()
 }
 
-func (sp *AssettoServerProcess) SharedPitLane() *pitLaneDetection.PitLane {
+func (sp *AssettoServerProcess) SharedPitLane() *pitlanedetection.PitLane {
 	return sp.sharedPitLane
 }
 

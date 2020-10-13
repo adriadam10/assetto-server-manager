@@ -224,14 +224,14 @@ type SessionLap struct {
 }
 
 type SessionResult struct {
-	BallastKG    float32       `json:"BallastKG"`
-	BestLap      int           `json:"BestLap"`
-	CarID        int           `json:"CarId"`
-	CarModel     string        `json:"CarModel"`
-	DriverGUID   string        `json:"DriverGuid"`
-	DriverName   string        `json:"DriverName"`
-	Restrictor   float32       `json:"Restrictor"`
-	TotalTime    int           `json:"TotalTime"`
+	BallastKG  float32 `json:"BallastKG"`
+	BestLap    int     `json:"BestLap"`
+	CarID      int     `json:"CarId"`
+	CarModel   string  `json:"CarModel"`
+	DriverGUID string  `json:"DriverGuid"`
+	DriverName string  `json:"DriverName"`
+	Restrictor float32 `json:"Restrictor"`
+	TotalTime  int     `json:"TotalTime"`
 
 	HasPenalty   bool          `json:"HasPenalty"`
 	PenaltyTime  time.Duration `json:"PenaltyTime"`

@@ -1,14 +1,15 @@
-package pitLaneDetection
+package pitlanedetection
 
 import (
 	"errors"
-	"justapengu.in/acsm/internal/acserver"
-	"justapengu.in/acsm/pkg/ai"
-	"justapengu.in/acsm/pkg/udp"
 	"math"
 	"path/filepath"
 	"sort"
 	"time"
+
+	"justapengu.in/acsm/internal/acserver"
+	"justapengu.in/acsm/pkg/ai"
+	"justapengu.in/acsm/pkg/udp"
 )
 
 type PitLane struct {
@@ -97,7 +98,7 @@ func NewSharedPitLane(serverInstallPath, track, layout string, distance, maxDist
 		PitLanePoints:      pitLanePoints,
 		TrackPoints:        trackPoints,
 		PitLaneCapable:     true,
-		AveragePitLaneTime: time.Second * time.Duration(pitLaneTime * 0.8),
+		AveragePitLaneTime: time.Second * time.Duration(pitLaneTime*0.8),
 	}, nil
 }
 

@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"fmt"
 	"io/ioutil"
-	"justapengu.in/acsm/pkg/pitLaneDetection"
 	"path/filepath"
 	"strings"
 	"text/template"
@@ -15,6 +14,7 @@ import (
 	"github.com/sirupsen/logrus"
 
 	"justapengu.in/acsm/internal/acserver"
+	"justapengu.in/acsm/pkg/pitlanedetection"
 )
 
 func init() {
@@ -396,7 +396,7 @@ type CurrentRaceConfig struct {
 
 	Sessions Sessions                  `ini:"-"`
 	Weather  map[string]*WeatherConfig `ini:"-"`
-	PitLane  *pitLaneDetection.PitLane `ini:"-"`
+	PitLane  *pitlanedetection.PitLane `ini:"-"`
 
 	CustomCutsEnabled             bool                    `ini:"-"`
 	CustomCutsOnlyIfCleanSet      bool                    `ini:"-"`
