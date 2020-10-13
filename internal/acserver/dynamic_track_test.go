@@ -8,8 +8,8 @@ import (
 )
 
 type dynamicTrackTest struct {
-	dynamicTrack DynamicTrack
-	sessions     []dynamicTrackSession
+	dynamicTrackConfig DynamicTrackConfig
+	sessions           []dynamicTrackSession
 }
 
 type dynamicTrackSession struct {
@@ -22,7 +22,7 @@ type dynamicTrackSession struct {
 func TestDynamicTrack(t *testing.T) {
 	dts := []dynamicTrackTest{
 		{
-			dynamicTrack: DynamicTrack{
+			dynamicTrackConfig: DynamicTrackConfig{
 				SessionStart:    90,
 				Randomness:      0,
 				SessionTransfer: 50,
@@ -34,7 +34,7 @@ func TestDynamicTrack(t *testing.T) {
 			},
 		},
 		{
-			dynamicTrack: DynamicTrack{
+			dynamicTrackConfig: DynamicTrackConfig{
 				SessionStart:    80,
 				Randomness:      0,
 				SessionTransfer: 0,
@@ -47,7 +47,7 @@ func TestDynamicTrack(t *testing.T) {
 			},
 		},
 		{
-			dynamicTrack: DynamicTrack{
+			dynamicTrackConfig: DynamicTrackConfig{
 				SessionStart:    80,
 				Randomness:      0,
 				SessionTransfer: 100,
@@ -60,7 +60,7 @@ func TestDynamicTrack(t *testing.T) {
 			},
 		},
 		{
-			dynamicTrack: DynamicTrack{
+			dynamicTrackConfig: DynamicTrackConfig{
 				SessionStart:    80,
 				Randomness:      0,
 				SessionTransfer: 25,
@@ -77,23 +77,25 @@ func TestDynamicTrack(t *testing.T) {
 	logger := logrus.New()
 
 	for _, test := range dts {
-		t.Run(test.dynamicTrack.String(), func(t *testing.T) {
-			test.dynamicTrack.Init(logger)
+		dt := NewDynamicTrack(logger, test.dynamicTrackConfig)
+
+		t.Run(dt.String(), func(t *testing.T) {
+			dt.Init()
 
 			for i, session := range test.sessions {
-				test.dynamicTrack.OnNewSession(session.sessionType)
+				dt.OnNewSession(session.sessionType)
 
-				if !compareFloatsTolerance(test.dynamicTrack.CurrentGrip, session.expectedGripAtBeginning) {
-					t.Logf("Expected session grip at beginning to be: %f, was: %f (session %d)", session.expectedGripAtBeginning, test.dynamicTrack.CurrentGrip, i)
+				if !compareFloatsTolerance(dt.CurrentGrip(), session.expectedGripAtBeginning) {
+					t.Logf("Expected session grip at beginning to be: %f, was: %f (session %d)", session.expectedGripAtBeginning, dt.CurrentGrip(), i)
 					t.Fail()
 				}
 
 				for i := 0; i < session.numLaps; i++ {
-					test.dynamicTrack.OnLapCompleted()
+					dt.OnLapCompleted()
 				}
 
-				if !compareFloatsTolerance(test.dynamicTrack.CurrentGrip, session.expectedGripAtEnd) {
-					t.Logf("Expected session grip at end to be: %f, was: %f (session %d)", session.expectedGripAtEnd, test.dynamicTrack.CurrentGrip, i)
+				if !compareFloatsTolerance(dt.CurrentGrip(), session.expectedGripAtEnd) {
+					t.Logf("Expected session grip at end to be: %f, was: %f (session %d)", session.expectedGripAtEnd, dt.CurrentGrip(), i)
 					t.Fail()
 				}
 			}
@@ -101,17 +103,18 @@ func TestDynamicTrack(t *testing.T) {
 	}
 
 	t.Run("Randomness", func(t *testing.T) {
-		dt := DynamicTrack{
+		dtc := DynamicTrackConfig{
 			SessionStart:    80,
 			Randomness:      5,
 			SessionTransfer: 25,
 			LapGain:         5,
 		}
 
-		dt.Init(logger)
+		dt := NewDynamicTrack(logger, dtc)
+		dt.Init()
 		dt.OnNewSession(SessionTypeQualifying)
 
-		if dt.CurrentGrip > 0.85 || dt.CurrentGrip < 0.80 {
+		if dt.CurrentGrip() > 0.85 || dt.CurrentGrip() < 0.80 {
 			t.Fail()
 		}
 
@@ -121,23 +124,24 @@ func TestDynamicTrack(t *testing.T) {
 
 		dt.OnNewSession(SessionTypeRace)
 
-		if dt.CurrentGrip < 0.805 || dt.CurrentGrip > 0.905 {
+		if dt.CurrentGrip() < 0.805 || dt.CurrentGrip() > 0.905 {
 			t.Fail()
 		}
 	})
 
 	t.Run("Booking", func(t *testing.T) {
-		dt := DynamicTrack{
+		dtc := DynamicTrackConfig{
 			SessionStart:    80,
 			Randomness:      0,
 			SessionTransfer: 25,
 			LapGain:         1,
 		}
 
-		dt.Init(logger)
+		dt := NewDynamicTrack(logger, dtc)
+		dt.Init()
 		dt.OnNewSession(SessionTypeBooking)
 
-		if dt.CurrentGrip != 0.80 {
+		if dt.CurrentGrip() != 0.80 {
 			t.Fail()
 		}
 	})

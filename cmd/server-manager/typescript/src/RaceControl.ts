@@ -11,6 +11,7 @@ import moment from "moment";
 import ReconnectingWebSocket from "reconnecting-websocket";
 import ClickEvent = JQuery.ClickEvent;
 import ChangeEvent = JQuery.ChangeEvent;
+import {DAMAGE_ZONES} from "./models/DamageZones";
 
 interface WSMessage {
     Message: any;
@@ -489,8 +490,22 @@ class LiveMap implements WebsocketHandler {
                 });
 
                 $rpmGaugeOuter.append($rpmGaugeInner);
-                $myDot!.find(".info").text(speed + speedUnits + " " + (update.Gear - 1));
-                $myDot!.find(".info").append($rpmGaugeOuter);
+
+                let $info = $myDot!.find(".info");
+                let $infoLeft = $info.find(".info-left");
+
+                $infoLeft.text(speed + speedUnits + " " + (update.Gear - 1));
+                $infoLeft.append($rpmGaugeOuter);
+
+                // add steering angle
+                let $wheel = $info.find(".steering-wheel");
+                $wheel.css({
+                    'transform': 'rotate(' + update.SteerAngle * 1.417 + 'deg)',
+                    '-webkit-transform': 'rotate(' + update.SteerAngle * 1.417 + 'deg)',
+                    '-moz-transform': 'rotate(' + update.SteerAngle * 1.417 + 'deg)',
+                    '-ms-transform': 'rotate(' + update.SteerAngle * 1.417 + 'deg)',
+                });
+
                 break;
 
             case EventNewSession:
@@ -534,7 +549,10 @@ class LiveMap implements WebsocketHandler {
         }
 
         const $driverName = $("<span class='name'/>").text(driverData.DriverInitials);
-        const $info = $("<span class='info'/>").text("0").hide();
+        const $info = $("<span class='info'/>").hide();
+
+        $info.append($("<div class='info-left'></div>").text("0"));
+        $info.append($("<div class='steering-wheel-wrapper'><img class='steering-wheel' src='/static/img/steering-wheel.png'/></div>"));
 
         const $dot = $("<div class='dot' style='background: " + randomColorForDriver(driverData.DriverGUID) + "'/>").append($driverName, $info).hide().appendTo(this.$map);
 
@@ -1112,11 +1130,7 @@ class LiveTimings implements WebsocketHandler {
 
                         $toastBody.append($textContainer);
 
-                        let $frontBumper = $("<img/>");
-                        let $rearBumper = $("<img/>");
-                        let $leftSkirt = $("<img/>");
-                        let $rightSkirt = $("<img/>");
-                        let $tyres = $("<img/>");
+                        let $damageZones = $(DAMAGE_ZONES);
 
                         let frontBumperHue = 70 - collision.DamageZones[0];
                         let rearBumperHue = 70 - collision.DamageZones[1];
@@ -1139,47 +1153,12 @@ class LiveTimings implements WebsocketHandler {
                             rightSkirtHue = 0
                         }
 
-                        $frontBumper.attr({
-                            'style':
-                                '-webkit-mask-image: url(/static/img/damage-zones-bumper.png);' +
-                                'mask-image: url(/static/img/damage-zones-bumper.png);' +
-                                'background-color: hsl(' + frontBumperHue + ', 100%, 50%);',
-                            'class': 'damage-zone-mask-relative',
-                        });
+                        $damageZones.find(".front-bumper").attr("style", "fill: hsl(" + frontBumperHue + ", 100%, 50%);fill-opacity:1;stroke:none");
+                        $damageZones.find(".rear-bumper").attr("style", "fill: hsl(" + rearBumperHue + ", 100%, 50%);fill-opacity:1;stroke:none");
+                        $damageZones.find(".left-skirt").attr("style", "fill: hsl(" + leftSkirtHue + ", 100%, 50%);fill-opacity:1;stroke:none");
+                        $damageZones.find(".right-skirt").attr("style", "fill: hsl(" + rightSkirtHue + ", 100%, 50%);fill-opacity:1;stroke:none");
 
-                        $rearBumper.attr({
-                            'style':
-                                '-webkit-mask-image: url(/static/img/damage-zones-rear-bumper.png);' +
-                                'mask-image: url(/static/img/damage-zones-rear-bumper.png);' +
-                                'background-color: hsl(' + rearBumperHue + ', 100%, 50%);',
-                            'class': 'damage-zone-mask-absolute',
-                        });
-
-                        $leftSkirt.attr({
-                            'style':
-                                '-webkit-mask-image: url(/static/img/damage-zones-l-skirt.png);' +
-                                'mask-image: url(/static/img/damage-zones-l-skirt.png);' +
-                                'background-color: hsl(' + leftSkirtHue + ', 100%, 50%);',
-                            'class': 'damage-zone-mask-absolute',
-                        });
-
-                        $rightSkirt.attr({
-                            'style':
-                                '-webkit-mask-image: url(/static/img/damage-zones-r-skirt.png);' +
-                                'mask-image: url(/static/img/damage-zones-r-skirt.png);' +
-                                'background-color: hsl(' + rightSkirtHue + ', 100%, 50%);',
-                            'class': 'damage-zone-mask-absolute',
-                        });
-
-                        $tyres.attr({
-                            'class': 'damage-zone-mask-absolute', 'src': '/static/img/damage-zones-tyres.png',
-                        });
-
-                        $toastBody.append($frontBumper);
-                        $toastBody.append($rearBumper);
-                        $toastBody.append($leftSkirt);
-                        $toastBody.append($rightSkirt);
-                        $toastBody.append($tyres);
+                        $toastBody.append($damageZones);
 
                         $toast.append($toastHeader);
                         $toast.append($toastBody);

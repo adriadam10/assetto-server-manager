@@ -5,14 +5,16 @@ import (
 )
 
 type DamageZonesMessageHandler struct {
-	state  *ServerState
-	logger Logger
+	state          *ServerState
+	sessionManager *SessionManager
+	logger         Logger
 }
 
-func NewDamageZonesMessageHandler(state *ServerState, logger Logger) *DamageZonesMessageHandler {
+func NewDamageZonesMessageHandler(state *ServerState, sessionManager *SessionManager, logger Logger) *DamageZonesMessageHandler {
 	return &DamageZonesMessageHandler{
-		state:  state,
-		logger: logger,
+		state:          state,
+		sessionManager: sessionManager,
+		logger:         logger,
 	}
 }
 
@@ -35,7 +37,25 @@ func (d DamageZonesMessageHandler) OnMessage(conn net.Conn, p *Packet) error {
 		entrant.DamageZones[4],
 	)
 
-	return d.state.BroadcastDamageZones(entrant)
+	return d.BroadcastDamageZones(entrant)
+}
+
+func (d DamageZonesMessageHandler) BroadcastDamageZones(entrant *Car) error {
+	currentSession := d.sessionManager.GetCurrentSession()
+
+	if currentSession.SessionType == SessionTypeQualifying && currentSession.Solo {
+		return nil
+	}
+
+	p := NewPacket(nil)
+
+	p.Write(TCPMessageDamageZones)
+	p.Write(entrant.CarID)
+	p.Write(entrant.DamageZones)
+
+	d.state.BroadcastOthersTCP(p, entrant.CarID)
+
+	return nil
 }
 
 func (d DamageZonesMessageHandler) MessageType() MessageType {

@@ -191,8 +191,8 @@ func (d dummyServer) SetUpdateInterval(interval time.Duration) {
 
 }
 
-func (d dummyServer) GetCarInfo(id acserver.CarID) (acserver.Car, error) {
-	return acserver.Car{CarID: id}, nil
+func (d dummyServer) GetCarInfo(id acserver.CarID) (acserver.CarInfo, error) {
+	return acserver.CarInfo{CarID: id}, nil
 }
 
 func (d dummyServer) GetSessionInfo() acserver.SessionInfo {

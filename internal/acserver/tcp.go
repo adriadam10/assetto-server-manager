@@ -35,15 +35,15 @@ func (t *TCP) initMessageHandlers(server *Server) {
 	votingManager := NewVotingManager(server.state, server.sessionManager, server.logger)
 
 	messageHandlers := []TCPMessageHandler{
-		NewHandshakeMessageHandler(server.state, server.sessionManager, server.entryListManager, server.weatherManager, server.checksumManager, server.plugin, server.logger),
+		NewHandshakeMessageHandler(server.state, server.sessionManager, server.entryListManager, server.weatherManager, server.checksumManager, server.dynamicTrack, server.plugin, server.logger),
 		NewEntryListMessageHandler(server.state, server.logger),
 		NewCarIDMessageHandler(server.state, server.logger),
 		NewChecksumMessageHandler(server.state, server.checksumManager, server.logger),
 		NewTyreChangeMessageHandler(server.state),
-		NewLapCompletedMessageHandler(server.state),
+		NewLapCompletedMessageHandler(server.state, server.sessionManager),
 		NewSectorSplitMessageHandler(server.state, server.plugin, server.logger),
 		NewBroadcastChatMessageHandler(server.state, server.sessionManager, server.adminCommandManager),
-		NewDamageZonesMessageHandler(server.state, server.logger),
+		NewDamageZonesMessageHandler(server.state, server.sessionManager, server.logger),
 		NewClientEventMessageHandler(server.state, server.plugin, server.logger),
 		NewDisconnectMessageHandler(server.state),
 		NewMandatoryPitMessageHandler(server.state, server.logger),
@@ -126,7 +126,7 @@ func (t *TCP) Listen(ctx context.Context) error {
 						}
 
 						if car != nil {
-							car.Connection = Connection{}
+							car.CloseConnection()
 						}
 
 						return

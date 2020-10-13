@@ -273,7 +273,7 @@ func readLegacyConfigs() (*TempConfig, error) {
 		MaxClients:                sc.MaxClients,
 		RaceOverTime:              uint32(sc.RaceOverTime),
 		StartRule:                 acserver.StartRule(sc.StartRule),
-		DynamicTrack: acserver.DynamicTrack{
+		DynamicTrack: acserver.DynamicTrackConfig{
 			SessionStart:    sc.DynamicTrack.SessionStart,
 			Randomness:      sc.DynamicTrack.Randomness,
 			SessionTransfer: sc.DynamicTrack.SessionTransfer,
@@ -349,18 +349,20 @@ func readLegacyConfigs() (*TempConfig, error) {
 		}
 
 		entryList = append(entryList, &acserver.Car{
-			Driver: acserver.Driver{
-				Name: entrant.Name,
-				Team: entrant.Team,
-				GUID: entrant.GUID,
+			CarInfo: acserver.CarInfo{
+				Driver: acserver.Driver{
+					Name: entrant.Name,
+					Team: entrant.Team,
+					GUID: entrant.GUID,
+				},
+				CarID:         acserver.CarID(i),
+				Model:         entrant.Model,
+				Skin:          entrant.Skin,
+				Ballast:       float32(entrant.Ballast),
+				Restrictor:    float32(entrant.Restrictor),
+				FixedSetup:    entrant.FixedSetup,
+				SpectatorMode: uint8(entrant.SpectatorMode),
 			},
-			CarID:         acserver.CarID(i),
-			Model:         entrant.Model,
-			Skin:          entrant.Skin,
-			Ballast:       float32(entrant.Ballast),
-			Restrictor:    float32(entrant.Restrictor),
-			FixedSetup:    entrant.FixedSetup,
-			SpectatorMode: uint8(entrant.SpectatorMode),
 		})
 	}
 

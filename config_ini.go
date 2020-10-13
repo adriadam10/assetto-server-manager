@@ -442,7 +442,7 @@ func (c CurrentRaceConfig) ToACConfig() *acserver.EventConfig {
 		MaxClients:                c.MaxClients,
 		RaceOverTime:              uint32(c.RaceOverTime),
 		StartRule:                 acserver.StartRule(c.StartRule),
-		DynamicTrack: acserver.DynamicTrack{
+		DynamicTrack: acserver.DynamicTrackConfig{
 			SessionStart:    c.DynamicTrack.SessionStart,
 			Randomness:      c.DynamicTrack.Randomness,
 			SessionTransfer: c.DynamicTrack.SessionTransfer,

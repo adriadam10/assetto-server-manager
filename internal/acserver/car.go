@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net"
 	"sort"
+	"sync"
 	"time"
 )
 
@@ -11,7 +12,7 @@ type CarID uint8
 
 const ServerCarID CarID = 0xFF
 
-type Car struct {
+type CarInfo struct {
 	Driver  Driver   `json:"driver"`
 	Drivers []Driver `json:"drivers"`
 
@@ -28,15 +29,20 @@ type Car struct {
 	Tyres       string     `json:"-"`
 	DamageZones [5]float32 `json:"-"`
 
-	HasUpdateToBroadcast bool `json:"-"`
-
-	Connection  Connection  `json:"-"`
-	Status      CarUpdate   `json:"-"`
 	SessionData SessionData `json:"-"`
 
 	// PluginStatus is sent only to the plugin. It is used so that positional
 	// updates work even when a Qualifying session is in Solo mode
 	PluginStatus CarUpdate `json:"-"`
+}
+
+type Car struct {
+	CarInfo
+
+	Connection Connection `json:"-"`
+	Status     CarUpdate  `json:"-"`
+
+	mutex sync.RWMutex
 }
 
 type Driver struct {
@@ -60,10 +66,12 @@ type Connection struct {
 	PingCache        []int32
 	CurrentPingIndex int
 
-	HasSentFirstUpdate bool
-	FailedChecksum     bool
-	priorities         map[CarID]int
-	jumpPacketCount    map[CarID]int
+	hasSentFirstUpdate   bool
+	hasUpdateToBroadcast bool
+
+	hasFailedChecksum bool
+	priorities        map[CarID]int
+	jumpPacketCount   map[CarID]int
 
 	chatLimiter *time.Ticker
 }
@@ -82,24 +90,22 @@ func NewConnection(tcpConn net.Conn) Connection {
 	}
 }
 
-func (c *Connection) Close() {
-	c.chatLimiter.Stop()
-	c.tcpConn = nil
-	c.udpAddr = nil
-}
-
 type SessionData struct {
-	Laps                []*Lap
-	Sectors             []Split
-	Events              []*ClientEvent
-	LapCount            int
-	HasCompletedSession bool
-	HasExtraLapToGo     bool
-	P2PCount            int16
-	MandatoryPit        bool
+	Laps            []*Lap
+	Sectors         []Split
+	Events          []*ClientEvent
+	LapCount        int
+	HasExtraLapToGo bool
+	P2PCount        int16
+	MandatoryPit    bool
+
+	hasCompletedSession bool
 }
 
 func (c *Car) HasGUID(guid string) bool {
+	c.mutex.RLock()
+	defer c.mutex.RUnlock()
+
 	if c.Driver.GUID == guid {
 		return true
 	}
@@ -113,6 +119,18 @@ func (c *Car) HasGUID(guid string) bool {
 	return false
 }
 
+func (c *Car) AssociateUDPAddress(addr net.Addr) {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+	c.Connection.udpAddr = addr
+}
+
+func (c *Car) ChangeTyres(tyres string) {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+	c.Tyres = tyres
+}
+
 // UpdatePriorities uses the distance of every Car on track from this Car and ranks them between 0 and 3. The rank
 // defines how many updates can be skipped when updating this Car about the position of the other Cars.
 func (c *Car) UpdatePriorities(entryList EntryList) {
@@ -121,7 +139,7 @@ func (c *Car) UpdatePriorities(entryList EntryList) {
 	var carIDs []CarID
 
 	for _, otherCar := range entryList {
-		if !otherCar.IsConnected() || !otherCar.Connection.HasSentFirstUpdate || otherCar == c {
+		if !otherCar.IsConnected() || !otherCar.HasSentFirstUpdate() || otherCar == c {
 			continue
 		}
 
@@ -155,6 +173,9 @@ func (c *Car) UpdatePriorities(entryList EntryList) {
 // ShouldSendUpdate returns true if the number of jumps since the last packet send is greater than otherCar's
 // priority to this Car. Calling ShouldSendUpdate increases the jump packet count.
 func (c *Car) ShouldSendUpdate(otherCar *Car) bool {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+
 	priority, ok := c.Connection.priorities[otherCar.CarID]
 
 	if !ok {
@@ -178,6 +199,9 @@ func (c *Car) ShouldSendUpdate(otherCar *Car) bool {
 }
 
 func (c *Car) GUIDs() []string {
+	c.mutex.RLock()
+	defer c.mutex.RUnlock()
+
 	guidMap := make(map[string]bool)
 
 	guidMap[c.Driver.GUID] = true
@@ -195,7 +219,13 @@ func (c *Car) GUIDs() []string {
 	return out
 }
 
-func (c *Car) SwapDrivers(newDriver Driver) {
+func (c *Car) SwapDrivers(newDriver Driver, conn Connection, isAdmin bool) {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+
+	c.Connection = conn
+	c.IsAdmin = isAdmin
+
 	if newDriver.GUID == c.Driver.GUID {
 		// the current driver was the last driver
 		return
@@ -220,6 +250,9 @@ func (c *Car) SwapDrivers(newDriver Driver) {
 }
 
 func (c *Car) AddLap(lap *LapCompleted) *Lap {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+
 	var sectors []time.Duration
 
 	for _, sector := range lap.Splits {
@@ -242,13 +275,15 @@ func (c *Car) AddLap(lap *LapCompleted) *Lap {
 	c.SessionData.LapCount = int(lap.LapCount)
 
 	return l
-
 }
 
 // maximumLapTime is the max amount of lap time possible on the server
 const maximumLapTime = 999999999 * time.Millisecond
 
 func (c *Car) BestLap() *Lap {
+	c.mutex.RLock()
+	defer c.mutex.RUnlock()
+
 	bestLap := &Lap{
 		LapTime: maximumLapTime,
 	}
@@ -263,6 +298,9 @@ func (c *Car) BestLap() *Lap {
 }
 
 func (c *Car) TotalRaceTime() time.Duration {
+	c.mutex.RLock()
+	defer c.mutex.RUnlock()
+
 	if len(c.SessionData.Laps) == 0 {
 		return time.Duration(0)
 	}
@@ -277,6 +315,9 @@ func (c *Car) TotalRaceTime() time.Duration {
 }
 
 func (c *Car) LastLap() *Lap {
+	c.mutex.RLock()
+	defer c.mutex.RUnlock()
+
 	if len(c.SessionData.Laps) == 0 {
 		return &Lap{}
 	}
@@ -285,6 +326,9 @@ func (c *Car) LastLap() *Lap {
 }
 
 func (c *Car) FirstLap() *Lap {
+	c.mutex.RLock()
+	defer c.mutex.RUnlock()
+
 	if len(c.SessionData.Laps) == 0 {
 		return &Lap{}
 	}
@@ -303,9 +347,219 @@ func (c *Car) TotalConnectionTime() time.Duration {
 }
 
 func (c *Car) String() string {
+	c.mutex.RLock()
+	defer c.mutex.RUnlock()
+
 	return fmt.Sprintf("CarID: %d, Name: %s, GUID: %s, Model: %s", c.CarID, c.Driver.Name, c.Driver.GUID, c.Model)
 }
 
+func (c *Car) HasSentFirstUpdate() bool {
+	c.mutex.RLock()
+	defer c.mutex.RUnlock()
+
+	return c.Connection.hasSentFirstUpdate
+}
+
+func (c *Car) SetHasSentFirstUpdate(t bool) {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+
+	c.Connection.hasSentFirstUpdate = t
+}
+
+func (c *Car) Copy() CarInfo {
+	c.mutex.RLock()
+	defer c.mutex.RUnlock()
+
+	return c.CarInfo
+}
+
+const numberOfPingsForAverage = 50
+
+func (c *Car) UpdatePing(time int64, theirTime, timeOffset uint32) {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+
+	if c.Connection.CurrentPingIndex >= numberOfPingsForAverage {
+		c.Connection.CurrentPingIndex = 0
+	}
+
+	c.Connection.TargetTimeOffset = uint32(time) - timeOffset
+	c.Connection.PingCache[c.Connection.CurrentPingIndex] = int32(uint32(time) - theirTime)
+	c.Connection.CurrentPingIndex++
+
+	pingSum := int32(0)
+	numPings := int32(0)
+
+	for _, ping := range c.Connection.PingCache {
+		if ping > 0 {
+			pingSum += ping
+			numPings++
+		}
+	}
+
+	if numPings <= 0 || pingSum <= 0 {
+		c.Connection.Ping = 0
+	} else {
+		c.Connection.Ping = pingSum / numPings
+	}
+}
+
+func (c *Car) AddEvent(event *ClientEvent) {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+
+	c.SessionData.Events = append(c.SessionData.Events, event)
+}
+
+func (c *Car) HasUpdateToBroadcast() bool {
+	c.mutex.RLock()
+	defer c.mutex.RUnlock()
+
+	return c.Connection.hasUpdateToBroadcast
+}
+
+func (c *Car) SetHasUpdateToBroadcast(b bool) {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+
+	c.Connection.hasUpdateToBroadcast = b
+}
+
+func (c *Car) CompleteSector(split Split) {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+	splitFound := false
+
+	for i := range c.SessionData.Sectors {
+		if split.Index == c.SessionData.Sectors[i].Index {
+			c.SessionData.Sectors[i] = split
+
+			splitFound = true
+			break
+		}
+	}
+
+	if !splitFound {
+		c.SessionData.Sectors = append(c.SessionData.Sectors, split)
+	}
+}
+
 func (c *Car) IsConnected() bool {
+	c.mutex.RLock()
+	defer c.mutex.RUnlock()
+
 	return c.Connection.tcpConn != nil
+}
+
+func (c *Car) CloseConnection() {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+
+	c.Connection.chatLimiter.Stop()
+	c.Connection.tcpConn = nil
+	c.Connection.udpAddr = nil
+	c.Connection = Connection{}
+}
+
+func (c *Car) ClearSessionData() {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+
+	c.SessionData = SessionData{}
+}
+
+func (c *Car) SetStatus(carUpdate CarUpdate) {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+
+	c.Status = carUpdate
+}
+
+func (c *Car) SetPluginStatus(carUpdate CarUpdate) {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+
+	c.PluginStatus = carUpdate
+}
+
+func (c *Car) SetHasFailedChecksum(b bool) {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+
+	c.Connection.hasFailedChecksum = b
+}
+
+func (c *Car) HasFailedChecksum() bool {
+	c.mutex.RLock()
+	defer c.mutex.RUnlock()
+
+	return c.Connection.hasFailedChecksum
+}
+
+func (c *Car) AdjustTimeOffset() {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+
+	c.Status.Timestamp += c.Connection.TimeOffset
+
+	diff := int(c.Connection.TargetTimeOffset) - int(c.Connection.TimeOffset)
+
+	var v13, v14 int
+
+	if diff >= 0 {
+		v13 = diff
+		v14 = diff
+	} else {
+		v14 = int(c.Connection.TimeOffset) - int(c.Connection.TargetTimeOffset)
+	}
+
+	if v13 > 0 || v13 == 0 && v14 > 1000 {
+		c.Connection.TimeOffset = c.Connection.TargetTimeOffset
+	} else if v13 == 0 && v14 < 3 || v13 < 0 {
+		c.Connection.TimeOffset = c.Connection.TargetTimeOffset
+	} else {
+		if diff > 0 {
+			c.Connection.TimeOffset = c.Connection.TimeOffset + 3
+		}
+
+		if diff < 0 {
+			c.Connection.TimeOffset = c.Connection.TimeOffset - 3
+		}
+	}
+}
+
+func (c *Car) SetLoadedTime(t time.Time) {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+
+	c.Driver.LoadTime = t
+}
+
+func (c *Car) HasCompletedSession() bool {
+	c.mutex.RLock()
+	defer c.mutex.RUnlock()
+
+	return c.SessionData.hasCompletedSession
+}
+
+func (c *Car) SetHasCompletedSession(b bool) {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+
+	c.SessionData.hasCompletedSession = b
+}
+
+func (c *Car) GetLaps() []*Lap {
+	c.mutex.RLock()
+	defer c.mutex.RUnlock()
+
+	return c.SessionData.Laps
+}
+
+func (c *Car) LapCount() int {
+	c.mutex.RLock()
+	defer c.mutex.RUnlock()
+
+	return c.SessionData.LapCount
 }

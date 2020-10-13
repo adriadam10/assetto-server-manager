@@ -7,20 +7,20 @@ import (
 
 type PositionMessageHandler struct {
 	state          *ServerState
+	sessionManager *SessionManager
 	weatherManager *WeatherManager
 	plugin         Plugin
 	logger         Logger
 }
 
-func NewPositionMessageHandler(state *ServerState, weatherManager *WeatherManager, plugin Plugin, logger Logger) *PositionMessageHandler {
-	ph := &PositionMessageHandler{
+func NewPositionMessageHandler(state *ServerState, sessionManager *SessionManager, weatherManager *WeatherManager, plugin Plugin, logger Logger) *PositionMessageHandler {
+	return &PositionMessageHandler{
 		state:          state,
+		sessionManager: sessionManager,
 		weatherManager: weatherManager,
 		plugin:         plugin,
 		logger:         logger,
 	}
-
-	return ph
 }
 
 const (
@@ -59,73 +59,48 @@ func (pm *PositionMessageHandler) OnMessage(_ net.PacketConn, addr net.Addr, p *
 		carUpdate.StatusBytes |= forceHeadlightByte
 	}
 
-	if car.Connection.HasSentFirstUpdate && carUpdate.Timestamp < car.PluginStatus.Timestamp {
+	if car.HasSentFirstUpdate() && carUpdate.Timestamp < car.PluginStatus.Timestamp {
 		pm.logger.Warnf("Position packet out of order for %s previous: %d received: %d", car.Driver.Name, car.PluginStatus.Timestamp, carUpdate.Timestamp)
 
 		return nil
 	}
 
-	if !car.Connection.HasSentFirstUpdate || (pm.state.currentSession.SessionType != SessionTypeQualifying || (pm.state.currentSession.SessionType == SessionTypeQualifying && !pm.state.currentSession.Solo)) {
-		car.Status = carUpdate
+	currentSession := pm.sessionManager.GetCurrentSession()
 
-		if pm.state.currentSession.SessionType == SessionTypeQualifying && pm.state.currentSession.Solo {
-			car.Status.Velocity = Vector3F{
+	if !car.HasSentFirstUpdate() || (currentSession.SessionType != SessionTypeQualifying || (currentSession.SessionType == SessionTypeQualifying && !currentSession.Solo)) {
+		if currentSession.SessionType == SessionTypeQualifying && currentSession.Solo {
+			carUpdate.Velocity = Vector3F{
 				X: 0,
 				Y: 0,
 				Z: 0,
 			}
 		}
+
+		car.SetStatus(carUpdate)
 	}
 
-	car.Status.Timestamp += car.Connection.TimeOffset
-	car.PluginStatus = carUpdate
-	car.HasUpdateToBroadcast = true
+	car.SetHasUpdateToBroadcast(true)
+	car.SetPluginStatus(carUpdate)
+	car.AdjustTimeOffset()
 
-	diff := int(car.Connection.TargetTimeOffset) - int(car.Connection.TimeOffset)
-
-	var v13, v14 int
-
-	if diff >= 0 {
-		v13 = diff
-		v14 = diff
-	} else {
-		v14 = int(car.Connection.TimeOffset) - int(car.Connection.TargetTimeOffset)
-	}
-
-	if v13 > 0 || v13 == 0 && v14 > 1000 {
-		car.Connection.TimeOffset = car.Connection.TargetTimeOffset
-	} else if v13 == 0 && v14 < 3 || v13 < 0 {
-		car.Connection.TimeOffset = car.Connection.TargetTimeOffset
-	} else {
-		if diff > 0 {
-			car.Connection.TimeOffset = car.Connection.TimeOffset + 3
-		}
-
-		if diff < 0 {
-			car.Connection.TimeOffset = car.Connection.TimeOffset - 3
-		}
-	}
-
-	if !car.Connection.HasSentFirstUpdate {
-		if car.Connection.FailedChecksum {
+	if !car.HasSentFirstUpdate() {
+		if car.HasFailedChecksum() {
 			if err := pm.state.Kick(car.CarID, KickReasonChecksumFailed); err != nil {
 				return err
 			}
 		}
 
-		car.Connection.HasSentFirstUpdate = true
+		car.SetHasSentFirstUpdate(true)
 
 		if err := pm.SendFirstUpdate(car); err != nil {
 			return err
 		}
 
-		go func() {
-			err := pm.plugin.OnClientLoaded(*car)
+		err := pm.plugin.OnClientLoaded(car.Copy())
 
-			if err != nil {
-				pm.logger.WithError(err).Error("On client loaded plugin returned an error")
-			}
-		}()
+		if err != nil {
+			pm.logger.WithError(err).Error("On client loaded plugin returned an error")
+		}
 	}
 
 	return nil
@@ -153,7 +128,7 @@ func (pm *PositionMessageHandler) SendFirstUpdate(car *Car) error {
 	}
 
 	// send a lap completed message for car ID 0xFF to broadcast all other lap times to the connecting user.
-	if err := pm.state.CompleteLap(ServerCarID, &LapCompleted{}, car); err != nil {
+	if err := pm.sessionManager.CompleteLap(ServerCarID, &LapCompleted{}, car); err != nil {
 		return err
 	}
 
@@ -195,9 +170,9 @@ func (pm *PositionMessageHandler) SendFirstUpdate(car *Car) error {
 		if err := bw.WriteTCP(car.Connection.tcpConn); err != nil {
 			return err
 		}
-
-		car.Driver.LoadTime = time.Now()
 	}
+
+	car.SetLoadedTime(time.Now())
 
 	// send bop for car
 	if err := pm.state.SendBoP(car); err != nil {

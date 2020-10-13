@@ -157,7 +157,7 @@ func (l *Lobby) buildRegistrationRequest() (*http.Request, error) {
 	return r, nil
 }
 
-func (l *Lobby) UpdateSessionDetails(timeLeft int) error {
+func (l *Lobby) UpdateSessionDetails(currentSession SessionType, timeLeft int) error {
 	l.mutex.Lock()
 
 	if !l.isRegistered {
@@ -170,7 +170,7 @@ func (l *Lobby) UpdateSessionDetails(timeLeft int) error {
 
 	defer l.mutex.Unlock()
 
-	sessionUpdateRequest, err := l.buildSessionUpdateRequest(timeLeft)
+	sessionUpdateRequest, err := l.buildSessionUpdateRequest(currentSession, timeLeft)
 
 	if err != nil {
 		return err
@@ -204,7 +204,7 @@ func (l *Lobby) UpdateSessionDetails(timeLeft int) error {
 	}
 }
 
-func (l *Lobby) buildSessionUpdateRequest(timeLeft int) (*http.Request, error) {
+func (l *Lobby) buildSessionUpdateRequest(currentSession SessionType, timeLeft int) (*http.Request, error) {
 	r, err := http.NewRequest(http.MethodGet, lobbyPingURL, nil)
 
 	if err != nil {
@@ -212,7 +212,8 @@ func (l *Lobby) buildSessionUpdateRequest(timeLeft int) (*http.Request, error) {
 	}
 
 	q := r.URL.Query()
-	q.Add("session", strconv.Itoa(int(l.state.currentSession.SessionType)))
+
+	q.Add("session", strconv.Itoa(int(currentSession)))
 
 	q.Add("timeleft", strconv.Itoa(timeLeft))
 

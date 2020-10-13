@@ -5,11 +5,15 @@ import (
 )
 
 type SessionInfoHandler struct {
-	state *ServerState
+	state          *ServerState
+	sessionManager *SessionManager
 }
 
-func NewSessionInfoHandler(state *ServerState) *SessionInfoHandler {
-	return &SessionInfoHandler{state: state}
+func NewSessionInfoHandler(state *ServerState, sessionManager *SessionManager) *SessionInfoHandler {
+	return &SessionInfoHandler{
+		state:          state,
+		sessionManager: sessionManager,
+	}
 }
 
 func (s SessionInfoHandler) OnMessage(_ net.PacketConn, addr net.Addr, p *Packet) error {
@@ -20,12 +24,13 @@ func (s SessionInfoHandler) OnMessage(_ net.PacketConn, addr net.Addr, p *Packet
 	}
 
 	gameThinksWeAreInSessionType := SessionType(p.ReadUint8())
+	currentSession := s.sessionManager.GetCurrentSession()
 
-	if gameThinksWeAreInSessionType == s.state.currentSession.SessionType {
+	if gameThinksWeAreInSessionType == currentSession.SessionType {
 		return nil
 	}
 
-	return s.state.SendSessionInfo(entrant, nil)
+	return s.sessionManager.SendSessionInfo(entrant, nil)
 }
 
 func (s SessionInfoHandler) MessageType() MessageType {

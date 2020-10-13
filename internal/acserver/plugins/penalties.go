@@ -40,8 +40,6 @@ type penaltyInfo struct {
 }
 
 func NewPenaltiesPlugin(pitLane *pitLaneDetection.PitLane) *PenaltiesPlugin {
-	fmt.Println("New penalties plugin")
-
 	return &PenaltiesPlugin{
 		pitLane: pitLane,
 	}
@@ -54,7 +52,7 @@ func (p *PenaltiesPlugin) Init(server acserver.ServerPlugin, logger acserver.Log
 	return nil
 }
 
-func (p *PenaltiesPlugin) OnNewConnection(car acserver.Car) error {
+func (p *PenaltiesPlugin) OnNewConnection(car acserver.CarInfo) error {
 	p.penalties = append(p.penalties, &penaltyInfo{
 		carID:              car.CarID,
 		originalBallast:    car.Ballast,
@@ -64,7 +62,7 @@ func (p *PenaltiesPlugin) OnNewConnection(car acserver.Car) error {
 	return nil
 }
 
-func (p *PenaltiesPlugin) OnConnectionClosed(car acserver.Car) error {
+func (p *PenaltiesPlugin) OnConnectionClosed(car acserver.CarInfo) error {
 	for i, penalty := range p.penalties {
 		if penalty.carID == car.CarID {
 			copy(p.penalties[i:], p.penalties[i+1:])
@@ -78,18 +76,19 @@ func (p *PenaltiesPlugin) OnConnectionClosed(car acserver.Car) error {
 	return nil
 }
 
-func (p *PenaltiesPlugin) OnCarUpdate(car acserver.Car) error {
 
-	// @TODO issue is that when race is complete the driver is automatically sent to the pits, which counts as
-	// @TODO serving their drive though
-	//p.server.GetLeaderboard()[0].NumLaps
-	//p.server.GetEventConfig()
-	//p.server.GetCurrentSession()
+func (p *PenaltiesPlugin) OnCarUpdate(car acserver.CarInfo) error {
 
-	// car.hasFinishedRace
-	// is true if:
-	// driver crosses line after race time = 0
-	// driver crosses line and laps == race laps
+	leaderboard := p.server.GetLeaderboard()
+
+	for _, line := range leaderboard {
+		if line.Car.CarID == car.CarID {
+			// don't mark penalties as completed if the car has already finished
+			if line.Car.HasCompletedSession() {
+				return nil
+			}
+		}
+	}
 
 	var penaltyInfo *penaltyInfo
 
@@ -135,12 +134,10 @@ func (p *PenaltiesPlugin) OnNewSession(newSession acserver.SessionInfo) error {
 }
 
 func (p *PenaltiesPlugin) OnEndSession(sessionFile string) error {
-	fmt.Println("End Session")
 	resultsNeedModifying := false
 
 	for _, penalty := range p.penalties {
-		fmt.Println(penalty.carID, penalty.driveThrough)
-		if penalty.driveThrough {
+		if penalty.driveThrough || penalty.clearPenaltyIn > 0 {
 			resultsNeedModifying = true
 		}
 	}
@@ -148,8 +145,6 @@ func (p *PenaltiesPlugin) OnEndSession(sessionFile string) error {
 	if !resultsNeedModifying {
 		return nil
 	}
-
-	fmt.Println("Results need modifying")
 
 	var results acserver.SessionResults
 
@@ -168,19 +163,41 @@ func (p *PenaltiesPlugin) OnEndSession(sessionFile string) error {
 	}
 
 	for _, penalty := range p.penalties {
+		if !penalty.driveThrough && penalty.clearPenaltyIn <= 0 {
+			continue
+		}
+
+		averageCleanLap := time.Millisecond * time.Duration(float32(penalty.totalCleanLapTime) / float32(penalty.totalCleanLaps))
+
 		if penalty.driveThrough {
 			// driver finished session with unserved penalty, apply to results
 			for _, result := range results.Result {
 				if result.CarID == int(penalty.carID) {
 					result.HasPenalty = true
-					result.PenaltyTime = p.pitLane.AveragePitLaneTime + time.Second * 10
-					fmt.Println(fmt.Sprintf("adding %s penalty to driver", result.PenaltyTime))
+					result.PenaltyTime += p.pitLane.AveragePitLaneTime + time.Second * 10
+
+					p.logger.Debugf("adding %s penalty to driver for unserved drive through penalty", result.PenaltyTime)
 
 					if penalty.totalCleanLaps != 0 {
-						averageCleanLap := time.Millisecond * time.Duration(float32(penalty.totalCleanLapTime) / float32(penalty.totalCleanLaps))
 
-						fmt.Println(fmt.Sprintf("average clean lap: %s", averageCleanLap.String()))
+						if result.PenaltyTime > averageCleanLap {
+							result.LapPenalty = int(result.PenaltyTime / averageCleanLap)
+						}
+					}
+				}
+			}
+		}
 
+		if penalty.clearPenaltyIn > 0 {
+			// driver still had a penalty for some laps, time penalty instead
+			for _, result := range results.Result {
+				if result.CarID == int(penalty.carID) {
+					result.HasPenalty = true
+					result.PenaltyTime += time.Second * 5 * time.Duration(penalty.clearPenaltyIn)
+
+					p.logger.Debugf("adding %s penalty to driver for cutting the track", result.PenaltyTime)
+
+					if penalty.totalCleanLaps != 0 {
 						if result.PenaltyTime > averageCleanLap {
 							result.LapPenalty = int(result.PenaltyTime / averageCleanLap)
 						}
@@ -212,7 +229,7 @@ func (p *PenaltiesPlugin) OnChat(chat acserver.Chat) error {
 	return nil
 }
 
-func (p *PenaltiesPlugin) OnClientLoaded(car acserver.Car) error {
+func (p *PenaltiesPlugin) OnClientLoaded(car acserver.CarInfo) error {
 	return nil
 }
 
@@ -311,7 +328,7 @@ func (p *PenaltiesPlugin) OnLapCompleted(carID acserver.CarID, lap acserver.Lap)
 
 					penaltyInfo.clearPenaltyIn += eventConfig.CustomCutsBoPNumLaps
 
-					chatMessage = fmt.Sprintf("You have been given %.1fkg of ballast for cutting the track", eventConfig.CustomCutsBoPAmount)
+					chatMessage = fmt.Sprintf("You have been given %.1fkg of ballast for %d laps for cutting the track", eventConfig.CustomCutsBoPAmount, eventConfig.CustomCutsBoPNumLaps)
 				case acserver.CutPenaltyRestrictor:
 					err = p.server.UpdateBoP(entrant.CarID, entrant.Ballast, eventConfig.CustomCutsBoPAmount)
 
@@ -322,7 +339,7 @@ func (p *PenaltiesPlugin) OnLapCompleted(carID acserver.CarID, lap acserver.Lap)
 
 					penaltyInfo.clearPenaltyIn += eventConfig.CustomCutsBoPNumLaps
 
-					chatMessage = fmt.Sprintf("You have been given %.0f%% restrictor for cutting the track", eventConfig.CustomCutsBoPAmount)
+					chatMessage = fmt.Sprintf("You have been given %.0f%% restrictor for %d laps for cutting the track", eventConfig.CustomCutsBoPAmount, eventConfig.CustomCutsBoPNumLaps)
 				case acserver.CutPenaltyDriveThrough:
 					if !penaltyInfo.driveThrough {
 						penaltyInfo.driveThrough = true
@@ -366,7 +383,7 @@ func (p *PenaltiesPlugin) OnCollisionWithEnv(event acserver.ClientEvent) error {
 	return nil
 }
 
-func (p *PenaltiesPlugin) OnSectorCompleted(split acserver.Split) error {
+func (p *PenaltiesPlugin) OnSectorCompleted(car acserver.CarInfo, split acserver.Split) error {
 	return nil
 }
 
@@ -374,6 +391,6 @@ func (p *PenaltiesPlugin) OnWeatherChange(_ acserver.CurrentWeather) error {
 	return nil
 }
 
-func (p *PenaltiesPlugin) OnTyreChange(car acserver.Car, tyres string) error {
+func (p *PenaltiesPlugin) OnTyreChange(car acserver.CarInfo, tyres string) error {
 	return nil
 }

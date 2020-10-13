@@ -7,21 +7,21 @@ import (
 	"net"
 
 	"github.com/sirupsen/logrus"
+	"golang.org/x/text/encoding"
 	"golang.org/x/text/encoding/unicode/utf32"
 )
 
 type Packet struct {
-	buf *bytes.Buffer
+	buf          *bytes.Buffer
+	utf32Encoder *encoding.Encoder
+	utf32Decoder *encoding.Decoder
 }
-
-var (
-	utf32Encoder = utf32.UTF32(utf32.LittleEndian, utf32.IgnoreBOM).NewEncoder()
-	utf32Decoder = utf32.UTF32(utf32.LittleEndian, utf32.IgnoreBOM).NewDecoder()
-)
 
 func NewPacket(b []byte) *Packet {
 	return &Packet{
-		buf: bytes.NewBuffer(b),
+		buf:          bytes.NewBuffer(b),
+		utf32Encoder: utf32.UTF32(utf32.LittleEndian, utf32.IgnoreBOM).NewEncoder(),
+		utf32Decoder: utf32.UTF32(utf32.LittleEndian, utf32.IgnoreBOM).NewDecoder(),
 	}
 }
 
@@ -39,7 +39,7 @@ func (p *Packet) WriteString(s string) {
 }
 
 func (p *Packet) WriteUTF32String(s string) {
-	encoded, err := utf32Encoder.Bytes([]byte(s))
+	encoded, err := p.utf32Encoder.Bytes([]byte(s))
 
 	if err != nil {
 		logrus.WithError(err).Error("Could not EncodeString")
@@ -51,7 +51,7 @@ func (p *Packet) WriteUTF32String(s string) {
 func (p *Packet) WriteBigUTF32String(s string) {
 	s += "\x00"
 
-	encoded, err := utf32Encoder.Bytes([]byte(s))
+	encoded, err := p.utf32Encoder.Bytes([]byte(s))
 
 	if err != nil {
 		logrus.WithError(err).Error("Could not EncodeString")
@@ -90,7 +90,7 @@ func (p *Packet) ReadUTF32String() string {
 
 	p.Read(&b)
 
-	bs, _ := utf32Decoder.Bytes(b)
+	bs, _ := p.utf32Decoder.Bytes(b)
 
 	return string(bs)
 }

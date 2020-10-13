@@ -20,14 +20,13 @@ func NewSectorSplitMessageHandler(state *ServerState, plugin Plugin, logger Logg
 }
 
 type Split struct {
-	Car   Car
 	Index uint8
 	Time  uint32
 	Cuts  uint8
 }
 
 func (t SectorSplitMessageHandler) OnMessage(conn net.Conn, p *Packet) error {
-	entrant, err := t.state.GetCarByTCPConn(conn)
+	car, err := t.state.GetCarByTCPConn(conn)
 
 	if err != nil {
 		return err
@@ -37,31 +36,32 @@ func (t SectorSplitMessageHandler) OnMessage(conn net.Conn, p *Packet) error {
 	splitTime := p.ReadUint32()
 	cuts := p.ReadUint8()
 
-	t.logger.Infof("CarID: %d just completed split index: %d with time %s (%d cuts)", entrant.CarID, splitIndex, time.Millisecond*time.Duration(splitTime), cuts)
+	t.logger.Infof("CarID: %d just completed split index: %d with time %s (%d cuts)", car.CarID, splitIndex, time.Millisecond*time.Duration(splitTime), cuts)
 
 	bw := NewPacket(nil)
 	bw.Write(TCPRemoteSectorSplit)
-	bw.Write(entrant.CarID)
+	bw.Write(car.CarID)
 	bw.Write(splitIndex)
 	bw.Write(splitTime)
 	bw.Write(cuts)
 
-	t.state.BroadcastOthersTCP(bw, entrant.CarID)
+	t.state.BroadcastOthersTCP(bw, car.CarID)
 
-	go func() {
-		// @TODO I think this is the first time we get told about cuts
-		// @TODO if we decide to do ballast for cut this might be the best place
-		err := t.state.CompleteSector(Split{
-			Car:   *entrant,
-			Index: splitIndex,
-			Time:  splitTime,
-			Cuts:  cuts,
-		}, entrant)
+	split := Split{
+		Index: splitIndex,
+		Time:  splitTime,
+		Cuts:  cuts,
+	}
 
-		if err != nil {
-			t.logger.WithError(err).Error("On sector completed plugin returned an error")
-		}
-	}()
+	// @TODO I think this is the first time we get told about cuts
+	// @TODO if we decide to do ballast for cut this might be the best place
+	car.CompleteSector(split)
+
+	err = t.plugin.OnSectorCompleted(car.Copy(), split)
+
+	if err != nil {
+		t.logger.WithError(err).Error("On sector completed plugin returned an error")
+	}
 
 	return nil
 }
