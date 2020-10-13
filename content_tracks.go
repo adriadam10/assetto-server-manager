@@ -10,7 +10,6 @@ import (
 	"image/png"
 	"io"
 	"io/ioutil"
-	"justapengu.in/acsm/pkg/ai"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -19,6 +18,7 @@ import (
 	"strings"
 
 	"justapengu.in/acsm/cmd/server-manager/static"
+	"justapengu.in/acsm/pkg/ai"
 
 	"github.com/cj123/ini"
 	"github.com/dimchansky/utfbom"

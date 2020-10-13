@@ -1,7 +1,6 @@
 package acsm
 
 import (
-	"justapengu.in/acsm/pkg/pitlanedetection"
 	"math/rand"
 	"net/url"
 	"os"
@@ -10,6 +9,7 @@ import (
 	"time"
 
 	"justapengu.in/acsm/internal/acserver"
+	"justapengu.in/acsm/pkg/pitlanedetection"
 	"justapengu.in/acsm/pkg/udp"
 )
 

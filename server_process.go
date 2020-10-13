@@ -7,8 +7,6 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"justapengu.in/acsm/pkg/ai"
-	"justapengu.in/acsm/pkg/pitlanedetection"
 	"net"
 	"os"
 	"os/exec"
@@ -21,6 +19,8 @@ import (
 
 	"justapengu.in/acsm/internal/acserver"
 	"justapengu.in/acsm/internal/acserver/plugins"
+	"justapengu.in/acsm/pkg/ai"
+	"justapengu.in/acsm/pkg/pitlanedetection"
 
 	"github.com/sirupsen/logrus"
 )
@@ -68,7 +68,7 @@ type AssettoServerProcess struct {
 	extraProcesses []*exec.Cmd
 
 	sharedPitLane *pitlanedetection.PitLane
-	logFile io.WriteCloser
+	logFile       io.WriteCloser
 }
 
 func NewAssettoServerProcess(store Store, contentManagerWrapper *ContentManagerWrapper) *AssettoServerProcess {
