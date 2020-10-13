@@ -62,9 +62,7 @@ func (em *EntryListManager) ConnectCar(conn net.Conn, driver Driver, requestedMo
 			}
 
 			if car.HasGUID(driver.GUID) {
-				car.SwapDrivers(driver)
-				car.IsAdmin = isAdmin
-				car.Connection = NewConnection(conn)
+				car.SwapDrivers(driver, NewConnection(conn), isAdmin)
 
 				return car, nil
 			}
@@ -79,9 +77,7 @@ func (em *EntryListManager) ConnectCar(conn net.Conn, driver Driver, requestedMo
 			}
 
 			if car.HasGUID(driver.GUID) && car.Model == requestedModel {
-				car.SwapDrivers(driver)
-				car.IsAdmin = isAdmin
-				car.Connection = NewConnection(conn)
+				car.SwapDrivers(driver, NewConnection(conn), isAdmin)
 
 				return car, nil
 			}
@@ -94,10 +90,8 @@ func (em *EntryListManager) ConnectCar(conn net.Conn, driver Driver, requestedMo
 			}
 
 			if car.Model == requestedModel {
-				car.SwapDrivers(driver)
-				car.IsAdmin = isAdmin
-				car.Connection = NewConnection(conn)
-				car.SessionData = SessionData{} // reset laps if we've taken someone else's car.
+				car.SwapDrivers(driver, NewConnection(conn), isAdmin)
+				car.ClearSessionData() // reset laps if we've taken someone else's car.
 
 				return car, nil
 			}
@@ -109,10 +103,12 @@ func (em *EntryListManager) ConnectCar(conn net.Conn, driver Driver, requestedMo
 
 func (em *EntryListManager) BookCar(driver Driver, model, skin string) (*Car, error) {
 	car := &Car{
-		Driver: driver,
-		CarID:  CarID(len(em.state.entryList)),
-		Model:  model,
-		Skin:   skin,
+		CarInfo: CarInfo{
+			Driver: driver,
+			CarID:  CarID(len(em.state.entryList)),
+			Model:  model,
+			Skin:   skin,
+		},
 	}
 
 	for index, existingCar := range em.state.entryList {

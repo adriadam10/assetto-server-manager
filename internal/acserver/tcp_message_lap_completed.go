@@ -5,11 +5,15 @@ import (
 )
 
 type LapCompletedMessageHandler struct {
-	state *ServerState
+	state          *ServerState
+	sessionManager *SessionManager
 }
 
-func NewLapCompletedMessageHandler(state *ServerState) *LapCompletedMessageHandler {
-	return &LapCompletedMessageHandler{state: state}
+func NewLapCompletedMessageHandler(state *ServerState, sessionManager *SessionManager) *LapCompletedMessageHandler {
+	return &LapCompletedMessageHandler{
+		state:          state,
+		sessionManager: sessionManager,
+	}
 }
 
 type LapCompleted struct {
@@ -38,13 +42,13 @@ func (l LapCompletedMessageHandler) OnMessage(conn net.Conn, p *Packet) error {
 	p.Read(&lap.Cuts)
 	p.Read(&lap.LapCount)
 
-	entrant, err := l.state.GetCarByTCPConn(conn)
+	car, err := l.state.GetCarByTCPConn(conn)
 
 	if err != nil {
 		return err
 	}
 
-	return l.state.CompleteLap(entrant.CarID, lap, nil)
+	return l.sessionManager.CompleteLap(car.CarID, lap, nil)
 }
 
 func (l LapCompletedMessageHandler) MessageType() MessageType {

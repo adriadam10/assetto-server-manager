@@ -92,21 +92,21 @@ func (r *UDPPluginAdapter) OnEndSession(sessionFile string) error {
 	return nil
 }
 
-func (r *UDPPluginAdapter) OnNewConnection(car acserver.Car) error {
+func (r *UDPPluginAdapter) OnNewConnection(car acserver.CarInfo) error {
 	r.UDPCallback(r.buildSessionCarInfo(udp.EventNewConnection, car))
 
 	return nil
 }
 
-func (r *UDPPluginAdapter) OnClientLoaded(car acserver.Car) error {
+func (r *UDPPluginAdapter) OnClientLoaded(car acserver.CarInfo) error {
 	r.UDPCallback(udp.ClientLoaded(car.CarID))
 
 	return nil
 }
 
-func (r *UDPPluginAdapter) OnSectorCompleted(split acserver.Split) error {
+func (r *UDPPluginAdapter) OnSectorCompleted(car acserver.CarInfo, split acserver.Split) error {
 	r.UDPCallback(udp.SplitCompleted{
-		CarID: split.Car.CarID,
+		CarID: car.CarID,
 		Index: split.Index,
 		Time:  split.Time,
 		Cuts:  split.Cuts,
@@ -129,7 +129,7 @@ func (r *UDPPluginAdapter) OnLapCompleted(carID acserver.CarID, lap acserver.Lap
 	for _, line := range leaderboard {
 		completed := uint8(0)
 
-		if line.Car.SessionData.HasCompletedSession {
+		if line.Car.HasCompletedSession() {
 			completed = 1
 		}
 
@@ -146,7 +146,7 @@ func (r *UDPPluginAdapter) OnLapCompleted(carID acserver.CarID, lap acserver.Lap
 	return nil
 }
 
-func (r *UDPPluginAdapter) OnCarUpdate(carUpdate acserver.Car) error {
+func (r *UDPPluginAdapter) OnCarUpdate(carUpdate acserver.CarInfo) error {
 	r.UDPCallback(udp.CarUpdate{
 		CarID:               carUpdate.CarID,
 		Pos:                 carUpdate.PluginStatus.Position,
@@ -154,14 +154,14 @@ func (r *UDPPluginAdapter) OnCarUpdate(carUpdate acserver.Car) error {
 		Gear:                carUpdate.PluginStatus.GearIndex,
 		EngineRPM:           carUpdate.PluginStatus.EngineRPM,
 		NormalisedSplinePos: carUpdate.PluginStatus.NormalisedSplinePos,
-		SteerAngle:          carUpdate.Status.SteerAngle,
-		StatusBytes:         carUpdate.Status.StatusBytes,
+		SteerAngle:          carUpdate.PluginStatus.SteerAngle,
+		StatusBytes:         carUpdate.PluginStatus.StatusBytes,
 	})
 
 	return nil
 }
 
-func (r *UDPPluginAdapter) OnTyreChange(car acserver.Car, _ string) error {
+func (r *UDPPluginAdapter) OnTyreChange(car acserver.CarInfo, _ string) error {
 	r.UDPCallback(r.buildSessionCarInfo(udp.EventTyresChanged, car))
 
 	return nil
@@ -233,7 +233,7 @@ func (r *UDPPluginAdapter) OnChat(chat acserver.Chat) error {
 	return nil
 }
 
-func (r *UDPPluginAdapter) buildSessionCarInfo(eventType udp.Event, car acserver.Car) udp.SessionCarInfo {
+func (r *UDPPluginAdapter) buildSessionCarInfo(eventType udp.Event, car acserver.CarInfo) udp.SessionCarInfo {
 	return udp.SessionCarInfo{
 		CarID:      car.CarID,
 		DriverName: car.Driver.Name,
@@ -245,7 +245,7 @@ func (r *UDPPluginAdapter) buildSessionCarInfo(eventType udp.Event, car acserver
 	}
 }
 
-func (r *UDPPluginAdapter) OnConnectionClosed(car acserver.Car) error {
+func (r *UDPPluginAdapter) OnConnectionClosed(car acserver.CarInfo) error {
 	r.UDPCallback(r.buildSessionCarInfo(udp.EventConnectionClosed, car))
 
 	return nil

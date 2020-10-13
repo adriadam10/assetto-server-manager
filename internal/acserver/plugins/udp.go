@@ -193,7 +193,7 @@ func (u *UDPPlugin) handleConnection(data []byte) error {
 	return nil
 }
 
-func carInfoPacket(messageType UDPPluginEvent, car acserver.Car) *acserver.Packet {
+func carInfoPacket(messageType UDPPluginEvent, car acserver.CarInfo) *acserver.Packet {
 	p := acserver.NewPacket(nil)
 	p.Write(messageType)
 	p.WriteUTF32String(car.Driver.Name)
@@ -205,19 +205,19 @@ func carInfoPacket(messageType UDPPluginEvent, car acserver.Car) *acserver.Packe
 	return p
 }
 
-func (u *UDPPlugin) OnNewConnection(car acserver.Car) error {
+func (u *UDPPlugin) OnNewConnection(car acserver.CarInfo) error {
 	p := carInfoPacket(EventNewConnection, car)
 
 	return p.WriteToUDPConn(u.packetConn)
 }
 
-func (u *UDPPlugin) OnConnectionClosed(car acserver.Car) error {
+func (u *UDPPlugin) OnConnectionClosed(car acserver.CarInfo) error {
 	p := carInfoPacket(EventConnectionClosed, car)
 
 	return p.WriteToUDPConn(u.packetConn)
 }
 
-func (u *UDPPlugin) OnCarUpdate(car acserver.Car) error {
+func (u *UDPPlugin) OnCarUpdate(car acserver.CarInfo) error {
 	p := acserver.NewPacket(nil)
 	p.Write(EventCarUpdate)
 	p.Write(car.CarID)
@@ -284,7 +284,7 @@ func (u *UDPPlugin) OnChat(chat acserver.Chat) error {
 	return p.WriteToUDPConn(u.packetConn)
 }
 
-func (u *UDPPlugin) OnClientLoaded(car acserver.Car) error {
+func (u *UDPPlugin) OnClientLoaded(car acserver.CarInfo) error {
 	p := acserver.NewPacket(nil)
 	p.Write(EventClientLoaded)
 	p.Write(car.CarID)
@@ -305,8 +305,8 @@ func (u *UDPPlugin) OnLapCompleted(carID acserver.CarID, lap acserver.Lap) error
 	for _, line := range leaderboard {
 		p.Write(line.Car.CarID)
 		p.Write(uint32(line.Time.Milliseconds()))
-		p.Write(uint16(line.Car.SessionData.LapCount))
-		if line.Car.SessionData.HasCompletedSession {
+		p.Write(uint16(line.Car.LapCount()))
+		if line.Car.HasCompletedSession() {
 			p.Write(uint8(1))
 		} else {
 			p.Write(uint8(0))
@@ -345,14 +345,14 @@ func (u *UDPPlugin) OnCollisionWithEnv(event acserver.ClientEvent) error {
 	return p.WriteToUDPConn(u.packetConn)
 }
 
-func (u *UDPPlugin) OnSectorCompleted(split acserver.Split) error {
+func (u *UDPPlugin) OnSectorCompleted(car acserver.CarInfo, split acserver.Split) error {
 	if !u.enableEnhancedReporting {
 		return nil
 	}
 
 	p := acserver.NewPacket(nil)
 	p.Write(EventSectorCompleted)
-	p.Write(split.Car.CarID)
+	p.Write(car.CarID)
 	p.Write(split.Index)
 	p.Write(split.Time)
 	p.Write(split.Cuts)
@@ -366,6 +366,6 @@ func (u *UDPPlugin) OnWeatherChange(_ acserver.CurrentWeather) error {
 	return p.WriteToUDPConn(u.packetConn)
 }
 
-func (u *UDPPlugin) OnTyreChange(car acserver.Car, tyres string) error {
+func (u *UDPPlugin) OnTyreChange(car acserver.CarInfo, tyres string) error {
 	return nil
 }

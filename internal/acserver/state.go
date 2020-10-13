@@ -31,15 +31,13 @@ type ServerState struct {
 	serverConfig *ServerConfig
 	plugin       Plugin
 	logger       Logger
+	dynamicTrack *DynamicTrack
 
 	udp           *UDP
 	baseDirectory string
 
 	// modifiable
 	randomSeed uint32
-
-	currentSessionIndex uint8
-	currentSession      SessionConfig
 
 	// fixed
 	drsZones             map[string]DRSZone
@@ -62,13 +60,14 @@ type DRSZone struct {
 	end       float32
 }
 
-func NewServerState(baseDirectory string, serverConfig *ServerConfig, raceConfig *EventConfig, entryList EntryList, plugin Plugin, logger Logger) (*ServerState, error) {
+func NewServerState(baseDirectory string, serverConfig *ServerConfig, raceConfig *EventConfig, entryList EntryList, plugin Plugin, logger Logger, dynamicTrack *DynamicTrack) (*ServerState, error) {
 	ss := &ServerState{
 		serverConfig:         serverConfig,
 		raceConfig:           raceConfig,
 		entryList:            entryList,
 		plugin:               plugin,
 		logger:               logger,
+		dynamicTrack:         dynamicTrack,
 		randomSeed:           rand.Uint32(),
 		noJoinList:           make(map[string]bool),
 		baseDirectory:        baseDirectory,
@@ -99,7 +98,7 @@ func (ss *ServerState) init() error {
 		return err
 	}
 
-	ss.raceConfig.DynamicTrack.Init(ss.logger)
+	ss.dynamicTrack.Init()
 
 	return nil
 }
@@ -321,19 +320,19 @@ func (ss *ServerState) GetCarByTCPConn(conn net.Conn) (*Car, error) {
 
 func (ss *ServerState) AssociateUDPConnectionByCarID(addr net.Addr, carID CarID) error {
 	ss.logger.Infof("Associating address: %s to CarID: %d", addr.String(), carID)
-	entrant, err := ss.GetCarByID(carID)
+	car, err := ss.GetCarByID(carID)
 
 	if err != nil {
 		return err
 	}
 
-	entrant.Connection.udpAddr = addr
+	car.AssociateUDPAddress(addr)
 
 	bw := NewPacket(nil)
 	bw.Write(TCPCarConnected)
 	bw.Write(carID)
-	bw.WriteString(entrant.Driver.Name)
-	bw.WriteString(entrant.Driver.Nation)
+	bw.WriteString(car.Driver.Name)
+	bw.WriteString(car.Driver.Nation)
 
 	ss.BroadcastOthersTCP(bw, carID)
 
@@ -444,18 +443,16 @@ func (ss *ServerState) BroadcastChat(carID CarID, message string, rateLimit bool
 	p.WriteUTF32String(message)
 
 	if carID != ServerCarID {
-		go func() {
-			err := ss.plugin.OnChat(Chat{
-				FromCar: carID,
-				ToCar:   ServerCarID,
-				Message: message,
-				Time:    time.Now(),
-			})
+		err := ss.plugin.OnChat(Chat{
+			FromCar: carID,
+			ToCar:   ServerCarID,
+			Message: message,
+			Time:    time.Now(),
+		})
 
-			if err != nil {
-				ss.logger.WithError(err).Error("On chat plugin returned an error")
-			}
-		}()
+		if err != nil {
+			ss.logger.WithError(err).Error("On chat plugin returned an error")
+		}
 	}
 
 	if rateLimit {
@@ -487,193 +484,39 @@ func (ss *ServerState) SendChat(fromCarID CarID, toCarID CarID, message string, 
 	}
 
 	if fromCarID != ServerCarID {
-		go func() {
-			err := ss.plugin.OnChat(Chat{
-				FromCar: fromCarID,
-				ToCar:   toCarID,
-				Message: message,
-				Time:    time.Now(),
-			})
+		err := ss.plugin.OnChat(Chat{
+			FromCar: fromCarID,
+			ToCar:   toCarID,
+			Message: message,
+			Time:    time.Now(),
+		})
 
-			if err != nil {
-				ss.logger.WithError(err).Error("On chat plugin returned an error")
-			}
-		}()
+		if err != nil {
+			ss.logger.WithError(err).Error("On chat plugin returned an error")
+		}
 	}
 
 	return p.WriteTCP(car.Connection.tcpConn)
 }
 
-func (ss *ServerState) BroadcastDamageZones(entrant *Car) error {
-	if ss.currentSession.SessionType == SessionTypeQualifying && ss.currentSession.Solo {
-		return nil
-	}
+func (ss *ServerState) ChangeTyre(car *Car, tyre string) error {
+	car.ChangeTyres(tyre)
 
-	p := NewPacket(nil)
-
-	p.Write(TCPMessageDamageZones)
-	p.Write(entrant.CarID)
-	p.Write(entrant.DamageZones)
-
-	ss.BroadcastOthersTCP(p, entrant.CarID)
-
-	return nil
-}
-
-func (ss *ServerState) ChangeTyre(carID CarID, tyre string) error {
 	p := NewPacket(nil)
 
 	p.Write(TCPMessageTyreChange)
-	p.Write(carID)
+	p.Write(car.CarID)
 	p.WriteString(tyre)
 
-	entrant, err := ss.GetCarByID(carID)
+	ss.logger.Debugf("Car: %s changed tyres to: %s", car, tyre)
+
+	ss.BroadcastOthersTCP(p, car.CarID)
+
+	err := ss.plugin.OnTyreChange(car.Copy(), tyre)
 
 	if err != nil {
-		return err
+		ss.logger.WithError(err).Error("On tyre change plugin returned an error")
 	}
-
-	entrant.Tyres = tyre
-
-	ss.logger.Debugf("Car: %s changed tyres to: %s", entrant, tyre)
-
-	ss.BroadcastOthersTCP(p, entrant.CarID)
-
-	go func() {
-		err := ss.plugin.OnTyreChange(*entrant, tyre)
-
-		if err != nil {
-			ss.logger.WithError(err).Error("On tyre change plugin returned an error")
-		}
-	}()
-
-	return nil
-}
-
-func (ss *ServerState) CompleteSector(split Split, car *Car) error {
-	splitFound := false
-
-	for i := range car.SessionData.Sectors {
-		if split.Index == car.SessionData.Sectors[i].Index {
-			car.SessionData.Sectors[i] = split
-
-			splitFound = true
-			break
-		}
-	}
-
-	if !splitFound {
-		car.SessionData.Sectors = append(car.SessionData.Sectors, split)
-	}
-
-	return ss.plugin.OnSectorCompleted(split)
-}
-
-func (ss *ServerState) CompleteLap(carID CarID, lap *LapCompleted, target *Car) error {
-	if carID != ServerCarID {
-		ss.logger.Infof("CarID: %d just completed lap: %s (%d cuts) (splits: %v)", carID, time.Duration(lap.LapTime)*time.Millisecond, lap.Cuts, lap.Splits)
-		ss.currentSession.numCompletedLaps++
-		ss.raceConfig.DynamicTrack.OnLapCompleted()
-	}
-
-	entrant, err := ss.GetCarByID(carID)
-
-	if err != nil {
-		return err
-	}
-
-	if entrant.SessionData.HasCompletedSession {
-		// entrants which have completed the session can't complete more laps
-		return nil
-	}
-
-	l := entrant.AddLap(lap)
-
-	if carID != ServerCarID {
-		go func() {
-			err := ss.plugin.OnLapCompleted(entrant.CarID, *l)
-
-			if err != nil {
-				ss.logger.WithError(err).Error("On lap completed plugin returned an error")
-			}
-		}()
-
-		// last sector only
-		go func() {
-			var cutsInSectorsSoFar uint8
-
-			for _, sector := range entrant.SessionData.Sectors {
-				cutsInSectorsSoFar += sector.Cuts
-			}
-
-			cutsInFinalSector := lap.Cuts - cutsInSectorsSoFar
-
-			split := Split{
-				Car:   *entrant,
-				Index: lap.NumSplits - 1,
-				Time:  lap.Splits[lap.NumSplits-1],
-				Cuts:  cutsInFinalSector,
-			}
-
-			err := ss.plugin.OnSectorCompleted(split)
-
-			if err != nil {
-				ss.logger.WithError(err).Error("On sector completed plugin returned an error")
-			}
-		}()
-	}
-
-	leaderboard := ss.Leaderboard()
-
-	if ss.currentSession.Laps > 0 {
-		entrant.SessionData.HasCompletedSession = entrant.SessionData.LapCount == int(ss.currentSession.Laps)
-	} else {
-		if currentTimeMillisecond() > ss.currentSession.FinishTime() {
-			leader := leaderboard[0]
-
-			if ss.raceConfig.RaceExtraLap {
-				if entrant.SessionData.HasExtraLapToGo {
-					// everyone at this point has completed their extra lap
-					entrant.SessionData.HasCompletedSession = true
-				} else {
-					// the entrant has another lap to go if they are the leader, or the leader has an extra lap to go
-					entrant.SessionData.HasExtraLapToGo = leader.Car == entrant || leader.Car.SessionData.HasExtraLapToGo
-				}
-			} else {
-				// the entrant has completed the session if they are the leader or the leader has completed the session.
-				entrant.SessionData.HasCompletedSession = leader.Car == entrant || leader.Car.SessionData.HasCompletedSession
-			}
-		}
-	}
-
-	bw := NewPacket(nil)
-	bw.Write(TCPMessageLapCompleted)
-	bw.Write(carID)
-	bw.Write(lap.LapTime)
-	bw.Write(lap.Cuts)
-	bw.Write(uint8(len(ss.entryList)))
-
-	for _, leaderBoardLine := range leaderboard {
-		bw.Write(leaderBoardLine.Car.CarID)
-
-		switch ss.currentSession.SessionType {
-		case SessionTypeRace:
-			bw.Write(uint32(leaderBoardLine.Time.Milliseconds()))
-		default:
-			bw.Write(uint32(leaderBoardLine.Time.Milliseconds()))
-		}
-
-		bw.Write(uint16(leaderBoardLine.NumLaps))
-		bw.Write(leaderBoardLine.Car.SessionData.HasCompletedSession)
-	}
-
-	bw.Write(ss.raceConfig.DynamicTrack.CurrentGrip)
-
-	if target != nil {
-		return bw.WriteTCP(target.Connection.tcpConn)
-	}
-
-	ss.BroadcastAllTCP(bw)
 
 	return nil
 }
@@ -773,7 +616,7 @@ func (ss *ServerState) SendSetup(entrant *Car) error {
 }
 
 func (ss *ServerState) SendStatus(car *Car, currentTime int64) error {
-	if !car.IsConnected() || !car.Connection.HasSentFirstUpdate {
+	if !car.IsConnected() || !car.HasSentFirstUpdate() {
 		return nil
 	}
 
@@ -781,7 +624,7 @@ func (ss *ServerState) SendStatus(car *Car, currentTime int64) error {
 	carIndex := 0
 
 	for _, car := range ss.entryList {
-		if !car.IsConnected() || !car.Connection.HasSentFirstUpdate {
+		if !car.IsConnected() || !car.HasSentFirstUpdate() {
 			continue
 		}
 
@@ -829,7 +672,7 @@ func (ss *ServerState) SendMegaPacket(car *Car, currentTime int64, connectedCars
 
 func (ss *ServerState) BroadcastCarUpdate(car *Car) {
 	for _, otherCar := range ss.entryList {
-		if otherCar == car || !otherCar.IsConnected() || !otherCar.Connection.HasSentFirstUpdate {
+		if otherCar == car || !otherCar.IsConnected() || !otherCar.HasSentFirstUpdate() {
 			continue
 		}
 
@@ -900,56 +743,12 @@ func (ss *ServerState) closeTCPConnection(conn net.Conn) {
 	}
 
 	if car != nil {
-		car.Connection.Close()
+		car.CloseConnection()
 
-		if err := ss.plugin.OnConnectionClosed(*car); err != nil {
+		if err := ss.plugin.OnConnectionClosed(car.Copy()); err != nil {
 			ss.logger.WithError(err).Error("On connection closed plugin returned an error")
 		}
 	}
-}
-
-func (ss *ServerState) SendSessionInfo(entrant *Car, leaderBoard []*LeaderboardLine) error {
-	if leaderBoard == nil {
-		leaderBoard = ss.Leaderboard()
-	}
-
-	ss.logger.Debugf("Sending Client Session Information")
-
-	bw := NewPacket(nil)
-	bw.Write(TCPMessageCurrentSessionInfo)
-	bw.WriteString(ss.currentSession.Name)
-	bw.Write(ss.currentSessionIndex)                 // session index
-	bw.Write(ss.currentSession.SessionType)          // type
-	bw.Write(ss.currentSession.Time)                 // time
-	bw.Write(ss.currentSession.Laps)                 // laps
-	bw.Write(ss.raceConfig.DynamicTrack.CurrentGrip) // dynamic track, grip
-
-	for _, leaderboardLine := range leaderBoard {
-		bw.Write(leaderboardLine.Car.CarID)
-	}
-
-	bw.Write(ss.currentSession.startTime - int64(entrant.Connection.TimeOffset))
-
-	return bw.WriteTCP(entrant.Connection.tcpConn)
-}
-
-func (ss *ServerState) BroadcastSessionCompleted() {
-	ss.logger.Infof("Broadcasting session completed packet for session: %s", ss.currentSession.SessionType)
-	p := NewPacket(nil)
-	p.Write(TCPMessageSessionCompleted)
-
-	for _, leaderboardLine := range ss.Leaderboard() {
-		p.Write(leaderboardLine.Car.CarID)
-		p.Write(uint32(leaderboardLine.Time.Milliseconds()))
-		p.Write(uint16(leaderboardLine.NumLaps))
-	}
-
-	// this bool here was previously used by Kunos to indicate to kick all users out post-session if loop mode was on
-	// i'd like us not to require this if at all possible, so hopefully we can ignore it for now and just return '1'
-	// (i.e. car can stay in server as sessions cycle)
-	p.Write(uint8(1))
-
-	ss.BroadcastAllTCP(p)
 }
 
 type LeaderboardLine struct {
@@ -963,26 +762,27 @@ func (l *LeaderboardLine) String() string {
 	return fmt.Sprintf("CarID: %d, Time: %s, NumLaps: %d", l.Car.CarID, l.Time, l.NumLaps)
 }
 
-func (ss *ServerState) Leaderboard() []*LeaderboardLine {
+func (ss *ServerState) Leaderboard(sessionType SessionType) []*LeaderboardLine {
 	var leaderboard []*LeaderboardLine
 
 	for _, car := range ss.entryList {
 		var duration time.Duration
 
 		lapCount := 0
+		laps := car.GetLaps()
 
-		switch ss.currentSession.SessionType {
+		switch sessionType {
 		case SessionTypeRace:
-			for _, lap := range car.SessionData.Laps {
+			for _, lap := range laps {
 				duration += lap.LapTime
 			}
 
-			lapCount = len(car.SessionData.Laps)
+			lapCount = len(laps)
 		default:
 			bestLap := car.BestLap()
 			duration = bestLap.LapTime
 
-			for _, lap := range car.SessionData.Laps {
+			for _, lap := range laps {
 				if lap.Cuts == 0 {
 					lapCount++
 				}
@@ -996,7 +796,7 @@ func (ss *ServerState) Leaderboard() []*LeaderboardLine {
 		})
 	}
 
-	switch ss.currentSession.SessionType {
+	switch sessionType {
 	case SessionTypeRace:
 		sort.SliceStable(leaderboard, func(i, j int) bool {
 			carI, carJ := leaderboard[i], leaderboard[j]
@@ -1023,11 +823,14 @@ func (ss *ServerState) Leaderboard() []*LeaderboardLine {
 			}
 
 			if carI.Time == carJ.Time {
-				if len(carI.Car.SessionData.Laps) == len(carJ.Car.SessionData.Laps) {
+				carILaps := carI.Car.GetLaps()
+				carJLaps := carJ.Car.GetLaps()
+
+				if len(carILaps) == len(carJLaps) {
 					return carI.Car.CarID < carJ.Car.CarID
 				}
 
-				return len(carI.Car.SessionData.Laps) < len(carJ.Car.SessionData.Laps)
+				return len(carILaps) > len(carJLaps)
 			}
 
 			return carI.Time < carJ.Time
@@ -1043,28 +846,6 @@ func (ss *ServerState) Leaderboard() []*LeaderboardLine {
 	}
 
 	return leaderboard
-}
-
-func (ss *ServerState) BroadcastSessionStart(startTime int64) {
-	if ss.entryList.NumConnected() == 0 {
-		return
-	}
-
-	ss.logger.Infof("Broadcasting Session Start packet")
-
-	for _, entrant := range ss.entryList {
-		if entrant.IsConnected() && entrant.Connection.HasSentFirstUpdate {
-			p := NewPacket(nil)
-			p.Write(TCPMessageSessionStart)
-			p.Write(int32(ss.currentSession.startTime - int64(entrant.Connection.TimeOffset)))
-			p.Write(uint32(startTime - int64(entrant.Connection.TimeOffset)))
-			p.Write(uint16(entrant.Connection.Ping))
-
-			if err := p.WriteTCP(entrant.Connection.tcpConn); err != nil {
-				ss.logger.WithError(err).Errorf("Could not send race start packet to %s", entrant.String())
-			}
-		}
-	}
 }
 
 func (ss *ServerState) Close() {

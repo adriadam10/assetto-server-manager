@@ -14,9 +14,11 @@ import (
 
 func NewRaceControlDriver(carInfo udp.SessionCarInfo) *RaceControlDriver {
 	driver := &RaceControlDriver{
-		CarInfo:  carInfo,
-		Cars:     make(map[string]*RaceControlCarLapInfo),
-		LastSeen: time.Now(),
+		RaceControlDriverData: RaceControlDriverData{
+			CarInfo:  carInfo,
+			Cars:     make(map[string]*RaceControlCarLapInfo),
+			LastSeen: time.Now(),
+		},
 	}
 
 	driver.Cars[carInfo.CarModel] = NewRaceControlCarLapInfo(carInfo.CarModel)
@@ -30,7 +32,7 @@ func NewRaceControlCarLapInfo(carModel string) *RaceControlCarLapInfo {
 	}
 }
 
-type RaceControlDriver struct {
+type RaceControlDriverData struct {
 	CarInfo      udp.SessionCarInfo `json:"CarInfo"`
 	TotalNumLaps int                `json:"TotalNumLaps"`
 
@@ -47,11 +49,15 @@ type RaceControlDriver struct {
 
 	Collisions []Collision `json:"Collisions"`
 
-	driverSwapContext context.Context
-	driverSwapCfn     context.CancelFunc
-
 	// Cars is a map of CarModel to the information for that car.
 	Cars map[string]*RaceControlCarLapInfo `json:"Cars"`
+}
+
+type RaceControlDriver struct {
+	RaceControlDriverData
+
+	driverSwapContext context.Context
+	driverSwapCfn     context.CancelFunc
 
 	mutex sync.Mutex
 }
@@ -63,6 +69,32 @@ func (rcd *RaceControlDriver) CurrentCar() *RaceControlCarLapInfo {
 
 	logrus.Warnf("Could not find current car for driver: %s (current car: %s)", rcd.CarInfo.DriverGUID, rcd.CarInfo.CarModel)
 	return &RaceControlCarLapInfo{}
+}
+
+func (rcd *RaceControlDriver) ClearSessionInfo() {
+	rcd.mutex.Lock()
+	defer rcd.mutex.Unlock()
+
+	carInfo := rcd.CarInfo
+	loadedTime := rcd.LoadedTime
+	connectedTime := rcd.ConnectedTime
+
+	rcd.RaceControlDriverData = RaceControlDriverData{
+		CarInfo:       carInfo,
+		LoadedTime:    loadedTime,
+		ConnectedTime: connectedTime,
+
+		Cars: map[string]*RaceControlCarLapInfo{
+			carInfo.CarModel: NewRaceControlCarLapInfo(carInfo.CarModel),
+		},
+	}
+}
+
+func (rcd *RaceControlDriver) MarshalJSON() ([]byte, error) {
+	rcd.mutex.Lock()
+	defer rcd.mutex.Unlock()
+
+	return json.Marshal(rcd.RaceControlDriverData)
 }
 
 type RaceControlCarLapInfo struct {
@@ -186,7 +218,9 @@ func (d *DriverMap) sort() {
 			continue
 		}
 
+		driver.mutex.Lock()
 		driver.Position = pos + 1
+		driver.mutex.Unlock()
 	}
 }
 

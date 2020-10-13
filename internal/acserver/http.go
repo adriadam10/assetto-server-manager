@@ -113,9 +113,11 @@ func (h *HTTP) EntryList(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *HTTP) Info(w http.ResponseWriter, r *http.Request) {
+	currentSession := h.sessionManager.GetCurrentSession()
+
 	var timeLeft int
 
-	if h.state.currentSession.Laps > 0 {
+	if currentSession.Laps > 0 {
 		timeLeft = h.sessionManager.RemainingLaps()
 	} else {
 		timeLeft = int(h.sessionManager.RemainingSessionTime().Seconds())
@@ -132,7 +134,7 @@ func (h *HTTP) Info(w http.ResponseWriter, r *http.Request) {
 		Track:                      h.state.raceConfig.LobbyTrackName(),
 		Cars:                       h.state.raceConfig.Cars,
 		TimeOfDay:                  int(h.state.raceConfig.SunAngle),
-		Session:                    h.state.currentSessionIndex,
+		Session:                    h.sessionManager.GetSessionIndex(),
 		SessionTypes:               h.state.raceConfig.SessionTypes(),
 		Durations:                  h.state.raceConfig.SessionDurations(),
 		TimeLeftOfSessionInSeconds: timeLeft,
@@ -189,7 +191,9 @@ const (
 )
 
 func (h *HTTP) BookCar(w http.ResponseWriter, r *http.Request) {
-	if h.state.currentSession.SessionType != SessionTypeBooking {
+	currentSession := h.sessionManager.GetCurrentSession()
+
+	if currentSession.SessionType != SessionTypeBooking {
 		h.logger.Warnf("A booking request was made during non-booking mode.")
 		_, _ = w.Write([]byte(bookingClosed))
 		return
@@ -256,12 +260,14 @@ func (h *HTTP) UnBookCar(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *HTTP) TimeTable(w http.ResponseWriter, r *http.Request) {
+	currentSession := h.sessionManager.GetCurrentSession()
+
 	err := timeTableTemplate.Execute(w, timeTableData{
-		SessionType: h.state.currentSession.SessionType.ResultsString(),
-		SessionName: h.state.currentSession.Name,
+		SessionType: currentSession.SessionType.ResultsString(),
+		SessionName: currentSession.Name,
 		TimeLeft:    h.sessionManager.RemainingSessionTime(),
 		EntryList:   h.state.entryList,
-		Leaderboard: h.state.Leaderboard(),
+		Leaderboard: h.state.Leaderboard(currentSession.SessionType),
 	})
 
 	if err != nil {

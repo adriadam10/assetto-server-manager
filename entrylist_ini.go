@@ -32,19 +32,21 @@ func (e EntryList) ToACServerConfig() acserver.EntryList {
 
 	for carID, entrant := range e.AsSlice() {
 		entryList = append(entryList, &acserver.Car{
-			Driver: acserver.Driver{
-				Name: entrant.Name,
-				Team: entrant.Team,
-				GUID: entrant.GUID,
+			CarInfo: acserver.CarInfo{
+				Driver: acserver.Driver{
+					Name: entrant.Name,
+					Team: entrant.Team,
+					GUID: entrant.GUID,
+				},
+				Drivers:       nil, // @TODO driver swap support
+				CarID:         acserver.CarID(carID),
+				Model:         entrant.Model,
+				Skin:          entrant.Skin,
+				Ballast:       float32(entrant.Ballast),
+				Restrictor:    float32(entrant.Restrictor),
+				FixedSetup:    entrant.FixedSetup,
+				SpectatorMode: uint8(entrant.SpectatorMode),
 			},
-			Drivers:       nil, // @TODO driver swap support
-			CarID:         acserver.CarID(carID),
-			Model:         entrant.Model,
-			Skin:          entrant.Skin,
-			Ballast:       float32(entrant.Ballast),
-			Restrictor:    float32(entrant.Restrictor),
-			FixedSetup:    entrant.FixedSetup,
-			SpectatorMode: uint8(entrant.SpectatorMode),
 		})
 	}
 
