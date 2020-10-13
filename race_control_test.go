@@ -32,7 +32,9 @@ func (dummyServerProcess) Logs() string {
 }
 
 func (dummyServerProcess) SharedPitLane() *pitlanedetection.PitLane {
-	return nil
+	return &pitlanedetection.PitLane{
+		PitLaneCapable:     false,
+	}
 }
 
 func (d dummyServerProcess) Stop() error {
