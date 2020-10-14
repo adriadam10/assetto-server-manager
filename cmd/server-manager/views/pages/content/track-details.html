@@ -123,13 +123,15 @@
 
                                 <div><strong>Geotags: </strong>{{ stringArrayToCSV $info.Geotags }}</div>
 
-                                <div class="mb-2"><strong>Tags: </strong>{{ stringArrayToCSV $info.Tags }}</div>
+                                <div><strong>Tags: </strong>{{ stringArrayToCSV $info.Tags }}</div>
                             {{ end }}
 
                             {{ if $.HasAISplineFiles }}
-                                <button type="button" class="btn btn-sm btn-primary mt-2" data-toggle="modal" data-target="#{{ safeLayoutName $layout }}-splines">
-                                    Pit Lane Detection
-                                </button>
+                                <div class="mt-2">
+                                    <button type="button" class="btn btn-sm btn-primary" data-toggle="modal" data-target="#{{ safeLayoutName $layout }}-splines">
+                                        Pit Lane Detection
+                                    </button>
+                                </div>
                             {{ else }}
                                 <p class="text-warning">
                                     Pit Lane Detection is not available! Please make sure the track has <code>fast_lane.ai</code>
