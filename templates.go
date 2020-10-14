@@ -482,7 +482,7 @@ func prettifyName(s string, acronyms bool) string {
 		return "Any Car Model"
 	}
 
-	if s == DefaultTrackLayout {
+	if s == defaultLayoutName {
 		return "Default"
 	}
 
@@ -508,7 +508,7 @@ func prettifyName(s string, acronyms bool) string {
 }
 
 func safeLayoutName(s string) string {
-	if s == DefaultTrackLayout {
+	if s == defaultLayoutName {
 		return "Default"
 	}
 

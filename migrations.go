@@ -1194,6 +1194,28 @@ func addDefaultPenaltyOptionsToCustomRaces(s Store) error {
 
 	for _, championship := range championships {
 		for _, event := range championship.Events {
+			if event.IsRaceWeekend() {
+				raceWeekend, err := s.LoadRaceWeekend(event.RaceWeekendID.String())
+
+				if err != nil {
+					return err
+				}
+
+				for _, event := range raceWeekend.Sessions {
+					event.RaceConfig.CustomCutsEnabled = false
+					event.RaceConfig.CustomCutsPenaltyType = acserver.CutPenaltyKick
+					event.RaceConfig.CustomCutsBoPNumLaps = 2
+					event.RaceConfig.CustomCutsNumWarnings = 4
+					event.RaceConfig.CustomCutsBoPAmount = 50
+					event.RaceConfig.CustomCutsDriveThroughNumLaps = 2
+					event.RaceConfig.CustomCutsOnlyIfCleanSet = true
+				}
+
+				if err := s.UpsertRaceWeekend(raceWeekend); err != nil {
+					return err
+				}
+			}
+
 			event.RaceSetup.CustomCutsEnabled = false
 			event.RaceSetup.CustomCutsPenaltyType = acserver.CutPenaltyKick
 			event.RaceSetup.CustomCutsBoPNumLaps = 2
@@ -1206,6 +1228,28 @@ func addDefaultPenaltyOptionsToCustomRaces(s Store) error {
 		err := s.UpsertChampionship(championship)
 
 		if err != nil {
+			return err
+		}
+	}
+
+	raceWeekends, err := s.ListRaceWeekends()
+
+	if err != nil {
+		return err
+	}
+
+	for _, raceWeekend := range raceWeekends {
+		for _, event := range raceWeekend.Sessions {
+			event.RaceConfig.CustomCutsEnabled = false
+			event.RaceConfig.CustomCutsPenaltyType = acserver.CutPenaltyKick
+			event.RaceConfig.CustomCutsBoPNumLaps = 2
+			event.RaceConfig.CustomCutsNumWarnings = 4
+			event.RaceConfig.CustomCutsBoPAmount = 50
+			event.RaceConfig.CustomCutsDriveThroughNumLaps = 2
+			event.RaceConfig.CustomCutsOnlyIfCleanSet = true
+		}
+
+		if err := s.UpsertRaceWeekend(raceWeekend); err != nil {
 			return err
 		}
 	}

@@ -35,8 +35,8 @@ type Track struct {
 }
 
 const (
-	defaultTrackURL    = "/static/img/no-preview-general.png"
-	DefaultTrackLayout = "<default>"
+	defaultTrackURL   = "/static/img/no-preview-general.png"
+	defaultLayoutName = "<default>"
 )
 
 func (t Track) GetImagePath() string {
@@ -110,8 +110,6 @@ func (t Track) IsMod() bool {
 
 	return !ok
 }
-
-const defaultLayoutName = "<default>"
 
 func (t *Track) LayoutsCSV() string {
 	if t.Layouts == nil {
@@ -509,7 +507,7 @@ func (tm *TrackManager) loadTrackDetailsForTemplate(trackName string) (*trackDet
 	hasAISplineFiles := true
 
 	for _, layout := range track.Layouts {
-		if layout == DefaultTrackLayout || layout == "" {
+		if layout == defaultLayoutName || layout == "" {
 			_, err = os.Open(filepath.Join(ServerInstallPath, "content", "tracks", track.Name, "ai", "fast_lane.ai"))
 
 			if err != nil {
