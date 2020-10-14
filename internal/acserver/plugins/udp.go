@@ -53,7 +53,7 @@ type UDPPlugin struct {
 	enableEnhancedReporting bool
 }
 
-func NewUDPPlugin(listenPort int, sendAddress string) (*UDPPlugin, error) {
+func NewUDPPlugin(listenPort int, sendAddress string) (acserver.Plugin, error) {
 	remoteAddress, err := net.ResolveUDPAddr("udp", sendAddress)
 
 	if err != nil {
@@ -368,4 +368,8 @@ func (u *UDPPlugin) OnWeatherChange(_ acserver.CurrentWeather) error {
 
 func (u *UDPPlugin) OnTyreChange(car acserver.CarInfo, tyres string) error {
 	return nil
+}
+
+func (u *UDPPlugin) SortLeaderboard(_ acserver.SessionType, _ []*acserver.LeaderboardLine) {
+
 }

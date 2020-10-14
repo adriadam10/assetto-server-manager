@@ -473,3 +473,7 @@ func (p *PenaltiesPlugin) OnWeatherChange(_ acserver.CurrentWeather) error {
 func (p *PenaltiesPlugin) OnTyreChange(car acserver.CarInfo, tyres string) error {
 	return nil
 }
+
+func (p *PenaltiesPlugin) SortLeaderboard(_ acserver.SessionType, _ []*acserver.LeaderboardLine) {
+
+}
