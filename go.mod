@@ -5,7 +5,6 @@ require (
 	github.com/Masterminds/goutils v1.1.0 // indirect
 	github.com/Masterminds/semver v1.5.0
 	github.com/Masterminds/sprig v2.22.0+incompatible
-	github.com/OneOfOne/struct2ts v1.0.4 // indirect
 	github.com/RoaringBitmap/roaring v0.5.1 // indirect
 	github.com/alecthomas/chroma v0.8.1
 	github.com/blevesearch/bleve v1.0.10
@@ -21,7 +20,6 @@ require (
 	github.com/cznic/strutil v0.0.0-20181122101858-275e90344537 // indirect
 	github.com/dimchansky/utfbom v1.1.0
 	github.com/dustin/go-humanize v1.0.0
-	github.com/erikstmartin/go-testdb v0.0.0-20160219214506-8d10e4a1bae5 // indirect
 	github.com/facebookgo/ensure v0.0.0-20160127193407-b4ab57deab51 // indirect
 	github.com/facebookgo/stack v0.0.0-20160209184415-751773369052 // indirect
 	github.com/facebookgo/subset v0.0.0-20150612182917-8dac2c3c4870 // indirect
@@ -41,9 +39,6 @@ require (
 	github.com/jaytaylor/html2text v0.0.0-20200412013138-3577fbdbcff7
 	github.com/jmhodges/levigo v1.0.0 // indirect
 	github.com/kahlys/proxy v0.0.0-20190107154630-55f25d8735f4
-	github.com/kellydunn/golang-geo v0.7.0
-	github.com/kylelemons/go-gypsy v1.0.0 // indirect
-	github.com/lib/pq v1.8.0 // indirect
 	github.com/lorenzosaino/go-sysctl v0.1.0
 	github.com/mattn/go-runewidth v0.0.9 // indirect
 	github.com/mattn/go-zglob v0.0.3
@@ -69,7 +64,6 @@ require (
 	github.com/tinylib/msgp v1.1.2 // indirect
 	github.com/willf/bitset v1.1.11 // indirect
 	github.com/yuin/gopher-lua v0.0.0-20200816102855-ee81675732da
-	github.com/ziutek/mymysql v1.5.4 // indirect
 	go.etcd.io/bbolt v1.3.5
 	golang.org/x/crypto v0.0.0-20200820211705-5c72a883971a
 	golang.org/x/net v0.0.0-20200904194848-62affa334b73
