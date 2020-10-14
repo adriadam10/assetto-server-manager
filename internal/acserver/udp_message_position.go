@@ -65,22 +65,21 @@ func (pm *PositionMessageHandler) OnMessage(_ net.PacketConn, addr net.Addr, p *
 		return nil
 	}
 
+	car.SetPluginStatus(carUpdate)
+
 	currentSession := pm.sessionManager.GetCurrentSession()
 
-	if !car.HasSentFirstUpdate() || (currentSession.SessionType != SessionTypeQualifying || (currentSession.SessionType == SessionTypeQualifying && !currentSession.Solo)) {
-		if currentSession.SessionType == SessionTypeQualifying && currentSession.Solo {
-			carUpdate.Velocity = Vector3F{
-				X: 0,
-				Y: 0,
-				Z: 0,
-			}
+	if currentSession.IsSoloQualifying() {
+		carUpdate.Velocity = Vector3F{
+			X: 0,
+			Y: 0,
+			Z: 0,
 		}
-
-		car.SetStatus(carUpdate)
 	}
 
+	car.SetStatus(carUpdate, !currentSession.IsSoloQualifying() || !car.HasSentFirstUpdate())
+
 	car.SetHasUpdateToBroadcast(true)
-	car.SetPluginStatus(carUpdate)
 	car.AdjustTimeOffset()
 
 	if !car.HasSentFirstUpdate() {

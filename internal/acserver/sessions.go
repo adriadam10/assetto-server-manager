@@ -25,6 +25,10 @@ type SessionConfig struct {
 	WaitTime    int         `json:"wait_time" yaml:"wait_time"`
 }
 
+func (sc SessionConfig) IsSoloQualifying() bool {
+	return sc.SessionType == SessionTypeQualifying && sc.Solo
+}
+
 type sessionParams struct {
 	startTime, moveToNextSessionAt int64
 	sessionOverBroadcast           bool
