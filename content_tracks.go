@@ -34,7 +34,10 @@ type Track struct {
 	MetaData TrackMetaData
 }
 
-const defaultTrackURL = "/static/img/no-preview-general.png"
+const (
+	defaultTrackURL    = "/static/img/no-preview-general.png"
+	DefaultTrackLayout = "<default>"
+)
 
 func (t Track) GetImagePath() string {
 	if len(t.Layouts) == 0 {
@@ -363,16 +366,10 @@ func (th *TracksHandler) trackSplineImage(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	buffer := new(bytes.Buffer)
-	err = png.Encode(buffer, trackSplineImage)
+	err = png.Encode(w, trackSplineImage)
 
 	if err != nil {
-		missingImage := static.FSMustByte(false, "/img/no-preview-general.png")
-		_, _ = w.Write(missingImage)
-
 		logrus.WithError(err).Errorf("Couldn't encode ai spline image for layout: %s, track: %s", layout, track)
-	} else {
-		_, _ = w.Write(buffer.Bytes())
 	}
 }
 
@@ -386,9 +383,10 @@ func NewTrackManager() *TrackManager {
 type trackDetailsTemplateVars struct {
 	BaseTemplateVars
 
-	Track     *Track
-	TrackInfo map[string]*TrackInfo
-	Results   map[string][]SessionResults
+	Track            *Track
+	HasAISplineFiles bool
+	TrackInfo        map[string]*TrackInfo
+	Results          map[string][]SessionResults
 }
 
 func (tm *TrackManager) getSplineImage(track, layout, distanceString, maxSpeedString, maxDistanceString string) (image.Image, error) {
@@ -508,11 +506,32 @@ func (tm *TrackManager) loadTrackDetailsForTemplate(trackName string) (*trackDet
 		resultsMap[layout] = results
 	}
 
+	hasAISplineFiles := true
+
+	for _, layout := range track.Layouts {
+		if layout == DefaultTrackLayout || layout == "" {
+			_, err = os.Open(filepath.Join(ServerInstallPath, "content", "tracks", track.Name, "ai", "fast_lane.ai"))
+
+			if err != nil {
+				hasAISplineFiles = false
+				break
+			}
+		} else {
+			_, err = os.Open(filepath.Join(ServerInstallPath, "content", "tracks", track.Name, layout, "ai", "fast_lane.ai"))
+
+			if err != nil {
+				hasAISplineFiles = false
+				break
+			}
+		}
+	}
+
 	return &trackDetailsTemplateVars{
 		BaseTemplateVars: BaseTemplateVars{},
 		Track:            track,
 		TrackInfo:        trackInfoMap,
 		Results:          resultsMap,
+		HasAISplineFiles: hasAISplineFiles,
 	}, nil
 }
 

@@ -242,11 +242,7 @@ func (rc *RaceControl) OnCarUpdate(update udp.CarUpdate) (bool, error) {
 
 	wasInPits := driver.IsInPits
 
-	if rc.process.SharedPitLane().IsInPits(update) {
-		driver.IsInPits = true
-	} else {
-		driver.IsInPits = false
-	}
+	driver.IsInPits = rc.process.SharedPitLane().IsInPits(update)
 
 	sendUpdatedRaceControlStatus := false
 

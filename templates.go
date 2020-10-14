@@ -216,6 +216,7 @@ func (tr *Renderer) init() error {
 	}
 	funcs["ordinal"] = ordinal
 	funcs["prettify"] = prettifyName
+	funcs["safeLayoutName"] = safeLayoutName
 	funcs["weatherName"] = weatherName
 	funcs["carList"] = carList
 	funcs["jsonEncode"] = jsonEncode
@@ -481,6 +482,10 @@ func prettifyName(s string, acronyms bool) string {
 		return "Any Car Model"
 	}
 
+	if s == DefaultTrackLayout {
+		return "Default"
+	}
+
 	if carName, ok := carNameCache.get(s); ok {
 		return carName
 	}
@@ -500,6 +505,14 @@ func prettifyName(s string, acronyms bool) string {
 	}
 
 	return strings.Join(parts, " ")
+}
+
+func safeLayoutName(s string) string {
+	if s == DefaultTrackLayout {
+		return "Default"
+	}
+
+	return strings.TrimSpace(s)
 }
 
 func weatherName(key string) string {

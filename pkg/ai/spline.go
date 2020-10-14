@@ -8,8 +8,6 @@ import (
 	"os"
 	"path/filepath"
 
-	geo "github.com/kellydunn/golang-geo"
-
 	"justapengu.in/acsm/internal/acserver"
 )
 
@@ -157,22 +155,6 @@ func (s Spline) FindLargestContinuousSegment(maxDistance float64) *Spline {
 	s.ExtraPoints = biggestExtraSplit
 
 	return &s
-}
-
-func (s Spline) Polygon() *geo.Polygon {
-	poly := geo.NewPolygon(nil)
-
-	for i, point := range s.Points {
-		extra := s.ExtraPoints[i]
-
-		left := point.Position.Sub(extra.Normal.Mul(extra.SideLeft + 100))
-		right := point.Position.Add(extra.Normal.Mul(extra.SideRight + 100))
-
-		poly.Add(geo.NewPoint(float64(left.X), float64(left.Z)))
-		poly.Add(geo.NewPoint(float64(right.X), float64(right.Z)))
-	}
-
-	return poly
 }
 
 type Point struct {

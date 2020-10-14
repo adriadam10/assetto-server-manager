@@ -3,6 +3,7 @@ package acsm
 import (
 	"encoding/json"
 	"io/ioutil"
+	"justapengu.in/acsm/internal/acserver"
 	"os"
 	"path/filepath"
 	"sort"
@@ -90,6 +91,7 @@ var (
 		addSplitTypeToRaceWeekends,
 		addDefaultCustomChecksums,
 		migrateBlacklistToBlockList,
+		addDefaultPenaltyOptionsToCustomRaces,
 	}
 )
 
@@ -1152,6 +1154,58 @@ func migrateBlacklistToBlockList(s Store) error {
 		}
 
 		if err := blockListManager.AddToBlockList(guid); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func addDefaultPenaltyOptionsToCustomRaces(s Store) error {
+	logrus.Infof("Running migration: Add default penalty options to Custom Races")
+
+	customRaces, err := s.ListCustomRaces()
+
+	if err != nil {
+		return err
+	}
+
+	for _, customRace := range customRaces {
+		customRace.RaceConfig.CustomCutsEnabled = false
+		customRace.RaceConfig.CustomCutsPenaltyType = acserver.CutPenaltyKick
+		customRace.RaceConfig.CustomCutsBoPNumLaps = 2
+		customRace.RaceConfig.CustomCutsNumWarnings = 4
+		customRace.RaceConfig.CustomCutsBoPAmount = 50
+		customRace.RaceConfig.CustomCutsDriveThroughNumLaps = 2
+		customRace.RaceConfig.CustomCutsOnlyIfCleanSet = true
+
+		err := s.UpsertCustomRace(customRace)
+
+		if err != nil {
+			return err
+		}
+	}
+
+	championships, err := s.ListChampionships()
+
+	if err != nil {
+		return err
+	}
+
+	for _, championship := range championships {
+		for _, event := range championship.Events {
+			event.RaceSetup.CustomCutsEnabled = false
+			event.RaceSetup.CustomCutsPenaltyType = acserver.CutPenaltyKick
+			event.RaceSetup.CustomCutsBoPNumLaps = 2
+			event.RaceSetup.CustomCutsNumWarnings = 4
+			event.RaceSetup.CustomCutsBoPAmount = 50
+			event.RaceSetup.CustomCutsDriveThroughNumLaps = 2
+			event.RaceSetup.CustomCutsOnlyIfCleanSet = true
+		}
+
+		err := s.UpsertChampionship(championship)
+
+		if err != nil {
 			return err
 		}
 	}

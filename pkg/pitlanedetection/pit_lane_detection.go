@@ -76,7 +76,7 @@ func NewSharedPitLane(serverInstallPath, track, layout string, distance, maxDist
 	}
 
 	if len(pitLanePoints) == 0 {
-		return nil, errors.New("plugins: no pitlane points found")
+		return nil, errors.New("pitlanedetection: no pitlane points found")
 	}
 
 	var averageSpeed float32

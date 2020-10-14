@@ -976,12 +976,6 @@ class LiveTimings implements WebsocketHandler {
             $tr.find(".driver-pos").text(driver.Position === 255 || driver.Position === 0 ? "" : driver.Position);
         }
 
-        let inPits = "";
-
-        if (driver.IsInPits && addingDriverToConnectedTable) {
-            inPits = " IN PITS";
-        }
-
         // car model
         $tr.find(".driver-car").text(carInfo.CarName ? carInfo.CarName : prettifyName(driver.CarInfo.CarModel, true));
 
@@ -1000,7 +994,16 @@ class LiveTimings implements WebsocketHandler {
 
             let $currentLap = $tr.find(".current-lap");
 
-            $currentLap.text(currentLapTimeText + inPits);
+            $currentLap.text(currentLapTimeText);
+
+            if (driver.IsInPits) {
+                let $tag = $("<span/>");
+
+                $tag.attr('class', 'badge ml-2 mt-1 badge-danger');
+                $tag.text("PIT");
+
+                $currentLap.append($tag);
+            }
 
             for (const splitIndex in carInfo.CurrentLapSplits) {
                 let split = carInfo.CurrentLapSplits[splitIndex];
