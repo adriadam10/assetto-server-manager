@@ -999,7 +999,7 @@ class LiveTimings implements WebsocketHandler {
             if (driver.IsInPits) {
                 let $tag = $("<span/>");
 
-                $tag.attr('class', 'badge ml-2 mt-1 badge-danger');
+                $tag.attr('class', 'badge ml-2 mt-1 badge-primary');
                 $tag.text("PIT");
 
                 $currentLap.append($tag);

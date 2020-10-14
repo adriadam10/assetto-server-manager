@@ -3,7 +3,6 @@ package acsm
 import (
 	"encoding/json"
 	"io/ioutil"
-	"justapengu.in/acsm/internal/acserver"
 	"os"
 	"path/filepath"
 	"sort"
@@ -11,6 +10,7 @@ import (
 	"strings"
 
 	defaultcontent "justapengu.in/acsm/fixtures/default-content"
+	"justapengu.in/acsm/internal/acserver"
 
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"

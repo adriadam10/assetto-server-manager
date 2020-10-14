@@ -3,7 +3,6 @@ package plugins
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/sirupsen/logrus"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -11,6 +10,8 @@ import (
 
 	"justapengu.in/acsm/internal/acserver"
 	"justapengu.in/acsm/pkg/pitlanedetection"
+
+	"github.com/sirupsen/logrus"
 )
 
 type PenaltiesPlugin struct {
@@ -306,7 +307,8 @@ func (p *PenaltiesPlugin) OnLapCompleted(carID acserver.CarID, lap acserver.Lap)
 		}
 
 		if penaltyInfo == nil {
-			// @TODO some error?
+			logrus.Warnf("Car %d completed a lap, but is not present in the penalty info list, penalties disabled for this driver", carID)
+
 			return nil
 		}
 
