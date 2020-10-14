@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"image"
+	"image/color"
 	"image/draw"
 	"image/png"
 	"io"
@@ -17,6 +18,7 @@ import (
 	"strings"
 
 	"justapengu.in/acsm/cmd/server-manager/static"
+	"justapengu.in/acsm/pkg/ai"
 
 	"github.com/cj123/ini"
 	"github.com/dimchansky/utfbom"
@@ -32,7 +34,10 @@ type Track struct {
 	MetaData TrackMetaData
 }
 
-const defaultTrackURL = "/static/img/no-preview-general.png"
+const (
+	defaultTrackURL   = "/static/img/no-preview-general.png"
+	defaultLayoutName = "<default>"
+)
 
 func (t Track) GetImagePath() string {
 	if len(t.Layouts) == 0 {
@@ -56,7 +61,9 @@ func LoadTrackMetaDataFromName(name string) (*TrackMetaData, error) {
 	f, err := os.Open(metaDataFile)
 
 	if err != nil && os.IsNotExist(err) {
-		return &TrackMetaData{}, nil
+		return &TrackMetaData{
+			Layouts: make(map[string]*LayoutMetaData),
+		}, nil
 	} else if err != nil {
 		return nil, err
 	}
@@ -104,8 +111,6 @@ func (t Track) IsMod() bool {
 	return !ok
 }
 
-const defaultLayoutName = "<default>"
-
 func (t *Track) LayoutsCSV() string {
 	if t.Layouts == nil {
 		return "Default"
@@ -133,6 +138,18 @@ func trackLayoutURL(track, layout string) string {
 	return "/" + filepath.ToSlash(layoutPath)
 }
 
+func trackSplineURL(track, layout string) string {
+	var layoutPath string
+
+	if layout == "" || layout == defaultLayoutName {
+		layoutPath = filepath.Join("content", "tracks", track, "ui", "splines.png")
+	} else {
+		layoutPath = filepath.Join("content", "tracks", track, "ui", layout, "splines.png")
+	}
+
+	return "/" + filepath.ToSlash(layoutPath)
+}
+
 const trackInfoJSONName = "ui_track.json"
 const trackMetaDataName = "meta_data.json"
 
@@ -152,6 +169,14 @@ type TrackInfo struct {
 type TrackMetaData struct {
 	DownloadURL string `json:"downloadURL"`
 	Notes       string `json:"notes"`
+
+	Layouts map[string]*LayoutMetaData `json:"layouts"`
+}
+
+type LayoutMetaData struct {
+	SplineCalculationDistance    float64 `json:"splineCalculationDistance"`
+	SplineCalculationMaxSpeed    float32 `json:"splineCalculationMaxSpeed"`
+	SplineCalculationMaxDistance float64 `json:"splineCalculationMaxDistance"`
 }
 
 func (tmd *TrackMetaData) Save(name string) error {
@@ -312,10 +337,37 @@ func (th *TracksHandler) trackImage(w http.ResponseWriter, r *http.Request) {
 	n, err := th.trackManager.GetTrackImage(w, track, layout)
 
 	if err != nil {
-		image := static.FSMustByte(false, "/img/no-preview-general.png")
-		_, _ = w.Write(image)
+		missingImage := static.FSMustByte(false, "/img/no-preview-general.png")
+		_, _ = w.Write(missingImage)
 	} else {
 		w.Header().Add("Content-Length", strconv.Itoa(int(n)))
+	}
+}
+
+func (th *TracksHandler) trackSplineImage(w http.ResponseWriter, r *http.Request) {
+	track := chi.URLParam(r, "track")
+	layout := chi.URLParam(r, "layout")
+
+	w.Header().Add("Content-Type", "image/png")
+
+	distanceString := r.URL.Query().Get("distance")
+	maxSpeedString := r.URL.Query().Get("maxSpeed")
+	maxDistanceString := r.URL.Query().Get("maxDistance")
+
+	trackSplineImage, err := th.trackManager.getSplineImage(track, layout, distanceString, maxSpeedString, maxDistanceString)
+
+	if err != nil {
+		missingImage := static.FSMustByte(false, "/img/no-preview-general.png")
+		_, _ = w.Write(missingImage)
+
+		logrus.WithError(err).Errorf("Couldn't load ai spline image for layout: %s, track: %s", layout, track)
+		return
+	}
+
+	err = png.Encode(w, trackSplineImage)
+
+	if err != nil {
+		logrus.WithError(err).Errorf("Couldn't encode ai spline image for layout: %s, track: %s", layout, track)
 	}
 }
 
@@ -329,9 +381,91 @@ func NewTrackManager() *TrackManager {
 type trackDetailsTemplateVars struct {
 	BaseTemplateVars
 
-	Track     *Track
-	TrackInfo map[string]*TrackInfo
-	Results   map[string][]SessionResults
+	Track            *Track
+	HasAISplineFiles bool
+	TrackInfo        map[string]*TrackInfo
+	Results          map[string][]SessionResults
+}
+
+func (tm *TrackManager) getSplineImage(track, layout, distanceString, maxSpeedString, maxDistanceString string) (image.Image, error) {
+	trackMetaData, err := LoadTrackMetaDataFromName(track)
+
+	if err != nil {
+		return nil, err
+	}
+
+	found := false
+	var layoutMetaDataForCalc *LayoutMetaData
+
+	if distanceString != "" && maxSpeedString != "" && maxDistanceString != "" {
+		distance, err := strconv.ParseFloat(distanceString, 64)
+
+		if err != nil {
+			return nil, err
+		}
+
+		maxSpeed, err := strconv.ParseFloat(maxSpeedString, 32)
+
+		if err != nil {
+			return nil, err
+		}
+
+		maxDistance, err := strconv.ParseFloat(maxDistanceString, 64)
+
+		if err != nil {
+			return nil, err
+		}
+
+		if _, ok := trackMetaData.Layouts[layout]; ok {
+			trackMetaData.Layouts[layout].SplineCalculationDistance = distance
+			trackMetaData.Layouts[layout].SplineCalculationMaxSpeed = float32(maxSpeed)
+			trackMetaData.Layouts[layout].SplineCalculationMaxDistance = maxDistance
+
+			found = true
+			layoutMetaDataForCalc = trackMetaData.Layouts[layout]
+		}
+
+		if !found {
+			layoutMetaDataForCalc = &LayoutMetaData{
+				SplineCalculationDistance:    distance,
+				SplineCalculationMaxSpeed:    float32(maxSpeed),
+				SplineCalculationMaxDistance: maxDistance,
+			}
+
+			trackMetaData.Layouts[layout] = layoutMetaDataForCalc
+		}
+
+		err = trackMetaData.Save(track)
+
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		if _, ok := trackMetaData.Layouts[layout]; ok {
+			found = true
+			layoutMetaDataForCalc = trackMetaData.Layouts[layout]
+		}
+
+		if !found {
+			layoutMetaDataForCalc = &LayoutMetaData{
+				SplineCalculationDistance:    3,
+				SplineCalculationMaxSpeed:    30,
+				SplineCalculationMaxDistance: 4,
+			}
+
+			trackMetaData.Layouts[layout] = layoutMetaDataForCalc
+		}
+	}
+
+	trackSpline, pitLaneSpline, err := tm.getSplinesForLayout(track, layout, layoutMetaDataForCalc)
+
+	if err != nil {
+		return nil, err
+	}
+
+	trackSplineImage := tm.buildSplineImage(trackSpline, pitLaneSpline)
+
+	return trackSplineImage, nil
 }
 
 func (tm *TrackManager) loadTrackDetailsForTemplate(trackName string) (*trackDetailsTemplateVars, error) {
@@ -370,11 +504,32 @@ func (tm *TrackManager) loadTrackDetailsForTemplate(trackName string) (*trackDet
 		resultsMap[layout] = results
 	}
 
+	hasAISplineFiles := true
+
+	for _, layout := range track.Layouts {
+		if layout == defaultLayoutName || layout == "" {
+			_, err = os.Open(filepath.Join(ServerInstallPath, "content", "tracks", track.Name, "ai", "fast_lane.ai"))
+
+			if err != nil {
+				hasAISplineFiles = false
+				break
+			}
+		} else {
+			_, err = os.Open(filepath.Join(ServerInstallPath, "content", "tracks", track.Name, layout, "ai", "fast_lane.ai"))
+
+			if err != nil {
+				hasAISplineFiles = false
+				break
+			}
+		}
+	}
+
 	return &trackDetailsTemplateVars{
 		BaseTemplateVars: BaseTemplateVars{},
 		Track:            track,
 		TrackInfo:        trackInfoMap,
 		Results:          resultsMap,
+		HasAISplineFiles: hasAISplineFiles,
 	}, nil
 }
 
@@ -394,6 +549,55 @@ func (tm *TrackManager) ResultsForLayout(trackName, layout string) ([]SessionRes
 	}
 
 	return out, nil
+}
+
+func (tm *TrackManager) getSplinesForLayout(trackName, layout string, layoutMetaData *LayoutMetaData) (*ai.Spline, *ai.Spline, error) {
+	trackSpline, err := ai.ReadSpline(filepath.Join(ServerInstallPath, "content", "tracks", trackName, layout, "ai", "fast_lane.ai"))
+
+	if err != nil {
+		return nil, nil, err
+	}
+
+	pitLaneSpline, err := ai.ReadPitLaneSpline(
+		filepath.Join(ServerInstallPath, "content", "tracks", trackName, layout, "ai"),
+		trackSpline, layoutMetaData.SplineCalculationMaxSpeed,
+		layoutMetaData.SplineCalculationDistance,
+		layoutMetaData.SplineCalculationMaxDistance,
+	)
+
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return trackSpline, pitLaneSpline, nil
+}
+
+func (tm *TrackManager) buildSplineImage(trackSpline, pitLaneSpline *ai.Spline) image.Image {
+	x, y := trackSpline.Dimensions()
+
+	padding := 20
+	img := image.NewRGBA(image.Rectangle{Min: image.Pt(0, 0), Max: image.Pt(int(x)+(padding*2), int(y)+(padding*2))})
+	radius := 1
+
+	minX, minY := trackSpline.Min()
+
+	for i, point := range trackSpline.Points {
+		extra := trackSpline.ExtraPoints[i]
+
+		left := point.Position.Sub(extra.Normal.Mul(extra.SideLeft))
+		right := point.Position.Add(extra.Normal.Mul(extra.SideRight))
+
+		draw.Draw(img, img.Bounds(), &circle{image.Pt(padding+int(point.Position.X-minX), padding+int(point.Position.Z-minY)), radius, color.RGBA{R: 0, G: 125, B: 0, A: 0xff}}, image.Pt(0, 0), draw.Over)
+
+		draw.Draw(img, img.Bounds(), &circle{image.Pt(padding+int(left.X-minX), padding+int(left.Z-minY)), radius, color.RGBA{R: 150, G: 0, B: 0, A: 0xff}}, image.Pt(0, 0), draw.Over)
+		draw.Draw(img, img.Bounds(), &circle{image.Pt(padding+int(right.X-minX), padding+int(right.Z-minY)), radius, color.RGBA{R: 0, G: 0, B: 150, A: 0xff}}, image.Pt(0, 0), draw.Over)
+	}
+
+	for _, point := range pitLaneSpline.Points {
+		draw.Draw(img, img.Bounds(), &circle{image.Pt(padding+int(point.Position.X-minX), padding+int(point.Position.Z-minY)), radius, color.RGBA{R: 255, G: 125, B: 0, A: 0xff}}, image.Pt(0, 0), draw.Over)
+	}
+
+	return img
 }
 
 func (tm *TrackManager) ListTracks() ([]Track, error) {

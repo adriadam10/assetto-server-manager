@@ -49,3 +49,10 @@
     cursor: pointer;
   }
 }
+
+@media (min-width: breakpoint-min(sm)) {
+  .spline-modal-dialog {
+    max-width: 80% !important;
+  }
+}
+

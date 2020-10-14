@@ -84,13 +84,14 @@ type EventConfig struct {
 	Sessions Sessions         `json:"sessions" yaml:"sessions"`
 	Weather  []*WeatherConfig `json:"weather" yaml:"weather"`
 
-	CustomCutsEnabled        bool           `json:"custom_cuts_enabled" yaml:"custom_cuts_enabled"`
-	CustomCutsOnlyIfCleanSet bool           `json:"custom_cuts_only_if_clean_set" yaml:"custom_cuts_only_if_clean_set"`
-	CustomCutsIgnoreFirstLap bool           `json:"custom_cuts_ignore_first_lap" yaml:"custom_cuts_ignore_first_lap"`
-	CustomCutsNumWarnings    int            `json:"custom_cuts_num_warnings" yaml:"custom_cuts_num_warnings"`
-	CustomCutsPenaltyType    CutPenaltyType `json:"custom_cuts_penalty_type" yaml:"custom_cuts_penalty_type"`
-	CustomCutsBoPAmount      float32        `json:"custom_cuts_bop_amount" yaml:"custom_cuts_bop_amount"`
-	CustomCutsBoPNumLaps     int            `json:"custom_cuts_bop_num_laps" yaml:"custom_cuts_bop_num_laps"`
+	CustomCutsEnabled             bool           `json:"custom_cuts_enabled" yaml:"custom_cuts_enabled"`
+	CustomCutsOnlyIfCleanSet      bool           `json:"custom_cuts_only_if_clean_set" yaml:"custom_cuts_only_if_clean_set"`
+	CustomCutsIgnoreFirstLap      bool           `json:"custom_cuts_ignore_first_lap" yaml:"custom_cuts_ignore_first_lap"`
+	CustomCutsNumWarnings         int            `json:"custom_cuts_num_warnings" yaml:"custom_cuts_num_warnings"`
+	CustomCutsPenaltyType         CutPenaltyType `json:"custom_cuts_penalty_type" yaml:"custom_cuts_penalty_type"`
+	CustomCutsBoPAmount           float32        `json:"custom_cuts_bop_amount" yaml:"custom_cuts_bop_amount"`
+	CustomCutsBoPNumLaps          int            `json:"custom_cuts_bop_num_laps" yaml:"custom_cuts_bop_num_laps"`
+	CustomCutsDriveThroughNumLaps int            `json:"custom_cuts_drive_through_num_laps" yaml:"custom_cuts_drive_through_num_laps"`
 }
 
 type CutPenaltyType int
@@ -100,14 +101,15 @@ const (
 	CutPenaltyBallast
 	CutPenaltyRestrictor
 	CutPenaltyWarn
-	//CutPenaltyDriveThrough
+	CutPenaltyDriveThrough
 )
 
 var CutPenaltyOptions = map[CutPenaltyType]string{
-	CutPenaltyKick:       "Kick",
-	CutPenaltyBallast:    "Apply Ballast",
-	CutPenaltyRestrictor: "Apply Restrictor",
-	CutPenaltyWarn:       "Warn Driver",
+	CutPenaltyKick:         "Kick",
+	CutPenaltyBallast:      "Apply Ballast",
+	CutPenaltyRestrictor:   "Apply Restrictor",
+	CutPenaltyWarn:         "Warn Driver",
+	CutPenaltyDriveThrough: "Drive Through",
 }
 
 func (c EventConfig) Tyres() map[string]bool {

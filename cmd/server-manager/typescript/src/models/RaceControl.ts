@@ -346,6 +346,7 @@ class RaceControlDriverMapRaceControlDriver {
     Split: string;
     LastSeen: Date;
     LastPos: RaceControlDriverMapRaceControlDriverVector3F;
+    IsInPits: boolean;
     NormalisedSplinePos: number;
     SteerAngle: number;
     StatusBytes: number;
@@ -362,6 +363,7 @@ class RaceControlDriverMapRaceControlDriver {
         this.Split = ('Split' in d) ? d.Split as string : '';
         this.LastSeen = ('LastSeen' in d) ? ParseDate(d.LastSeen) : new Date();
         this.LastPos = new RaceControlDriverMapRaceControlDriverVector3F(d.LastPos);
+        this.IsInPits = ('IsInPits' in d) ? d.IsInPits as boolean : false;
         this.NormalisedSplinePos = ('NormalisedSplinePos' in d) ? d.NormalisedSplinePos as number : 0;
         this.SteerAngle = ('SteerAngle' in d) ? d.SteerAngle as number : 0;
         this.StatusBytes = ('StatusBytes' in d) ? d.StatusBytes as number : 0;

@@ -27,6 +27,74 @@
         <h2>Layouts</h2>
 
         {{ range $index, $layout := $.Track.Layouts }}
+            {{ if $.HasAISplineFiles }}
+                <div class="modal fade" id="{{ safeLayoutName $layout }}-splines" tabindex="-1" role="dialog" aria-labelledby="{{ safeLayoutName $layout }}-splines-label" aria-hidden="true">
+                    <div class="modal-dialog spline-modal-dialog" role="document">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title" id="{{ safeLayoutName $layout }}-splines-label">{{ prettify $layout true }} Pit Lane Detection</h5>
+                                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                                    <span aria-hidden="true">&times;</span>
+                                </button>
+                            </div>
+                            <div class="modal-body">
+                                <p>Pit Lane Detection is used by a few things in the manager, the Live Timings page uses it to display
+                                when a driver is in the pits, the Penalty system uses it to give drive through penalties and more!</p>
+
+                                <p>The Pit Lane is shown in orange. If it doesn't look correct try tweaking the values
+                                    below then clicking recalculate!</p>
+
+                                {{ $layoutMetaData := index $.Track.MetaData.Layouts $layout }}
+
+                                <form class="form form-inline recalculate-splines">
+                                    <label class="mr-2" style="margin-bottom: .5rem;" for="Distance">Distance</label>
+                                    <input type="number" step="0.1" class="form-control mb-2 mr-sm-2 distance" id="{{ $layout }}-distance"
+                                           {{ with $layoutMetaData }}value="{{ .SplineCalculationDistance }}" {{ else }}value="3.0"{{ end }}
+                                    >
+
+                                    <label class="mr-2" style="margin-bottom: .5rem;" for="MaxSpeed">Max Speed</label>
+                                    <input type="number" step="0.1" class="form-control mb-2 mr-sm-2 maxSpeed" id="{{ $layout }}-maxSpeed"
+                                           {{ with $layoutMetaData }}value="{{ .SplineCalculationMaxSpeed }}" {{ else }}value="30.0"{{ end }}
+                                    >
+
+                                    <label class="mr-2" style="margin-bottom: .5rem;" for="MaxDistance">Max Distance</label>
+                                    <input type="number" step="0.1" class="form-control mb-2 mr-sm-2 maxDistance" id="{{ $layout }}-maxDistance"
+                                           {{ with $layoutMetaData }}value="{{ .SplineCalculationMaxDistance }}" {{ else }}value="4.0"{{ end }}
+                                    >
+
+                                    <button class="btn btn-primary mb-2 recalculate-splines-button">Recalculate and Save</button>
+                                </form>
+
+                                <div><small class="font-italic">
+                                        Distance = The minimum distance between two points above which they are considered
+                                        not part of the same track segment (pit lane vs fast lane).
+                                </small></div>
+
+                                <div><small class="font-italic">
+                                        Max Speed = The maximum speed that AI are instructed to drive through the pit lane at.
+                                </small></div>
+
+                                <div><small class="font-italic">
+                                        Max Distance = The maximum distance between the fast lane and pit lane at which they
+                                        would still be considered to be “overlapping”.
+                                </small></div>
+
+                                <img class="img img-fluid splines-image"
+                                     src="{{ trackSplineURL $.Track.Name $layout }}"
+                                >
+
+                                <p class="text-warning">If the image is missing please re-upload your track!</p>
+
+                                <span class="d-none splines-image-base-url">{{ trackSplineURL $.Track.Name $layout }}</span>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            {{ end }}
+
             <div class="card mt-2">
                 <div class="card-body">
 
@@ -56,6 +124,19 @@
                                 <div><strong>Geotags: </strong>{{ stringArrayToCSV $info.Geotags }}</div>
 
                                 <div><strong>Tags: </strong>{{ stringArrayToCSV $info.Tags }}</div>
+                            {{ end }}
+
+                            {{ if $.HasAISplineFiles }}
+                                <div class="mt-2">
+                                    <button type="button" class="btn btn-sm btn-primary" data-toggle="modal" data-target="#{{ safeLayoutName $layout }}-splines">
+                                        Pit Lane Detection
+                                    </button>
+                                </div>
+                            {{ else }}
+                                <p class="text-warning">
+                                    Pit Lane Detection is not available! Please make sure the track has <code>fast_lane.ai</code>
+                                    and <code>pit_lane.ai</code> files for each layout and then re-upload the track to the Manager!
+                                </p>
                             {{ end }}
                         </div>
                     </div>

@@ -1,6 +1,9 @@
 package acsm
 
-import "justapengu.in/acsm/internal/acserver"
+import (
+	"justapengu.in/acsm/internal/acserver"
+	"justapengu.in/acsm/pkg/pitlanedetection"
+)
 
 // ConfigDefault is the default server config (ish) as supplied via the assetto corsa server.
 func ConfigDefault() ServerConfig {
@@ -115,13 +118,15 @@ func ConfigDefault() ServerConfig {
 				},
 			},
 
-			CustomCutsEnabled:        false,
-			CustomCutsOnlyIfCleanSet: false,
-			CustomCutsIgnoreFirstLap: true,
-			CustomCutsPenaltyType:    acserver.CutPenaltyKick,
-			CustomCutsNumWarnings:    4,
-			CustomCutsBoPAmount:      50,
-			CustomCutsBoPNumLaps:     1,
+			CustomCutsEnabled:             false,
+			CustomCutsOnlyIfCleanSet:      false,
+			CustomCutsIgnoreFirstLap:      true,
+			CustomCutsPenaltyType:         acserver.CutPenaltyKick,
+			CustomCutsNumWarnings:         4,
+			CustomCutsBoPAmount:           50,
+			CustomCutsBoPNumLaps:          1,
+			CustomCutsDriveThroughNumLaps: 2,
+			PitLane:                       &pitlanedetection.PitLane{},
 		},
 	}
 }

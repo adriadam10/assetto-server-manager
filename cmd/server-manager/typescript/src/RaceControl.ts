@@ -996,6 +996,15 @@ class LiveTimings implements WebsocketHandler {
 
             $currentLap.text(currentLapTimeText);
 
+            if (driver.IsInPits) {
+                let $tag = $("<span/>");
+
+                $tag.attr('class', 'badge ml-2 mt-1 badge-primary');
+                $tag.text("PIT");
+
+                $currentLap.append($tag);
+            }
+
             for (const splitIndex in carInfo.CurrentLapSplits) {
                 let split = carInfo.CurrentLapSplits[splitIndex];
 

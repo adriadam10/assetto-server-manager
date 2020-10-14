@@ -60,6 +60,12 @@ export namespace CustomRace {
                     $customCutsBoPAmount.attr("min", "");
                     $customCutsBoPNumLaps.attr("min", "");
                 }
+
+                if (value == 4) {
+                    $("#CustomCutsDriveThroughNumLapsWrapper").show();
+                } else {
+                    $("#CustomCutsDriveThroughNumLapsWrapper").hide();
+                }
             })
         }
     }

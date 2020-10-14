@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"justapengu.in/acsm/internal/acserver"
+	"justapengu.in/acsm/pkg/pitlanedetection"
 	"justapengu.in/acsm/pkg/udp"
 )
 
@@ -28,6 +29,12 @@ func (d dummyServerProcess) CurrentServerConfig() *GlobalServerConfig {
 
 func (dummyServerProcess) Logs() string {
 	return ""
+}
+
+func (dummyServerProcess) SharedPitLane() *pitlanedetection.PitLane {
+	return &pitlanedetection.PitLane{
+		PitLaneCapable: false,
+	}
 }
 
 func (d dummyServerProcess) Stop() error {
@@ -858,7 +865,7 @@ func TestRaceControl_OnCarUpdate(t *testing.T) {
 		return
 	}
 
-	err = raceControl.OnCarUpdate(udp.CarUpdate{
+	_, err = raceControl.OnCarUpdate(udp.CarUpdate{
 		CarID:               drivers[1].CarID,
 		Pos:                 udp.Vec{X: 100, Y: 20, Z: 3},
 		Velocity:            udp.Vec{X: 10, Y: 20, Z: 20},
@@ -890,7 +897,7 @@ func TestRaceControl_OnCarUpdate(t *testing.T) {
 	}
 
 	t.Run("Unknown driver", func(t *testing.T) {
-		err := raceControl.OnCarUpdate(udp.CarUpdate{
+		_, err := raceControl.OnCarUpdate(udp.CarUpdate{
 			CarID:               100, // unknown car
 			Pos:                 udp.Vec{X: 100, Y: 20, Z: 3},
 			Velocity:            udp.Vec{X: 10, Y: 20, Z: 20},

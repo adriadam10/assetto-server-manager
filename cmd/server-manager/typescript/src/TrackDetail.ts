@@ -7,6 +7,7 @@ export class TrackDetail {
         }
 
         $(".track-image").on("click", TrackDetail.onTrackLayoutClick);
+        $(".recalculate-splines-button").on("click", TrackDetail.onRecalculateSplinesClick);
 
         TrackDetail.fixLayoutImageHeights();
         TrackDetail.initSummerNote();
@@ -41,5 +42,23 @@ export class TrackDetail {
             tabsize: 2,
             height: 200,
         });
+    }
+
+    private static onRecalculateSplinesClick(e: ClickEvent) {
+        e.preventDefault();
+
+        const $currentTarget = $(e.currentTarget);
+        let $form = $currentTarget.parent();
+        let $modal = $form.parent();
+
+        let baseURL: string = $modal.children(".splines-image-base-url").text() as string;
+
+        let distance: number = $form.children(".distance").val() as number;
+        let maxSpeed: number = $form.children(".maxSpeed").val() as number;
+        let maxDistance: number = $form.children(".maxDistance").val() as number;
+
+        let url = baseURL + "?distance=" + distance + "&maxSpeed=" + maxSpeed + "&maxDistance=" + maxDistance;
+
+        $modal.children(".splines-image").attr("src", url)
     }
 }

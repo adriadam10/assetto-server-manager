@@ -14,6 +14,7 @@ import (
 	"github.com/sirupsen/logrus"
 
 	"justapengu.in/acsm/internal/acserver"
+	"justapengu.in/acsm/pkg/pitlanedetection"
 )
 
 func init() {
@@ -395,14 +396,16 @@ type CurrentRaceConfig struct {
 
 	Sessions Sessions                  `ini:"-"`
 	Weather  map[string]*WeatherConfig `ini:"-"`
+	PitLane  *pitlanedetection.PitLane `ini:"-"`
 
-	CustomCutsEnabled        bool                    `ini:"-"`
-	CustomCutsOnlyIfCleanSet bool                    `ini:"-"`
-	CustomCutsIgnoreFirstLap bool                    `ini:"-"`
-	CustomCutsNumWarnings    int                     `ini:"-"`
-	CustomCutsPenaltyType    acserver.CutPenaltyType `ini:"-"`
-	CustomCutsBoPAmount      float32                 `ini:"-"`
-	CustomCutsBoPNumLaps     int                     `ini:"-"`
+	CustomCutsEnabled             bool                    `ini:"-"`
+	CustomCutsOnlyIfCleanSet      bool                    `ini:"-"`
+	CustomCutsIgnoreFirstLap      bool                    `ini:"-"`
+	CustomCutsNumWarnings         int                     `ini:"-"`
+	CustomCutsPenaltyType         acserver.CutPenaltyType `ini:"-"`
+	CustomCutsBoPAmount           float32                 `ini:"-"`
+	CustomCutsBoPNumLaps          int                     `ini:"-"`
+	CustomCutsDriveThroughNumLaps int                     `ini:"-"`
 }
 
 func (c CurrentRaceConfig) ToACConfig() *acserver.EventConfig {
@@ -445,13 +448,14 @@ func (c CurrentRaceConfig) ToACConfig() *acserver.EventConfig {
 			SessionTransfer: c.DynamicTrack.SessionTransfer,
 			LapGain:         c.DynamicTrack.LapGain,
 		},
-		CustomCutsEnabled:        c.CustomCutsEnabled,
-		CustomCutsOnlyIfCleanSet: c.CustomCutsOnlyIfCleanSet,
-		CustomCutsIgnoreFirstLap: c.CustomCutsIgnoreFirstLap,
-		CustomCutsNumWarnings:    c.CustomCutsNumWarnings,
-		CustomCutsPenaltyType:    c.CustomCutsPenaltyType,
-		CustomCutsBoPAmount:      c.CustomCutsBoPAmount,
-		CustomCutsBoPNumLaps:     c.CustomCutsBoPNumLaps,
+		CustomCutsEnabled:             c.CustomCutsEnabled,
+		CustomCutsOnlyIfCleanSet:      c.CustomCutsOnlyIfCleanSet,
+		CustomCutsIgnoreFirstLap:      c.CustomCutsIgnoreFirstLap,
+		CustomCutsNumWarnings:         c.CustomCutsNumWarnings,
+		CustomCutsPenaltyType:         c.CustomCutsPenaltyType,
+		CustomCutsBoPAmount:           c.CustomCutsBoPAmount,
+		CustomCutsBoPNumLaps:          c.CustomCutsBoPNumLaps,
+		CustomCutsDriveThroughNumLaps: c.CustomCutsDriveThroughNumLaps,
 	}
 
 	i := 0

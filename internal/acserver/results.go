@@ -232,4 +232,9 @@ type SessionResult struct {
 	DriverName string  `json:"DriverName"`
 	Restrictor float32 `json:"Restrictor"`
 	TotalTime  int     `json:"TotalTime"`
+
+	HasPenalty   bool          `json:"HasPenalty"`
+	PenaltyTime  time.Duration `json:"PenaltyTime"`
+	LapPenalty   int           `json:"LapPenalty"`
+	Disqualified bool          `json:"Disqualified"`
 }

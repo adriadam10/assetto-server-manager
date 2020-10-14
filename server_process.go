@@ -19,6 +19,8 @@ import (
 
 	"justapengu.in/acsm/internal/acserver"
 	"justapengu.in/acsm/internal/acserver/plugins"
+	"justapengu.in/acsm/pkg/ai"
+	"justapengu.in/acsm/pkg/pitlanedetection"
 
 	"github.com/sirupsen/logrus"
 )
@@ -35,6 +37,7 @@ type ServerProcess interface {
 	SetPlugin(acserver.Plugin)
 	NotifyDone(chan struct{})
 	Logs() string
+	SharedPitLane() *pitlanedetection.PitLane
 }
 
 type eventStartPacket struct {
@@ -64,7 +67,8 @@ type AssettoServerProcess struct {
 	mutex          sync.Mutex
 	extraProcesses []*exec.Cmd
 
-	logFile io.WriteCloser
+	sharedPitLane *pitlanedetection.PitLane
+	logFile       io.WriteCloser
 }
 
 func NewAssettoServerProcess(store Store, contentManagerWrapper *ContentManagerWrapper) *AssettoServerProcess {
@@ -76,6 +80,10 @@ func NewAssettoServerProcess(store Store, contentManagerWrapper *ContentManagerW
 		logBuffer:             newLogBuffer(MaxLogSizeBytes),
 		store:                 store,
 		contentManagerWrapper: contentManagerWrapper,
+		sharedPitLane: &pitlanedetection.PitLane{
+			PitLaneSpline: &ai.Spline{},
+			TrackSpline:   &ai.Spline{},
+		},
 	}
 
 	go sp.loop()
@@ -222,11 +230,49 @@ func (sp *AssettoServerProcess) startRaceEvent(raceEvent RaceEvent, serverOption
 	logger.SetLevel(logrus.GetLevel())
 	logger.SetFormatter(&logrus.TextFormatter{FullTimestamp: true})
 
+	raceConfig := raceEvent.GetRaceConfig()
+
+	trackMetaData, err := LoadTrackMetaDataFromName(raceConfig.Track)
+
+	if err != nil {
+		return err
+	}
+
+	layoutMetaDataForCalc := &LayoutMetaData{
+		SplineCalculationDistance:    3,
+		SplineCalculationMaxSpeed:    30,
+		SplineCalculationMaxDistance: 4,
+	}
+
+	if _, ok := trackMetaData.Layouts[raceConfig.TrackLayout]; ok {
+		layoutMetaDataForCalc = trackMetaData.Layouts[raceConfig.TrackLayout]
+	}
+
+	sp.sharedPitLane, err = pitlanedetection.NewSharedPitLane(
+		ServerInstallPath,
+		raceConfig.Track,
+		raceConfig.TrackLayout,
+		layoutMetaDataForCalc.SplineCalculationDistance,
+		layoutMetaDataForCalc.SplineCalculationMaxDistance,
+		layoutMetaDataForCalc.SplineCalculationMaxSpeed,
+	)
+
+	if err != nil {
+		logrus.WithError(err).Errorf("Couldn't read track (%s) splines, pit lane detection disabled", raceConfig.Track)
+		sp.sharedPitLane = &pitlanedetection.PitLane{
+			PitLaneCapable: false,
+		}
+	}
+
 	udpPluginPortsSetup := serverOptions.UDPPluginLocalPort >= 0 && serverOptions.UDPPluginAddress != "" || strings.Contains(serverOptions.UDPPluginAddress, ":")
 
 	var activePlugins []acserver.Plugin
 
-	activePlugins = append(activePlugins, sp.plugin, plugins.NewPenaltiesPlugin())
+	activePlugins = append(
+		activePlugins,
+		sp.plugin,
+		plugins.NewPenaltiesPlugin(sp.sharedPitLane),
+	)
 
 	if udpPluginPortsSetup {
 		udpPlugin, err := plugins.NewUDPPlugin(serverOptions.UDPPluginLocalPort, serverOptions.UDPPluginAddress)
@@ -237,8 +283,6 @@ func (sp *AssettoServerProcess) startRaceEvent(raceEvent RaceEvent, serverOption
 
 		activePlugins = append(activePlugins, udpPlugin)
 	}
-
-	raceConfig := raceEvent.GetRaceConfig()
 
 	var checksums []acserver.CustomChecksumFile
 
@@ -556,6 +600,10 @@ func (sp *AssettoServerProcess) onStop() error {
 
 func (sp *AssettoServerProcess) Logs() string {
 	return sp.logBuffer.String()
+}
+
+func (sp *AssettoServerProcess) SharedPitLane() *pitlanedetection.PitLane {
+	return sp.sharedPitLane
 }
 
 func (sp *AssettoServerProcess) Event() RaceEvent {
