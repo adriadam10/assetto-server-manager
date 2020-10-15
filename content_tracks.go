@@ -586,17 +586,32 @@ func (tm *TrackManager) getSplinesForLayout(trackName, layout string, layoutMeta
 	return trackSpline, pitLaneSpline, nil
 }
 
+const maxDimensionsToDisplayFullImage = 2400
+
 func (tm *TrackManager) buildSplineImage(trackSpline, pitLaneSpline *ai.Spline) image.Image {
 	x, y := trackSpline.Dimensions()
+	minX, minY := trackSpline.Min()
+	maxX, maxY := trackSpline.Max()
 
 	padding := 20
+
+	if x > maxDimensionsToDisplayFullImage || y > maxDimensionsToDisplayFullImage {
+		x, y = pitLaneSpline.Dimensions()
+		minX, minY = pitLaneSpline.Min()
+		maxX, maxY = pitLaneSpline.Max()
+		padding = 200
+
+		x += float32(2 * padding)
+		y += float32(2 * padding)
+	}
+
 	img := image.NewRGBA(image.Rectangle{Min: image.Pt(0, 0), Max: image.Pt(int(x)+(padding*2), int(y)+(padding*2))})
 	radius := 1
 
-	minX, minY := trackSpline.Min()
-
 	for _, point := range trackSpline.Points {
-		draw.Draw(img, img.Bounds(), &circle{image.Pt(padding+int(point.Position.X-minX), padding+int(point.Position.Z-minY)), radius, color.RGBA{R: 0, G: 125, B: 0, A: 0xff}}, image.Pt(0, 0), draw.Over)
+		if point.Position.X > minX-float32(padding) && point.Position.X < maxX+float32(padding) && point.Position.Z > minY-float32(padding) && point.Position.Z < maxY+float32(padding) {
+			draw.Draw(img, img.Bounds(), &circle{image.Pt(padding+int(point.Position.X-minX), padding+int(point.Position.Z-minY)), radius, color.RGBA{R: 0, G: 125, B: 0, A: 0xff}}, image.Pt(0, 0), draw.Over)
+		}
 	}
 
 	for _, point := range pitLaneSpline.Points {
