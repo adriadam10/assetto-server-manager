@@ -28,7 +28,7 @@
 
         {{ range $index, $layout := $.Track.Layouts }}
             {{ if $.HasAISplineFiles }}
-                <div class="modal fade" id="{{ safeLayoutName $layout }}-splines" tabindex="-1" role="dialog" aria-labelledby="{{ safeLayoutName $layout }}-splines-label" aria-hidden="true">
+                <div class="modal fade pitlane-detection-modal" id="{{ safeLayoutName $layout }}-splines" tabindex="-1" role="dialog" aria-labelledby="{{ safeLayoutName $layout }}-splines-label" aria-hidden="true">
                     <div class="modal-dialog spline-modal-dialog" role="document">
                         <div class="modal-content">
                             <div class="modal-header">
@@ -63,24 +63,31 @@
                                     >
 
                                     <button class="btn btn-primary mb-2 recalculate-splines-button">Recalculate and Save</button>
+
+                                    <div class="status-indicator" style="display: none;">
+                                        <i class="fas fa-spinner fa-pulse ml-3 mb-1"></i>
+                                    </div>
                                 </form>
 
                                 <div><small class="font-italic">
-                                        Distance = The minimum distance between two points above which they are considered
-                                        not part of the same track segment (pit lane vs fast lane).
+                                        Distance = The distance between the fast lane and pit lane at which they
+                                        would still be considered to be “overlapping”. Increase this to give a bigger
+                                        gap between track and pit lane entry/exit.
                                 </small></div>
 
                                 <div><small class="font-italic">
-                                        Max Speed = The maximum speed that AI are instructed to drive through the pit lane at.
+                                        Max Speed = The maximum speed that AI are instructed to drive through the pit lane at. This is useful for filtering out
+                                        some overlapping pit entry and exit lines. Reduce the speed to shorten the line. Increase the speed to lengthen the line.
                                 </small></div>
 
                                 <div><small class="font-italic">
-                                        Max Distance = The maximum distance between the fast lane and pit lane at which they
-                                        would still be considered to be “overlapping”.
+                                        Max Distance = The maximum allowable distance between two points that considers them part of the same track segment.
+                                        Some tracks define their AI line too long, so Server Manager uses this number to help it find the largest continuous unbroken
+                                        segment of track. If you are not seeing a pitlane, increase this number. If you are seeing too many pitlane lines, decrease this number.
                                 </small></div>
 
                                 <img class="img img-fluid splines-image"
-                                     src="{{ trackSplineURL $.Track.Name $layout }}"
+                                     data-src="{{ trackSplineURL $.Track.Name $layout }}"
                                 >
 
                                 <p class="text-warning">If the image is missing please re-upload your track!</p>
