@@ -462,6 +462,10 @@ func (tm *TrackManager) getSplineImage(track, layout, distanceString, maxSpeedSt
 				SplineCalculationMaxDistance: 4,
 			}
 
+			if trackMetaData.Layouts == nil {
+				trackMetaData.Layouts = make(map[string]*LayoutMetaData)
+			}
+
 			trackMetaData.Layouts[layout] = layoutMetaDataForCalc
 		}
 	}
