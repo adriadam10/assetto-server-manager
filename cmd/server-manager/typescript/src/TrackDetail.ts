@@ -12,6 +12,7 @@ export class TrackDetail {
         TrackDetail.fixLayoutImageHeights();
         TrackDetail.initSummerNote();
         $(window).on("resize", TrackDetail.fixLayoutImageHeights);
+        TrackDetail.showSplinesImageOnPopupLoad();
     }
 
     private static onTrackLayoutClick(e: ClickEvent) {
@@ -44,6 +45,35 @@ export class TrackDetail {
         });
     }
 
+    private static showSplinesImageOnPopupLoad() {
+        let $pitlaneDetectionModal = $(".pitlane-detection-modal");
+
+        $pitlaneDetectionModal.on("shown.bs.modal", () => {
+            let $image = $(this).find("img.splines-image");
+
+            // load in images when the modal is shown
+            TrackDetail.lazyLoadImage($image.data("src"));
+        });
+
+        $pitlaneDetectionModal.on("hidden.bs.modal", () => {
+            let $image = $(this).find("img.splines-image");
+            $image.attr("src", "");
+        });
+    }
+
+    private static lazyLoadImage(url: string) {
+        let img = new Image();
+        let $statusIndicator = $(".status-indicator");
+        $statusIndicator.show();
+
+        img.onload = () => {
+            $(".splines-image").attr("src", url);
+            $statusIndicator.hide();
+        };
+
+        img.src = url;
+    }
+
     private static onRecalculateSplinesClick(e: ClickEvent) {
         e.preventDefault();
 
@@ -59,6 +89,6 @@ export class TrackDetail {
 
         let url = baseURL + "?distance=" + distance + "&maxSpeed=" + maxSpeed + "&maxDistance=" + maxDistance;
 
-        $modal.children(".splines-image").attr("src", url)
+        TrackDetail.lazyLoadImage(url);
     }
 }

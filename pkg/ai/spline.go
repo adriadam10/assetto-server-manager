@@ -3,6 +3,7 @@
 package ai
 
 import (
+	"bufio"
 	"encoding/binary"
 	"fmt"
 	"os"
@@ -202,13 +203,15 @@ type GridItemSub struct {
 }
 
 func ReadSpline(aiFile string) (*Spline, error) {
-	f, err := os.Open(aiFile)
+	ff, err := os.Open(aiFile)
 
 	if err != nil {
 		return nil, err
 	}
 
-	defer f.Close()
+	defer ff.Close()
+
+	f := bufio.NewReader(ff)
 
 	var spline Spline
 

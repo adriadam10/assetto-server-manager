@@ -180,9 +180,6 @@ func Router(
 		r.Get("/content/tracks/{track}/ui/preview.png", AssetCacheHeaders(http.HandlerFunc(tracksHandler.trackImage), true))
 		r.Get("/content/tracks/{track}/ui/{layout}/preview.png", AssetCacheHeaders(http.HandlerFunc(tracksHandler.trackImage), true))
 
-		r.HandleFunc("/content/tracks/{track}/ui/splines.png", AssetCacheHeaders(http.HandlerFunc(tracksHandler.trackSplineImage), true))
-		r.HandleFunc("/content/tracks/{track}/ui/{layout}/splines.png", AssetCacheHeaders(http.HandlerFunc(tracksHandler.trackSplineImage), true))
-
 		// race weekends
 		r.Get("/race-weekends", raceWeekendHandler.list)
 		r.Get("/race-weekend/{raceWeekendID}", raceWeekendHandler.view)
@@ -208,6 +205,8 @@ func Router(
 		r.Post("/track/{name}/metadata", tracksHandler.saveMetadata)
 		r.Post("/results/upload", resultsHandler.uploadHandler)
 		r.HandleFunc("/results/combine", resultsHandler.combineResults)
+		r.HandleFunc("/content/tracks/{track}/ui/splines.png", AssetCacheHeaders(http.HandlerFunc(tracksHandler.trackSplineImage), true))
+		r.HandleFunc("/content/tracks/{track}/ui/{layout}/splines.png", AssetCacheHeaders(http.HandlerFunc(tracksHandler.trackSplineImage), true))
 
 		// races
 		r.Get("/quick", quickRaceHandler.create)
