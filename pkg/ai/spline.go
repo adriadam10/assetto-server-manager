@@ -70,7 +70,7 @@ func (s *Spline) Dimensions() (float32, float32) {
 	return maxX - minX, maxZ - minZ
 }
 
-func (s Spline) Subtract(other *Spline, distance float64) *Spline {
+func (s *Spline) Subtract(other *Spline, distance float64) {
 	var newPoints []Point
 	var extraPoints []Extra
 
@@ -92,11 +92,9 @@ func (s Spline) Subtract(other *Spline, distance float64) *Spline {
 
 	s.Points = newPoints
 	s.ExtraPoints = extraPoints
-
-	return &s
 }
 
-func (s Spline) FilterByMaxSpeed(maxSpeed float32) *Spline {
+func (s *Spline) FilterByMaxSpeed(maxSpeed float32) {
 	var points []Point
 	var extraPoints []Extra
 
@@ -111,11 +109,9 @@ func (s Spline) FilterByMaxSpeed(maxSpeed float32) *Spline {
 
 	s.Points = points
 	s.ExtraPoints = extraPoints
-
-	return &s
 }
 
-func (s Spline) FindLargestContinuousSegment(maxDistance float64) *Spline {
+func (s *Spline) FindLargestContinuousSegment(maxDistance float64) {
 	var splits [][]Point
 	var extraSplits [][]Extra
 
@@ -154,8 +150,6 @@ func (s Spline) FindLargestContinuousSegment(maxDistance float64) *Spline {
 
 	s.Points = biggestSplit
 	s.ExtraPoints = biggestExtraSplit
-
-	return &s
 }
 
 type Point struct {
@@ -331,5 +325,9 @@ func ReadPitLaneSpline(dir string, fastLaneSpline *Spline, maxSpeed float32, dis
 		return nil, err
 	}
 
-	return pitLaneFullSpline.Subtract(fastLaneSpline, distance).FilterByMaxSpeed(maxSpeed).FindLargestContinuousSegment(maxDistance), nil
+	pitLaneFullSpline.FilterByMaxSpeed(maxSpeed)
+	pitLaneFullSpline.Subtract(fastLaneSpline, distance)
+	pitLaneFullSpline.FindLargestContinuousSegment(maxDistance)
+
+	return pitLaneFullSpline, nil
 }

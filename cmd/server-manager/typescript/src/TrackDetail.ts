@@ -1,4 +1,5 @@
 import ClickEvent = JQuery.ClickEvent;
+import {ModalEventHandler} from "bootstrap";
 
 export class TrackDetail {
     public constructor() {
@@ -48,15 +49,15 @@ export class TrackDetail {
     private static showSplinesImageOnPopupLoad() {
         let $pitlaneDetectionModal = $(".pitlane-detection-modal");
 
-        $pitlaneDetectionModal.on("shown.bs.modal", () => {
-            let $image = $(this).find("img.splines-image");
+        $pitlaneDetectionModal.on("shown.bs.modal", (e: ModalEventHandler<HTMLElement>) => {
+            let $image = $(e.currentTarget).find("img.splines-image");
 
             // load in images when the modal is shown
             TrackDetail.lazyLoadImage($image.data("src"));
         });
 
-        $pitlaneDetectionModal.on("hidden.bs.modal", () => {
-            let $image = $(this).find("img.splines-image");
+        $pitlaneDetectionModal.on("hidden.bs.modal", (e: ModalEventHandler<HTMLElement>) => {
+            let $image = $(e.currentTarget).find("img.splines-image");
             $image.attr("src", "");
         });
     }
