@@ -46,11 +46,18 @@ export class TrackDetail {
     }
 
     private static showSplinesImageOnPopupLoad() {
-        $(".pitlane-detection-modal").on("shown.bs.modal", function () {
+        let $pitlaneDetectionModal = $(".pitlane-detection-modal");
+
+        $pitlaneDetectionModal.on("shown.bs.modal", () => {
             let $image = $(this).find("img.splines-image");
 
             // load in images when the modal is shown
             TrackDetail.lazyLoadImage($image.data("src"));
+        });
+
+        $pitlaneDetectionModal.on("hidden.bs.modal", () => {
+            let $image = $(this).find("img.splines-image");
+            $image.attr("src", "");
         });
     }
 
