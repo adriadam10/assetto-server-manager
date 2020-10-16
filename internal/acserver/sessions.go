@@ -140,80 +140,81 @@ func NewSessionManager(state *ServerState, weatherManager *WeatherManager, lobby
 	}
 }
 
-func (sm *SessionManager) SaveResultsAndBuildLeaderboard(forceAdvance bool) []*LeaderboardLine {
+func (sm *SessionManager) SaveResultsAndBuildLeaderboard(forceAdvance bool) (previousSessionLeaderboard []*LeaderboardLine, resultsFileName string) {
 	sm.mutex.Lock()
 	defer sm.mutex.Unlock()
 
-	var previousSessionLeaderboard []*LeaderboardLine
+	if sm.currentSession.IsZero() {
+		return
+	}
 
-	if !sm.currentSession.IsZero() {
-		if sm.currentSession.numCompletedLaps > 0 {
-			sm.logger.Infof("Leaderboard at the end of the session '%s' is:", sm.currentSession.Config.Name)
+	if sm.currentSession.numCompletedLaps > 0 {
+		sm.logger.Infof("Leaderboard at the end of the session '%s' is:", sm.currentSession.Config.Name)
 
-			previousSessionLeaderboard = sm.state.Leaderboard(sm.currentSession.Config.SessionType)
+		previousSessionLeaderboard = sm.state.Leaderboard(sm.currentSession.Config.SessionType)
+
+		for pos, leaderboardLine := range previousSessionLeaderboard {
+			sm.logger.Printf("%d. %s - %s", pos, leaderboardLine.Car.Driver.Name, leaderboardLine)
+		}
+
+		results := sm.state.GenerateResults(sm.currentSession.Config)
+
+		if err := saveResults(sm.baseDirectory, results); err != nil {
+			sm.logger.WithError(err).Error("Could not save results file")
+		} else {
+			resultsFileName = results.SessionFile
+		}
+
+		if sm.state.raceConfig.ReversedGridRacePositions != 0 && !sm.currentSession.reverseGridRaceStarted && int(sm.currentSessionIndex) == len(sm.state.raceConfig.Sessions)-1 {
+			// if there are reverse grid positions, then we need to reorganise the grid
+			sm.logger.Infof("Next session is reverse grid race. Resetting session params, reverse grid is:")
+
+			sm.currentSession.sessionParams = sessionParams{
+				reverseGridRaceStarted: true,
+			}
+
+			ReverseLeaderboard(int(sm.state.raceConfig.ReversedGridRacePositions), previousSessionLeaderboard)
 
 			for pos, leaderboardLine := range previousSessionLeaderboard {
 				sm.logger.Printf("%d. %s - %s", pos, leaderboardLine.Car.Driver.Name, leaderboardLine)
 			}
-
-			results := sm.state.GenerateResults(sm.currentSession.Config)
-			err := saveResults(sm.baseDirectory, results)
-
-			if err != nil {
-				sm.logger.WithError(err).Error("Could not save results file!")
-			} else {
-				err := sm.plugin.OnEndSession(results.SessionFile)
-
-				if err != nil {
-					sm.logger.WithError(err).Error("On end session plugin returned an error")
-				}
-			}
-
-			if sm.state.raceConfig.ReversedGridRacePositions != 0 && !sm.currentSession.reverseGridRaceStarted && int(sm.currentSessionIndex) == len(sm.state.raceConfig.Sessions)-1 {
-				// if there are reverse grid positions, then we need to reorganise the grid
-				sm.logger.Infof("Next session is reverse grid race. Resetting session params, reverse grid is:")
-
-				sm.currentSession.sessionParams = sessionParams{
-					reverseGridRaceStarted: true,
-				}
-
-				ReverseLeaderboard(int(sm.state.raceConfig.ReversedGridRacePositions), previousSessionLeaderboard)
-
-				for pos, leaderboardLine := range previousSessionLeaderboard {
-					sm.logger.Printf("%d. %s - %s", pos, leaderboardLine.Car.Driver.Name, leaderboardLine)
-				}
-			} else {
-				sm.currentSessionIndex++
-			}
 		} else {
-			sm.logger.Infof("Session '%s' had no completed laps. Will not save results JSON", sm.currentSession.Config.Name)
+			sm.currentSessionIndex++
+		}
+	} else {
+		sm.logger.Infof("Session '%s' had no completed laps. Will not save results JSON", sm.currentSession.Config.Name)
 
-			if forceAdvance {
-				sm.currentSessionIndex++
-			} else {
-				switch sm.currentSession.Config.SessionType {
-				case SessionTypeRace:
-					sm.currentSessionIndex = 0
-				case SessionTypeBooking:
-					if len(sm.state.entryList) > 0 {
-						sm.currentSessionIndex++
-					}
-				case SessionTypePractice:
+		if forceAdvance {
+			sm.currentSessionIndex++
+		} else {
+			switch sm.currentSession.Config.SessionType {
+			case SessionTypeRace:
+				sm.currentSessionIndex = 0
+			case SessionTypeBooking:
+				if len(sm.state.entryList) > 0 {
 					sm.currentSessionIndex++
-				default:
-					// current session index is left unchanged for qualifying.
 				}
+			case SessionTypePractice:
+				sm.currentSessionIndex++
+			default:
+				// current session index is left unchanged for qualifying.
 			}
 		}
-
-		sm.ClearSessionData()
 	}
 
-	return previousSessionLeaderboard
+	sm.ClearSessionData()
+
+	return previousSessionLeaderboard, resultsFileName
 }
 
 func (sm *SessionManager) NextSession(force bool) {
-	previousSessionLeaderboard := sm.SaveResultsAndBuildLeaderboard(force)
+	previousSessionLeaderboard, resultsFileName := sm.SaveResultsAndBuildLeaderboard(force)
+
+	if resultsFileName != "" {
+		if err := sm.plugin.OnEndSession(resultsFileName); err != nil {
+			sm.logger.WithError(err).Error("OnEndSession plugin errored")
+		}
+	}
 
 	if int(sm.currentSessionIndex) >= len(sm.state.raceConfig.Sessions) {
 		if sm.state.raceConfig.LoopMode {
