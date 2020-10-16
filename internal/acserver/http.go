@@ -262,10 +262,20 @@ func (h *HTTP) UnBookCar(w http.ResponseWriter, r *http.Request) {
 func (h *HTTP) TimeTable(w http.ResponseWriter, r *http.Request) {
 	currentSession := h.sessionManager.GetCurrentSession()
 
+	var timeLeft time.Duration
+	var lapsLeft int
+
+	if currentSession.Laps > 0 {
+		lapsLeft = h.sessionManager.RemainingLaps()
+	} else {
+		timeLeft = h.sessionManager.RemainingSessionTime()
+	}
+
 	err := timeTableTemplate.Execute(w, timeTableData{
 		SessionType: currentSession.SessionType.ResultsString(),
 		SessionName: currentSession.Name,
-		TimeLeft:    h.sessionManager.RemainingSessionTime(),
+		TimeLeft:    timeLeft,
+		LapsLeft:    lapsLeft,
 		EntryList:   h.state.entryList,
 		Leaderboard: h.state.Leaderboard(currentSession.SessionType),
 	})
@@ -279,6 +289,7 @@ type timeTableData struct {
 	SessionType string
 	SessionName string
 	TimeLeft    time.Duration
+	LapsLeft    int
 	EntryList   EntryList
 	Leaderboard []*LeaderboardLine
 }
@@ -325,7 +336,7 @@ const timeTableHTML = `
 <title>Assetto Corsa Server: Entry List</title>
 </head>
 <body>
-<p>Session: {{ $.SessionType }} [{{ $.SessionName }}], TIME LEFT {{ FormatSessionTime $.TimeLeft }}</p>
+<p>Session: {{ $.SessionType }} [{{ $.SessionName }}], {{ with $.TimeLeft }}TIME LEFT: {{ FormatSessionTime $.TimeLeft }}{{ else }}LAPS REMAINING: {{ $.LapsLeft }}{{ end }}</p>
 <p>Entry List</p>
 <table>
 	<tr>
