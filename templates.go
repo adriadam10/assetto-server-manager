@@ -631,6 +631,12 @@ func (tr *Renderer) addData(w http.ResponseWriter, r *http.Request, vars Templat
 		}
 	}
 
+	if baseURLIsValid() && data.OGImage == "" && strings.HasSuffix(r.URL.String(), "live-timing") && tr.process.Event().GetRaceConfig().Track != "" {
+		raceConfig := tr.process.Event().GetRaceConfig()
+
+		data.OGImage = config.HTTP.BaseURL + trackLayoutURL(raceConfig.Track, raceConfig.TrackLayout)
+	}
+
 	return nil
 }
 
