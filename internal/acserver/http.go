@@ -264,10 +264,15 @@ func (h *HTTP) TimeTable(w http.ResponseWriter, r *http.Request) {
 
 	var timeLeft time.Duration
 	var lapsLeft int
+	var timedEvent bool
 
 	if currentSession.Laps > 0 {
+		timedEvent = false
+
 		lapsLeft = h.sessionManager.RemainingLaps()
 	} else {
+		timedEvent = true
+
 		timeLeft = h.sessionManager.RemainingSessionTime()
 	}
 
@@ -276,6 +281,7 @@ func (h *HTTP) TimeTable(w http.ResponseWriter, r *http.Request) {
 		SessionName: currentSession.Name,
 		TimeLeft:    timeLeft,
 		LapsLeft:    lapsLeft,
+		TimedEvent:  timedEvent,
 		EntryList:   h.state.entryList,
 		Leaderboard: h.state.Leaderboard(currentSession.SessionType),
 	})
@@ -288,6 +294,7 @@ func (h *HTTP) TimeTable(w http.ResponseWriter, r *http.Request) {
 type timeTableData struct {
 	SessionType string
 	SessionName string
+	TimedEvent  bool
 	TimeLeft    time.Duration
 	LapsLeft    int
 	EntryList   EntryList
@@ -316,8 +323,21 @@ func formatSessionTimeDuration(d time.Duration) string {
 	mins := int(d / time.Minute)
 	d -= time.Duration(mins) * time.Minute
 	secs := int(d / time.Second)
+	negative := ""
 
-	return fmt.Sprintf("%d:%02d", mins, secs)
+	if secs < 0 {
+		secs = -secs
+
+		negative = "-"
+	}
+
+	if mins < 0 {
+		mins = -mins
+
+		negative = "-"
+	}
+
+	return fmt.Sprintf("%s%d:%02d", negative, mins, secs)
 }
 
 var (
@@ -336,7 +356,7 @@ const timeTableHTML = `
 <title>Assetto Corsa Server: Entry List</title>
 </head>
 <body>
-<p>Session: {{ $.SessionType }} [{{ $.SessionName }}], {{ with $.TimeLeft }}TIME LEFT: {{ FormatSessionTime $.TimeLeft }}{{ else }}LAPS REMAINING: {{ $.LapsLeft }}{{ end }}</p>
+<p>Session: {{ $.SessionType }} [{{ $.SessionName }}], {{ if $.TimedEvent }}TIME LEFT: {{ FormatSessionTime $.TimeLeft }}{{ else }}LAPS REMAINING: {{ $.LapsLeft }}{{ end }}</p>
 <p>Entry List</p>
 <table>
 	<tr>
