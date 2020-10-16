@@ -209,7 +209,7 @@ func (sp *AssettoServerProcess) startRaceEvent(raceEvent RaceEvent, serverOption
 			return err
 		}
 
-		logOutput = io.MultiWriter(sp.logBuffer, sp.logFile)
+		logOutput = io.MultiWriter(sp.logBuffer, &noErrClosedWriter{sp.logFile})
 	} else {
 		logOutput = sp.logBuffer
 	}
@@ -733,4 +733,19 @@ func FreeUDPPort() (int, error) {
 	defer l.Close()
 
 	return l.LocalAddr().(*net.UDPAddr).Port, nil
+}
+
+// noErrClosedWriter masks a write to not report the os.ErrClosed error.
+type noErrClosedWriter struct {
+	io.Writer
+}
+
+func (nec *noErrClosedWriter) Write(p []byte) (n int, err error) {
+	n, err = nec.Writer.Write(p)
+
+	if err == os.ErrClosed {
+		return n, nil
+	}
+
+	return n, err
 }
