@@ -1093,6 +1093,9 @@ class LiveTimings implements WebsocketHandler {
 
                         let $toast = $("<div/>");
                         let $toastHeader = $("<div/>");
+                        let $toastDismiss = $("<button/>");
+                        let $toastDismissSpanRight = $("<span/>");
+                        let $toastDismissSpanLeft = $("<span/>");
                         let $toastBody = $("<div/>");
 
                         let toastHeaderBG = "";
@@ -1102,24 +1105,32 @@ class LiveTimings implements WebsocketHandler {
                             toastHeaderBG = "bg-danger";
                             toastHeaderBD = "border-danger";
 
-                            $toastHeader.text(
+                            $toastDismissSpanLeft.text(
                                 "Crash with " + collision.OtherDriverName
                             );
                         } else {
                             toastHeaderBG = "bg-warning";
                             toastHeaderBD = "border-warning";
 
-                            $toastHeader.text(
+                            $toastDismissSpanLeft.text(
                                 "Crash " + collision.Type
                             );
                         }
 
+                        $toastDismissSpanRight.text(unescape('%u00D7'));
+
                         $toast.attr({'id': collisionID, 'class': 'toast damage-zone-toast', 'role': 'alert', 'aria-live': 'assertive', 'aria-atomic': 'true'});
                         $toastHeader.attr('class', 'toast-header damage-zone-toast-header ' + toastHeaderBG + ' ' + toastHeaderBD);
                         $toastBody.attr('class', 'toast-body damage=zone-toast-body');
+                        $toastDismiss.attr({'type': "button", 'class': 'close', 'data-dismiss': 'toast', 'aria-label': 'Close', 'style': 'width: 19%'});
+                        $toastDismissSpanRight.attr({'aria-hidden': 'true', 'class': 'float-right'});
+                        $toastDismissSpanLeft.attr("style", "width: 81%");
+
+                        $toastDismiss.append($toastDismissSpanRight);
+                        $toastHeader.append($toastDismissSpanLeft, $toastDismiss);
 
                         let $textContainer = $("<div/>");
-                        $textContainer.attr('style', 'height: 18px')
+                        $textContainer.attr('style', 'height: 18px');
 
                         let $driverName = $("<strong/>");
                         $driverName.text(driver.CarInfo.DriverName + ' ');
