@@ -171,6 +171,10 @@ $pre-color:                         inherit;
   border-color: $black !important;
 }
 
+.text-secondary {
+  color: #f0f0f0 !important;
+}
+
 .list-group-item, .list-group-item:hover {
   color: $white;
 }
@@ -199,4 +203,25 @@ svg path.race-weekend-arrow {
 
 .table-secondary {
   color: $black !important;
+}
+
+.left-front-tyre {
+  fill: #FFFFFF !important;
+}
+
+.left-rear-tyre {
+  fill: #FFFFFF !important;
+}
+
+.right-front-tyre {
+  fill: #FFFFFF !important;
+}
+
+.right-rear-tyre {
+  fill: #FFFFFF !important;
+}
+
+.toast-body {
+  background-color: #484848;
+  color: white;
 }
