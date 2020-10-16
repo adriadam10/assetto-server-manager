@@ -619,7 +619,9 @@ func (tr *Renderer) addData(w http.ResponseWriter, r *http.Request, vars Templat
 	data.ServerID = serverID
 	data.ShowEventDetailsPopup = opts.ShowEventDetailsPopup
 
-	data.OGImage = opts.OGImage
+	if opts.OGImage != "" {
+		data.OGImage = opts.OGImage
+	}
 
 	id := chi.URLParam(r, "championshipID")
 
@@ -631,14 +633,16 @@ func (tr *Renderer) addData(w http.ResponseWriter, r *http.Request, vars Templat
 		}
 	}
 
-	if baseURLIsValid() && data.OGImage == "" && strings.HasSuffix(r.URL.String(), "live-timing") && tr.process.Event().GetRaceConfig().Track != "" {
-		raceConfig := tr.process.Event().GetRaceConfig()
-
-		data.OGImage = config.HTTP.BaseURL + trackLayoutURL(raceConfig.Track, raceConfig.TrackLayout)
+	if baseURLIsValid() {
+		if data.OGImage == "" {
+			data.OGImage = config.HTTP.BaseURL + fallBackOGImage
+		}
 	}
 
 	return nil
 }
+
+const fallBackOGImage = "/static/img/og-image.png"
 
 // LoadTemplate reads a template from templates and renders it with data to the given io.Writer
 func (tr *Renderer) LoadTemplate(w http.ResponseWriter, r *http.Request, view string, vars TemplateVars) error {

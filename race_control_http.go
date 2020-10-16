@@ -229,10 +229,16 @@ func (rch *RaceControlHandler) liveTiming(w http.ResponseWriter, r *http.Request
 		return
 	}
 
+	baseTemplateVars := BaseTemplateVars{
+		WideContainer: true,
+	}
+
+	if customRace != nil {
+		baseTemplateVars.OGImage = config.HTTP.BaseURL + trackLayoutURL(customRace.RaceConfig.Track, customRace.RaceConfig.TrackLayout)
+	}
+
 	rch.viewRenderer.MustLoadTemplate(w, r, "live-timing.html", &liveTimingTemplateVars{
-		BaseTemplateVars: BaseTemplateVars{
-			WideContainer: true,
-		},
+		BaseTemplateVars:            baseTemplateVars,
 		RaceDetails:                 customRace,
 		FrameLinks:                  frameLinks,
 		CSSDotSmoothing:             RealtimePosInterval.Milliseconds(),
