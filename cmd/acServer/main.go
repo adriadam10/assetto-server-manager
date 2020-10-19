@@ -55,7 +55,7 @@ func main() {
 
 	go func() {
 		for range c {
-			if err := server.Stop(); err != nil {
+			if err := server.Stop(true); err != nil {
 				logger.WithError(err).Fatal("Could not stop server")
 			}
 
