@@ -129,7 +129,7 @@ func (s *Server) Start() error {
 	if s.state.serverConfig.RegisterToLobby {
 		if err := s.lobby.Try("Register to lobby", s.lobby.Register); err != nil {
 			s.logger.WithError(err).Error("All attempts to register to lobby failed")
-			return s.Stop()
+			return s.Stop(false)
 		}
 	}
 
@@ -138,10 +138,14 @@ func (s *Server) Start() error {
 	return nil
 }
 
-func (s *Server) Stop() (err error) {
+func (s *Server) Stop(persistResults bool) (err error) {
 	defer func() {
 		s.stopped <- err
 	}()
+
+	if persistResults {
+		s.sessionManager.SaveResultsAndBuildLeaderboard(false)
+	}
 
 	s.logger.Infof("Shutting down acServer")
 

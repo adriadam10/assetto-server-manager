@@ -67,7 +67,7 @@ func (d ClientEventMessageHandler) OnMessage(conn net.Conn, p *Packet) error {
 			clientEvent.OtherDriverGUID = otherCar.Driver.GUID
 
 			d.logger.Debugf(
-				"%s collided with %s at %.2fkm/h (pos: %.2f, %.2f, %.2f) (rel:  %.2f, %.2f, %.2f)",
+				"%s collided with %s at %.2fkm/h (pos: %.2f, %.2f, %.2f) (rel: %.2f, %.2f, %.2f)",
 				entrant.Driver.Name,
 				otherCar,
 				clientEvent.Speed,
@@ -92,7 +92,7 @@ func (d ClientEventMessageHandler) OnMessage(conn net.Conn, p *Packet) error {
 			p.Read(&clientEvent.RelativePosition)
 
 			d.logger.Debugf(
-				"%s collided with environment at %.2fkm/h (pos: %.2f, %.2f, %.2f) (rel:  %.2f, %.2f, %.2f)",
+				"%s collided with environment at %.2fkm/h (pos: %.2f, %.2f, %.2f) (rel: %.2f, %.2f, %.2f)",
 				entrant.Driver.Name,
 				clientEvent.Speed,
 				clientEvent.Position.X,

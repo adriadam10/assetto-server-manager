@@ -122,10 +122,6 @@ func (sp *AssettoServerProcess) Stop() error {
 		return nil
 	}
 
-	if config.Server.PersistMidSessionResults {
-		sp.server.NextSession()
-	}
-
 	timeout := time.After(time.Second * 10)
 	errCh := make(chan error)
 
@@ -140,7 +136,7 @@ func (sp *AssettoServerProcess) Stop() error {
 		}
 	}()
 
-	if err := sp.server.Stop(); err != nil {
+	if err := sp.server.Stop(config.Server.PersistMidSessionResults); err != nil {
 		logrus.WithError(err).Error("Could not forcibly kill server")
 	}
 
@@ -209,7 +205,7 @@ func (sp *AssettoServerProcess) startRaceEvent(raceEvent RaceEvent, serverOption
 			return err
 		}
 
-		logOutput = io.MultiWriter(sp.logBuffer, &noErrClosedWriter{sp.logFile})
+		logOutput = io.MultiWriter(sp.logBuffer, &noErrClosedWriter{w: sp.logFile})
 	} else {
 		logOutput = sp.logBuffer
 	}
@@ -737,14 +733,14 @@ func FreeUDPPort() (int, error) {
 
 // noErrClosedWriter masks a write to not report the os.ErrClosed error.
 type noErrClosedWriter struct {
-	io.Writer
+	w io.Writer
 }
 
 func (nec *noErrClosedWriter) Write(p []byte) (n int, err error) {
-	n, err = nec.Writer.Write(p)
+	n, err = nec.w.Write(p)
 
-	if err == os.ErrClosed {
-		return n, nil
+	if errors.Is(err, os.ErrClosed) {
+		return len(p), nil
 	}
 
 	return n, err

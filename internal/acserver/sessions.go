@@ -118,7 +118,7 @@ type SessionManager struct {
 	logger         Logger
 	weatherManager *WeatherManager
 	dynamicTrack   *DynamicTrack
-	serverStopFn   func() error
+	serverStopFn   func(bool) error
 
 	mutex               sync.RWMutex
 	currentSessionIndex uint8
@@ -127,7 +127,7 @@ type SessionManager struct {
 	baseDirectory string
 }
 
-func NewSessionManager(state *ServerState, weatherManager *WeatherManager, lobby *Lobby, dynamicTrack *DynamicTrack, plugin Plugin, logger Logger, serverStopFn func() error, baseDirectory string) *SessionManager {
+func NewSessionManager(state *ServerState, weatherManager *WeatherManager, lobby *Lobby, dynamicTrack *DynamicTrack, plugin Plugin, logger Logger, serverStopFn func(bool) error, baseDirectory string) *SessionManager {
 	return &SessionManager{
 		state:          state,
 		lobby:          lobby,
@@ -225,7 +225,7 @@ func (sm *SessionManager) NextSession(force bool) {
 			sm.currentSessionIndex = 0
 			sm.mutex.Unlock()
 		} else {
-			_ = sm.serverStopFn()
+			_ = sm.serverStopFn(false)
 			return
 		}
 	}
@@ -256,7 +256,7 @@ func (sm *SessionManager) NextSession(force bool) {
 	sm.UpdateLobby()
 
 	err := sm.plugin.OnNewSession(SessionInfo{
-		Version:         CurrentResultsVersion,
+		Version:         uint8(CurrentProtocolVersion),
 		SessionIndex:    currentSessionIndex,
 		SessionCount:    uint8(len(sm.state.raceConfig.Sessions)),
 		ServerName:      sm.state.serverConfig.Name,
