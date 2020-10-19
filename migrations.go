@@ -1170,6 +1170,10 @@ func addDefaultPenaltyOptionsToCustomRaces(s Store) error {
 		return err
 	}
 
+	sort.Slice(customRaces, func(i, j int) bool {
+		return customRaces[i].Updated.Before(customRaces[j].Updated)
+	})
+
 	for _, customRace := range customRaces {
 		customRace.RaceConfig.CustomCutsEnabled = false
 		customRace.RaceConfig.CustomCutsPenaltyType = acserver.CutPenaltyKick
@@ -1191,6 +1195,10 @@ func addDefaultPenaltyOptionsToCustomRaces(s Store) error {
 	if err != nil {
 		return err
 	}
+
+	sort.Slice(championships, func(i, j int) bool {
+		return championships[i].Updated.Before(championships[j].Updated)
+	})
 
 	for _, championship := range championships {
 		for _, event := range championship.Events {
@@ -1237,6 +1245,10 @@ func addDefaultPenaltyOptionsToCustomRaces(s Store) error {
 	if err != nil {
 		return err
 	}
+
+	sort.Slice(raceWeekends, func(i, j int) bool {
+		return raceWeekends[i].Updated.Before(raceWeekends[j].Updated)
+	})
 
 	for _, raceWeekend := range raceWeekends {
 		for _, event := range raceWeekend.Sessions {
