@@ -2,10 +2,12 @@ package plugins
 
 import (
 	"fmt"
-	"github.com/sirupsen/logrus"
-	"justapengu.in/acsm/internal/acserver"
 	"math"
 	"time"
+
+	"github.com/sirupsen/logrus"
+
+	"justapengu.in/acsm/internal/acserver"
 )
 
 type DriftPlugin struct {
