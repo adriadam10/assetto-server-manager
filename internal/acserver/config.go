@@ -92,6 +92,8 @@ type EventConfig struct {
 	CustomCutsBoPAmount           float32        `json:"custom_cuts_bop_amount" yaml:"custom_cuts_bop_amount"`
 	CustomCutsBoPNumLaps          int            `json:"custom_cuts_bop_num_laps" yaml:"custom_cuts_bop_num_laps"`
 	CustomCutsDriveThroughNumLaps int            `json:"custom_cuts_drive_through_num_laps" yaml:"custom_cuts_drive_through_num_laps"`
+
+	DriftModeEnabled bool `json:"drift_mode_enabled" yaml:"drift_mode_enabled"`
 }
 
 type CutPenaltyType int

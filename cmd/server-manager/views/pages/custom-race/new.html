@@ -217,10 +217,33 @@
                                 {{ end }}
                         >
 
-                        <br><br>
+                        <br>
                         <small>Time Attack events will run a looping Practice session and combine all of the results files.
                         Forces loop mode on and disables all sessions other than Practice. <strong>We strongly recommend
                         that you run a locked entry list for a stable experience with Time Attack events.</strong></small>
+                    </div>
+                </div>
+
+                <div class="form-group row">
+                    <label class="col-sm-3 col-form-label">Drift Scoring</label>
+
+                    <div class="col-sm-9">
+                        <input
+                                type="checkbox"
+                                class="session-enabler"
+                                name="DriftModeEnabled"
+                                id="DriftModeEnabled"
+
+                                {{ if $f.DriftModeEnabled }}
+                                    checked="checked"
+                                {{ end }}
+                        >
+
+                        <br>
+                        <small>If enabled the server will keep track of drift scores over a lap. Score is based on drift
+                        length, angle and speed. Currently points are broadcast to everyone in chat at the end of a lap,
+                        and sent to the driver after each drift. If you'd like to see this feature built upon and added
+                        to live timings please let us know!</small>
                     </div>
                 </div>
 
