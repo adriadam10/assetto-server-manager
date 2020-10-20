@@ -274,7 +274,6 @@ func (sp *AssettoServerProcess) startRaceEvent(raceEvent RaceEvent, serverOption
 		activePlugins = append(activePlugins, plugins.NewDriftPlugin())
 	}
 
-
 	if udpPluginPortsSetup {
 		udpPlugin, err := plugins.NewUDPPlugin(serverOptions.UDPPluginLocalPort, serverOptions.UDPPluginAddress)
 

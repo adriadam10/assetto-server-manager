@@ -5,8 +5,6 @@ import (
 	"math"
 	"time"
 
-	"github.com/sirupsen/logrus"
-
 	"justapengu.in/acsm/internal/acserver"
 )
 
@@ -76,7 +74,7 @@ func (d *DriftPlugin) OnCarUpdate(car acserver.CarInfo) error {
 	}
 
 	if drifter == nil {
-		logrus.Warnf("Car %d sent a drift update, but isn't in the drift car list!", car.CarID)
+		d.logger.Warnf("Car %d sent a drift update, but isn't in the drift car list!", car.CarID)
 
 		return nil
 	}
@@ -191,7 +189,7 @@ func (d *DriftPlugin) OnLapCompleted(carID acserver.CarID, lap acserver.Lap) err
 	}
 
 	if drifter == nil {
-		logrus.Warnf("Car %d completed a lap, but isn't in the drift car list!", carID)
+		d.logger.Warnf("Car %d completed a lap, but isn't in the drift car list!", carID)
 
 		return nil
 	}
