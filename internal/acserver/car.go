@@ -68,6 +68,7 @@ type Connection struct {
 
 	hasSentFirstUpdate   bool
 	hasUpdateToBroadcast bool
+	lastUpdateReceivedAt time.Time
 
 	hasFailedChecksum bool
 	priorities        map[CarID]int
@@ -488,6 +489,14 @@ func (c *Car) SetPluginStatus(carUpdate CarUpdate) {
 	defer c.mutex.Unlock()
 
 	c.PluginStatus = carUpdate
+	c.Connection.lastUpdateReceivedAt = time.Now()
+}
+
+func (c *Car) GetLastUpdateReceivedTime() time.Time {
+	c.mutex.RLock()
+	defer c.mutex.RUnlock()
+
+	return c.Connection.lastUpdateReceivedAt
 }
 
 func (c *Car) SetHasFailedChecksum(b bool) {

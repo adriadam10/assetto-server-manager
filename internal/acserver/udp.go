@@ -7,19 +7,22 @@ import (
 )
 
 type UDP struct {
-	port   uint16
-	logger Logger
+	port                            uint16
+	logger                          Logger
+	readBufferSize, writeBufferSize int
 
 	messageHandlers map[MessageType]UDPMessageHandler
 
 	packetConn *net.UDPConn
 }
 
-func NewUDP(port uint16, server *Server) *UDP {
+func NewUDP(port uint16, server *Server, readBufferSize, writeBufferSize int) *UDP {
 	u := &UDP{
 		port:            port,
 		messageHandlers: make(map[MessageType]UDPMessageHandler),
 		logger:          server.logger,
+		readBufferSize:  readBufferSize,
+		writeBufferSize: writeBufferSize,
 	}
 
 	u.initMessageHandlers(server)
@@ -54,6 +57,22 @@ func (u *UDP) Listen(ctx context.Context) error {
 
 	if err != nil {
 		return err
+	}
+
+	if u.writeBufferSize > 0 {
+		if err := u.packetConn.SetWriteBuffer(u.writeBufferSize); err != nil {
+			return err
+		}
+
+		u.logger.Infof("Set write buffer to: %d bytes", u.writeBufferSize)
+	}
+
+	if u.readBufferSize > 0 {
+		if err := u.packetConn.SetReadBuffer(u.readBufferSize); err != nil {
+			return err
+		}
+
+		u.logger.Infof("Set read buffer to: %d bytes", u.readBufferSize)
 	}
 
 	go func() {

@@ -95,7 +95,7 @@ func (s *Server) Start() error {
 	s.logger.Infof("Initialising openAcServer with compatibility for server version %d", CurrentProtocolVersion)
 
 	s.tcp = NewTCP(s.state.serverConfig.TCPPort, s)
-	s.udp = NewUDP(s.state.serverConfig.UDPPort, s)
+	s.udp = NewUDP(s.state.serverConfig.UDPPort, s, s.state.serverConfig.ReceiveBufferSize, s.state.serverConfig.SendBufferSize)
 	s.http = NewHTTP(s.state.serverConfig.HTTPPort, s.state, s.sessionManager, s.entryListManager, s.logger)
 
 	go func() {
@@ -176,6 +176,8 @@ func (s *Server) Run() error {
 	return <-s.stopped
 }
 
+const connectionTimeout = time.Minute
+
 func (s *Server) loop() {
 	lastSendTime := int64(0)
 
@@ -198,6 +200,16 @@ func (s *Server) loop() {
 
 			for _, car := range s.state.entryList {
 				if car.IsConnected() && car.HasSentFirstUpdate() {
+					if time.Since(car.GetLastUpdateReceivedTime()) > connectionTimeout {
+						s.logger.Warnf("Car: '%s' has not been seen in %s. Disconnecting...", car.String(), connectionTimeout)
+
+						if err := s.state.DisconnectCar(car); err != nil {
+							s.logger.WithError(err).Errorf("Could not broadcast timed out car disconnect")
+						}
+
+						continue
+					}
+
 					if car.HasUpdateToBroadcast() {
 						s.state.BroadcastCarUpdate(car)
 
@@ -242,8 +254,14 @@ func (s *Server) loop() {
 				}
 			}
 
+			totalTimeForUpdate := currentTimeMillisecond() - currentTime
 			lastSendTime = currentTime
-			time.Sleep(sleepTime)
+
+			if sleepTime != idleSleepTime && totalTimeForUpdate > serverTickRate {
+				s.logger.Errorf("CPU overload detected! Previous update took %dms", totalTimeForUpdate)
+			} else {
+				time.Sleep(sleepTime)
+			}
 		}
 	}
 }
