@@ -11,8 +11,8 @@ import (
 )
 
 type DriftPlugin struct {
-	server      acserver.ServerPlugin
-	logger      acserver.Logger
+	server acserver.ServerPlugin
+	logger acserver.Logger
 
 	drifters []*drifter
 }
