@@ -127,6 +127,8 @@ func ConfigDefault() ServerConfig {
 			CustomCutsBoPNumLaps:          1,
 			CustomCutsDriveThroughNumLaps: 2,
 			PitLane:                       &pitlanedetection.PitLane{},
+
+			DriftModeEnabled: false,
 		},
 	}
 }

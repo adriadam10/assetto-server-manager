@@ -45,3 +45,7 @@ func (v Vector3F) Mul(val float32) Vector3F {
 func (v Vector3F) Dot(ov Vector3F) float32 {
 	return v.X*ov.X + v.Y*ov.Y + v.Z*ov.Z
 }
+
+func (v Vector3F) Magnitude() float64 {
+	return math.Sqrt(math.Pow(float64(v.X), 2) + math.Pow(float64(v.Y), 2) + math.Pow(float64(v.Z), 2))
+}

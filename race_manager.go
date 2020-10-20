@@ -657,6 +657,8 @@ func (rm *RaceManager) BuildCustomRaceFromForm(r *http.Request) (*CurrentRaceCon
 		CustomCutsBoPAmount:           float32(formValueAsFloat(r.FormValue("CustomCutsBoPAmount"))),
 		CustomCutsBoPNumLaps:          formValueAsInt(r.FormValue("CustomCutsBoPNumLaps")),
 		CustomCutsDriveThroughNumLaps: formValueAsInt(r.FormValue("CustomCutsDriveThroughNumLaps")),
+
+		DriftModeEnabled: formValueAsInt(r.FormValue("DriftModeEnabled")) == 1,
 	}
 
 	// driver swap

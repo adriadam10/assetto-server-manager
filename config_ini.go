@@ -406,6 +406,8 @@ type CurrentRaceConfig struct {
 	CustomCutsBoPAmount           float32                 `ini:"-"`
 	CustomCutsBoPNumLaps          int                     `ini:"-"`
 	CustomCutsDriveThroughNumLaps int                     `ini:"-"`
+
+	DriftModeEnabled bool `ini:"-"`
 }
 
 func (c CurrentRaceConfig) ToACConfig() *acserver.EventConfig {
@@ -456,6 +458,7 @@ func (c CurrentRaceConfig) ToACConfig() *acserver.EventConfig {
 		CustomCutsBoPAmount:           c.CustomCutsBoPAmount,
 		CustomCutsBoPNumLaps:          c.CustomCutsBoPNumLaps,
 		CustomCutsDriveThroughNumLaps: c.CustomCutsDriveThroughNumLaps,
+		DriftModeEnabled:              c.DriftModeEnabled,
 	}
 
 	i := 0

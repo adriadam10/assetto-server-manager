@@ -270,6 +270,11 @@ func (sp *AssettoServerProcess) startRaceEvent(raceEvent RaceEvent, serverOption
 		plugins.NewPenaltiesPlugin(sp.sharedPitLane),
 	)
 
+	if raceConfig.DriftModeEnabled {
+		activePlugins = append(activePlugins, plugins.NewDriftPlugin())
+	}
+
+
 	if udpPluginPortsSetup {
 		udpPlugin, err := plugins.NewUDPPlugin(serverOptions.UDPPluginLocalPort, serverOptions.UDPPluginAddress)
 
