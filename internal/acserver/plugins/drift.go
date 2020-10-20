@@ -13,7 +13,6 @@ import (
 type DriftPlugin struct {
 	server      acserver.ServerPlugin
 	logger      acserver.Logger
-	eventConfig acserver.EventConfig
 
 	drifters []*drifter
 }
