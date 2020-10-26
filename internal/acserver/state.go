@@ -748,6 +748,8 @@ func (ss *ServerState) closeTCPConnection(conn net.Conn) {
 		if err := ss.plugin.OnConnectionClosed(car.Copy()); err != nil {
 			ss.logger.WithError(err).Error("On connection closed plugin returned an error")
 		}
+	} else {
+		ss.logger.Debugf("Closed TCP connection: %s without finding an associated car", conn.RemoteAddr().String())
 	}
 }
 

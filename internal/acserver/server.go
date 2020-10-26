@@ -29,11 +29,9 @@ type Server struct {
 
 	logger Logger
 
-	tcpError             chan error
-	udpError             chan error
-	stopped              chan error
-	pluginUpdateInterval chan time.Duration
-	carUpdateOnce        sync.Once
+	tcpError, udpError, stopped chan error
+	pluginUpdateInterval        chan time.Duration
+	carUpdateOnce               sync.Once
 }
 
 func NewServer(ctx context.Context, baseDirectory string, serverConfig *ServerConfig, raceConfig *EventConfig, entryList EntryList, checksums []CustomChecksumFile, logger Logger, plugin Plugin) (*Server, error) {
