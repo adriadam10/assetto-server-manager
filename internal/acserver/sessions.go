@@ -283,12 +283,19 @@ func (sm *SessionManager) loop(ctx context.Context) {
 	tick := time.NewTicker(time.Second)
 	defer tick.Stop()
 
+	lastLobbyUpdate := time.Now()
+
 	for {
 		select {
 		case <-ctx.Done():
 			sm.logger.Debugf("Stopping SessionManager Loop")
 			return
 		case <-tick.C:
+			if sm.state.serverConfig.RegisterToLobby && time.Since(lastLobbyUpdate) > time.Minute {
+				sm.UpdateLobby()
+				lastLobbyUpdate = time.Now()
+			}
+
 			if sm.CanBroadcastEndSession() {
 				carsAreConnecting := false
 
@@ -552,8 +559,8 @@ func (sm *SessionManager) UpdateLobby() {
 		return sm.lobby.UpdateSessionDetails(sm.currentSession.Config.SessionType, remaining)
 	}
 
-	if err := sm.lobby.Try("Update lobby with new session", updateFunc); err != nil {
-		sm.logger.WithError(err).Error("All attempts to update lobby with new session failed")
+	if err := sm.lobby.Try("Update lobby with session details", updateFunc, false); err != nil {
+		sm.logger.WithError(err).Error("All attempts to update lobby with session details failed")
 	}
 }
 
