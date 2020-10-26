@@ -9,6 +9,8 @@ import (
 	"justapengu.in/acsm/internal/acserver"
 )
 
+const UDPProtocolVersion = uint8(4)
+
 type UDPPluginEvent uint8
 
 const (
@@ -54,7 +56,6 @@ type UDPPlugin struct {
 	cfn    context.CancelFunc
 
 	enableEnhancedReporting bool
-	shutdown                bool
 }
 
 func NewUDPPlugin(listenPort int, sendAddress string) (acserver.Plugin, error) {
@@ -90,18 +91,10 @@ func (u *UDPPlugin) listen() {
 		default:
 			buf := make([]byte, 1024)
 
-			_ = u.packetConn.SetDeadline(time.Now().Add(time.Minute))
-
 			n, _, err := u.packetConn.ReadFrom(buf)
 
 			if err != nil {
-				if e, ok := err.(*net.OpError); ok && !e.Temporary() {
-					u.logger.WithError(err).Errorf("udp plugin: fatal error. udp plugin will not run for this session.")
-					u.shutdown = true
-					return
-				}
-
-				u.logger.WithError(err).Error("udp plugin: could not read from udp buffer")
+				u.logger.WithError(err).Debug("udp plugin: could not read from udp buffer")
 				continue
 			}
 
@@ -235,30 +228,18 @@ func carInfoPacket(messageType UDPPluginEvent, car acserver.CarInfo) *acserver.P
 }
 
 func (u *UDPPlugin) OnNewConnection(car acserver.CarInfo) error {
-	if u.shutdown {
-		return nil
-	}
-
 	p := carInfoPacket(EventNewConnection, car)
 
 	return p.WriteToUDPConn(u.packetConn)
 }
 
 func (u *UDPPlugin) OnConnectionClosed(car acserver.CarInfo) error {
-	if u.shutdown {
-		return nil
-	}
-
 	p := carInfoPacket(EventConnectionClosed, car)
 
 	return p.WriteToUDPConn(u.packetConn)
 }
 
 func (u *UDPPlugin) OnCarUpdate(car acserver.CarInfo) error {
-	if u.shutdown {
-		return nil
-	}
-
 	p := acserver.NewPacket(nil)
 	p.Write(EventCarUpdate)
 	p.Write(car.CarID)
@@ -272,10 +253,6 @@ func (u *UDPPlugin) OnCarUpdate(car acserver.CarInfo) error {
 }
 
 func (u *UDPPlugin) OnNewSession(newSession acserver.SessionInfo) error {
-	if u.shutdown {
-		return nil
-	}
-
 	p := sessionInfoPacket(EventNewSession, newSession)
 
 	return p.WriteToUDPConn(u.packetConn)
@@ -284,7 +261,7 @@ func (u *UDPPlugin) OnNewSession(newSession acserver.SessionInfo) error {
 func sessionInfoPacket(eventType UDPPluginEvent, sessionInfo acserver.SessionInfo) *acserver.Packet {
 	p := acserver.NewPacket(nil)
 	p.Write(eventType)
-	p.Write(uint8(acserver.CurrentProtocolVersion))
+	p.Write(UDPProtocolVersion)
 	p.Write(sessionInfo.SessionIndex)
 	p.Write(sessionInfo.SessionIndex) // @TODO this one should be 'current session index'?
 	p.Write(sessionInfo.SessionCount)
@@ -305,10 +282,6 @@ func sessionInfoPacket(eventType UDPPluginEvent, sessionInfo acserver.SessionInf
 }
 
 func (u *UDPPlugin) OnEndSession(sessionFile string) error {
-	if u.shutdown {
-		return nil
-	}
-
 	p := acserver.NewPacket(nil)
 	p.Write(EventEndSession)
 	p.WriteUTF32String(sessionFile)
@@ -316,23 +289,15 @@ func (u *UDPPlugin) OnEndSession(sessionFile string) error {
 	return p.WriteToUDPConn(u.packetConn)
 }
 
-func (u *UDPPlugin) OnVersion(version uint16) error {
-	if u.shutdown {
-		return nil
-	}
-
+func (u *UDPPlugin) OnVersion(_ uint16) error {
 	p := acserver.NewPacket(nil)
 	p.Write(EventVersion)
-	p.Write(uint8(version))
+	p.Write(UDPProtocolVersion)
 
 	return p.WriteToUDPConn(u.packetConn)
 }
 
 func (u *UDPPlugin) OnChat(chat acserver.Chat) error {
-	if u.shutdown {
-		return nil
-	}
-
 	p := acserver.NewPacket(nil)
 	p.Write(EventChat)
 	p.Write(chat.FromCar)
@@ -342,10 +307,6 @@ func (u *UDPPlugin) OnChat(chat acserver.Chat) error {
 }
 
 func (u *UDPPlugin) OnClientLoaded(car acserver.CarInfo) error {
-	if u.shutdown {
-		return nil
-	}
-
 	p := acserver.NewPacket(nil)
 	p.Write(EventClientLoaded)
 	p.Write(car.CarID)
@@ -354,10 +315,6 @@ func (u *UDPPlugin) OnClientLoaded(car acserver.CarInfo) error {
 }
 
 func (u *UDPPlugin) OnLapCompleted(carID acserver.CarID, lap acserver.Lap) error {
-	if u.shutdown {
-		return nil
-	}
-
 	p := acserver.NewPacket(nil)
 	p.Write(EventLapCompleted)
 	p.Write(carID)
@@ -382,18 +339,10 @@ func (u *UDPPlugin) OnLapCompleted(carID acserver.CarID, lap acserver.Lap) error
 }
 
 func (u *UDPPlugin) OnClientEvent(_ acserver.ClientEvent) error {
-	if u.shutdown {
-		return nil
-	}
-
 	return nil
 }
 
 func (u *UDPPlugin) OnCollisionWithCar(event acserver.ClientEvent) error {
-	if u.shutdown {
-		return nil
-	}
-
 	p := acserver.NewPacket(nil)
 	p.Write(EventClientEvent)
 	p.Write(EventCollisionWithCar)
@@ -407,10 +356,6 @@ func (u *UDPPlugin) OnCollisionWithCar(event acserver.ClientEvent) error {
 }
 
 func (u *UDPPlugin) OnCollisionWithEnv(event acserver.ClientEvent) error {
-	if u.shutdown {
-		return nil
-	}
-
 	p := acserver.NewPacket(nil)
 	p.Write(EventClientEvent)
 	p.Write(EventCollisionWithEnvironment)
@@ -423,7 +368,7 @@ func (u *UDPPlugin) OnCollisionWithEnv(event acserver.ClientEvent) error {
 }
 
 func (u *UDPPlugin) OnSectorCompleted(car acserver.CarInfo, split acserver.Split) error {
-	if u.shutdown || !u.enableEnhancedReporting {
+	if !u.enableEnhancedReporting {
 		return nil
 	}
 
@@ -438,20 +383,12 @@ func (u *UDPPlugin) OnSectorCompleted(car acserver.CarInfo, split acserver.Split
 }
 
 func (u *UDPPlugin) OnWeatherChange(_ acserver.CurrentWeather) error {
-	if u.shutdown {
-		return nil
-	}
-
 	p := sessionInfoPacket(EventSessionInfo, u.server.GetSessionInfo())
 
 	return p.WriteToUDPConn(u.packetConn)
 }
 
 func (u *UDPPlugin) OnTyreChange(car acserver.CarInfo, tyres string) error {
-	if u.shutdown {
-		return nil
-	}
-
 	return nil
 }
 

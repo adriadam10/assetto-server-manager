@@ -112,9 +112,15 @@ func (s *Server) Start() error {
 
 	s.state.udp = s.udp
 
+	err := s.plugin.OnVersion(CurrentProtocolVersion)
+
+	if err != nil {
+		s.logger.WithError(err).Error("On version plugin returned an error")
+	}
+
 	go s.loop()
 
-	err := s.http.Listen()
+	err = s.http.Listen()
 
 	if err != nil {
 		return err
@@ -128,12 +134,6 @@ func (s *Server) Start() error {
 	}
 
 	go s.sessionManager.loop(s.ctx)
-
-	err = s.plugin.OnVersion(CurrentProtocolVersion)
-
-	if err != nil {
-		s.logger.WithError(err).Error("On version plugin returned an error")
-	}
 
 	return nil
 }
