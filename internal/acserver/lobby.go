@@ -33,7 +33,7 @@ const (
 	lobbyRegistrationAttempts = 10
 )
 
-func (l *Lobby) Try(description string, fn func() error) error {
+func (l *Lobby) Try(description string, fn func() error, reportSuccess bool) error {
 	var err error
 
 	for i := 0; i < lobbyRegistrationAttempts; i++ {
@@ -44,7 +44,9 @@ func (l *Lobby) Try(description string, fn func() error) error {
 			err = fn()
 
 			if err == nil {
-				l.logger.Infof("%s succeeded (attempt %d of %d)", description, i+1, lobbyRegistrationAttempts)
+				if reportSuccess {
+					l.logger.Infof("%s succeeded (attempt %d of %d)", description, i+1, lobbyRegistrationAttempts)
+				}
 				return nil
 			}
 

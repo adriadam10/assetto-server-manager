@@ -127,7 +127,7 @@ func (s *Server) Start() error {
 	}
 
 	if s.state.serverConfig.RegisterToLobby {
-		if err := s.lobby.Try("Register to lobby", s.lobby.Register); err != nil {
+		if err := s.lobby.Try("Register to lobby", s.lobby.Register, true); err != nil {
 			s.logger.WithError(err).Error("All attempts to register to lobby failed")
 			return s.Stop(false)
 		}
