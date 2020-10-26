@@ -44,7 +44,7 @@ type penaltyInfo struct {
 	driveThroughLaps    int
 }
 
-func NewPenaltiesPlugin(pitLane *pitlanedetection.PitLane) *PenaltiesPlugin {
+func NewPenaltiesPlugin(pitLane *pitlanedetection.PitLane) acserver.Plugin {
 	return &PenaltiesPlugin{
 		pitLane: pitLane,
 	}
@@ -54,6 +54,10 @@ func (p *PenaltiesPlugin) Init(server acserver.ServerPlugin, logger acserver.Log
 	p.server = server
 	p.logger = logger
 
+	return nil
+}
+
+func (p *PenaltiesPlugin) Shutdown() error {
 	return nil
 }
 

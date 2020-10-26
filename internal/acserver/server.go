@@ -149,6 +149,10 @@ func (s *Server) Stop(persistResults bool) (err error) {
 
 	s.logger.Infof("Shutting down acServer")
 
+	if err := s.plugin.Shutdown(); err != nil {
+		s.logger.WithError(err).Errorf("Plugin shutdown reported error")
+	}
+
 	s.cfn()
 
 	if err = s.http.Close(); err != nil {
