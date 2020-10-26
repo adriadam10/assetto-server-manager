@@ -92,7 +92,7 @@ func NewServer(ctx context.Context, baseDirectory string, serverConfig *ServerCo
 
 func (s *Server) Start() error {
 	runtime.GOMAXPROCS(s.state.serverConfig.NumberOfThreads)
-	s.logger.Infof("Initialising openAcServer with compatibility for server version %d", CurrentProtocolVersion)
+	s.logger.Infof("Initialising acServer with compatibility for server version %d", CurrentProtocolVersion)
 
 	s.tcp = NewTCP(s.state.serverConfig.TCPPort, s)
 	s.udp = NewUDP(s.state.serverConfig.UDPPort, s, s.state.serverConfig.ReceiveBufferSize, s.state.serverConfig.SendBufferSize)
@@ -148,6 +148,10 @@ func (s *Server) Stop(persistResults bool) (err error) {
 	}
 
 	s.logger.Infof("Shutting down acServer")
+
+	if err := s.plugin.Shutdown(); err != nil {
+		s.logger.WithError(err).Errorf("Plugin shutdown reported error")
+	}
 
 	s.cfn()
 

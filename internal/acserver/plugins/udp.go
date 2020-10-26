@@ -1,12 +1,15 @@
 package plugins
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"time"
 
 	"justapengu.in/acsm/internal/acserver"
 )
+
+const UDPProtocolVersion = uint8(4)
 
 type UDPPluginEvent uint8
 
@@ -49,6 +52,8 @@ type UDPPlugin struct {
 
 	server acserver.ServerPlugin
 	logger acserver.Logger
+	ctx    context.Context
+	cfn    context.CancelFunc
 
 	enableEnhancedReporting bool
 }
@@ -66,9 +71,13 @@ func NewUDPPlugin(listenPort int, sendAddress string) (acserver.Plugin, error) {
 		return nil, err
 	}
 
+	ctx, cfn := context.WithCancel(context.Background())
+
 	p := &UDPPlugin{
 		localAddress:  localAddress,
 		remoteAddress: remoteAddress,
+		ctx:           ctx,
+		cfn:           cfn,
 	}
 
 	return p, nil
@@ -76,18 +85,23 @@ func NewUDPPlugin(listenPort int, sendAddress string) (acserver.Plugin, error) {
 
 func (u *UDPPlugin) listen() {
 	for {
-		buf := make([]byte, 1024)
-
-		n, _, err := u.packetConn.ReadFrom(buf)
-
-		if err != nil {
-			u.logger.WithError(err).Error("udp plugin: could not read from udp buffer")
-			continue
-		}
-
-		if err := u.handleConnection(buf[:n]); err != nil {
-			u.logger.WithError(err).Error("udp plugin: could not handle udp connection")
+		select {
+		case <-u.ctx.Done():
 			return
+		default:
+			buf := make([]byte, 1024)
+
+			n, _, err := u.packetConn.ReadFrom(buf)
+
+			if err != nil {
+				u.logger.WithError(err).Debug("udp plugin: could not read from udp buffer")
+				continue
+			}
+
+			if err := u.handleConnection(buf[:n]); err != nil {
+				u.logger.WithError(err).Error("udp plugin: could not handle udp connection")
+				return
+			}
 		}
 	}
 }
@@ -107,6 +121,14 @@ func (u *UDPPlugin) Init(server acserver.ServerPlugin, logger acserver.Logger) e
 	go u.listen()
 
 	return nil
+}
+
+func (u *UDPPlugin) Shutdown() error {
+	u.logger.Infof("Shutting down UDP plugin")
+
+	u.cfn()
+
+	return u.packetConn.Close()
 }
 
 func (u *UDPPlugin) handleConnection(data []byte) error {
@@ -239,7 +261,7 @@ func (u *UDPPlugin) OnNewSession(newSession acserver.SessionInfo) error {
 func sessionInfoPacket(eventType UDPPluginEvent, sessionInfo acserver.SessionInfo) *acserver.Packet {
 	p := acserver.NewPacket(nil)
 	p.Write(eventType)
-	p.Write(uint8(acserver.CurrentProtocolVersion))
+	p.Write(UDPProtocolVersion)
 	p.Write(sessionInfo.SessionIndex)
 	p.Write(sessionInfo.SessionIndex) // @TODO this one should be 'current session index'?
 	p.Write(sessionInfo.SessionCount)
@@ -267,10 +289,10 @@ func (u *UDPPlugin) OnEndSession(sessionFile string) error {
 	return p.WriteToUDPConn(u.packetConn)
 }
 
-func (u *UDPPlugin) OnVersion(version uint16) error {
+func (u *UDPPlugin) OnVersion(_ uint16) error {
 	p := acserver.NewPacket(nil)
 	p.Write(EventVersion)
-	p.Write(uint8(version))
+	p.Write(UDPProtocolVersion)
 
 	return p.WriteToUDPConn(u.packetConn)
 }

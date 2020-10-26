@@ -6,6 +6,7 @@ import (
 
 type Plugin interface {
 	Init(server ServerPlugin, logger Logger) error
+	Shutdown() error
 
 	OnVersion(version uint16) error
 	OnNewSession(newSession SessionInfo) error
@@ -70,6 +71,16 @@ func (mp *multiPlugin) Init(server ServerPlugin, logger Logger) error {
 
 	for _, plugin := range mp.plugins {
 		errs = append(errs, plugin.Init(server, logger))
+	}
+
+	return errs.Err()
+}
+
+func (mp *multiPlugin) Shutdown() error {
+	errs := make(groupedError, 0)
+
+	for _, plugin := range mp.plugins {
+		errs = append(errs, plugin.Shutdown())
 	}
 
 	return errs.Err()
@@ -286,6 +297,10 @@ func (n nilPlugin) OnClientEvent(_ ClientEvent) error {
 }
 
 func (n nilPlugin) Init(_ ServerPlugin, _ Logger) error {
+	return nil
+}
+
+func (n nilPlugin) Shutdown() error {
 	return nil
 }
 

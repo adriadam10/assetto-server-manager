@@ -47,6 +47,10 @@ func (r *UDPPluginAdapter) Init(server acserver.ServerPlugin, _ acserver.Logger)
 	return nil
 }
 
+func (r *UDPPluginAdapter) Shutdown() error {
+	return nil
+}
+
 func (r *UDPPluginAdapter) OnVersion(version uint16) error {
 	r.UDPCallback(udp.Version(version))
 

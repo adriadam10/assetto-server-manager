@@ -27,7 +27,7 @@ type drifter struct {
 	bestLapScore float64
 }
 
-func NewDriftPlugin() *DriftPlugin {
+func NewDriftPlugin() acserver.Plugin {
 	return &DriftPlugin{}
 }
 
@@ -35,6 +35,10 @@ func (d *DriftPlugin) Init(server acserver.ServerPlugin, logger acserver.Logger)
 	d.server = server
 	d.logger = logger
 
+	return nil
+}
+
+func (d *DriftPlugin) Shutdown() error {
 	return nil
 }
 
