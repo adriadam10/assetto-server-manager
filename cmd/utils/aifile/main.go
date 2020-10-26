@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"image"
 	"image/color"
-	"image/draw"
-	"image/png"
 	"os"
 	"path/filepath"
 	"strings"
@@ -69,6 +67,9 @@ func main() {
 				return
 			}
 
+			renderer := ai.NewTrackMapRenderer(fastLaneSpline, pitLaneSpline)
+
+			/*
 			x, y := fastLaneSpline.Dimensions()
 
 			padding := 20
@@ -91,12 +92,12 @@ func main() {
 
 			for _, point := range pitLaneSpline.Points {
 				draw.Draw(img, img.Bounds(), &circle{image.Pt(padding+int(point.Position.X-minX), padding+int(point.Position.Z-minY)), radius, color.RGBA{R: 255, G: 125, B: 0, A: 0xff}}, image.Pt(0, 0), draw.Over)
-			}
+			}*/
 
 			f, _ := os.Create(filepath.Join(wd, "maps", strings.Replace(filepath.ToSlash(path), "/", "_", -1)+"_map.png"))
 			defer f.Close()
 
-			err = png.Encode(f, img)
+			err = renderer.Render(f)
 
 			if err != nil {
 				panic(err)
