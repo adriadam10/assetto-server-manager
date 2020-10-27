@@ -305,13 +305,8 @@ class RaceSetup {
             $onLoadWeatherSessionSelects.find('option').prop('selected', false);
             $onLoadWeatherSessionSelects.multiSelect();
 
-            // remove sessions that aren't active
-            if ($(".session-enabler[name='Practice.Enabled']").is(":checked")) {
-
-            }
-
             // only select sessions in sessionsForWeather
-            sessionsForWeather.split(",").forEach(function (weather, index) {
+            sessionsForWeather.split(", ").forEach(function (weather, index) {
                 $onLoadWeatherSessionSelects.multiSelect("select", weather);
             });
         }

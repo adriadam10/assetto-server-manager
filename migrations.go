@@ -1270,7 +1270,6 @@ func addDefaultPenaltyOptionsToCustomRaces(s Store) error {
 	return nil
 }
 
-// @TODO this seems to only add the first session (just Q or P for example)
 func migrateChampionPracticeWeatherToSessions(s Store) error {
 	logrus.Infof("Running migration: Migrate Championship Practice Weather to Sessions")
 
@@ -1285,9 +1284,7 @@ func migrateChampionPracticeWeatherToSessions(s Store) error {
 			eventSetup := event.GetRaceSetup()
 
 			for _, weather := range eventSetup.Weather {
-				if len(weather.Sessions) > 0 {
-					continue
-				}
+				weather.Sessions = []SessionType{}
 
 				if weather.ChampionshipPracticeWeather == weatherPractice {
 					weather.Sessions = append(weather.Sessions, SessionTypeChampionshipPractice)
