@@ -33,6 +33,8 @@ type ServerState struct {
 	logger       Logger
 	dynamicTrack *DynamicTrack
 
+	serverStartTime time.Time
+
 	udp           *UDP
 	baseDirectory string
 
@@ -72,6 +74,7 @@ func NewServerState(baseDirectory string, serverConfig *ServerConfig, raceConfig
 		noJoinList:           make(map[string]bool),
 		baseDirectory:        baseDirectory,
 		broadcastChatLimiter: time.NewTicker(chatLimit),
+		serverStartTime:      time.Now(),
 	}
 
 	if err := ss.init(); err != nil {
@@ -267,6 +270,10 @@ func (ss *ServerState) initBlockList() error {
 	}
 
 	return nil
+}
+
+func (ss *ServerState) CurrentTimeMillisecond() int64 {
+	return time.Since(ss.serverStartTime).Milliseconds()
 }
 
 func (ss *ServerState) GetCarByName(name string) *Car {

@@ -198,7 +198,7 @@ func (s *Server) loop() {
 			s.logger.Debugf("Stopping main server loop")
 			return
 		default:
-			currentTime := currentTimeMillisecond()
+			currentTime := s.state.CurrentTimeMillisecond()
 
 			for _, car := range s.state.entryList {
 				if car.IsConnected() && car.HasSentFirstUpdate() {
@@ -256,7 +256,7 @@ func (s *Server) loop() {
 				}
 			}
 
-			totalTimeForUpdate := currentTimeMillisecond() - currentTime
+			totalTimeForUpdate := s.state.CurrentTimeMillisecond() - currentTime
 			lastSendTime = currentTime
 
 			if sleepTime != idleSleepTime && totalTimeForUpdate > serverTickRate {
