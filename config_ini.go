@@ -87,7 +87,7 @@ func (s SessionType) ACServerType() acserver.SessionType {
 	case SessionTypeRace:
 		return acserver.SessionTypeRace
 	case SessionTypeChampionshipPractice:
-		return acserver.SessionType(99)
+		return acserver.SessionType(4)
 	}
 
 	return acserver.SessionTypePractice

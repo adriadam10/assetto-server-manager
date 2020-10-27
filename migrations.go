@@ -92,7 +92,7 @@ var (
 		addDefaultCustomChecksums,
 		migrateBlacklistToBlockList,
 		addDefaultPenaltyOptionsToCustomRaces,
-		migrateChampionPracticeWeatherToSessions,
+		migrateChampionshipPracticeWeatherToSessions,
 	}
 )
 
@@ -1270,7 +1270,7 @@ func addDefaultPenaltyOptionsToCustomRaces(s Store) error {
 	return nil
 }
 
-func migrateChampionPracticeWeatherToSessions(s Store) error {
+func migrateChampionshipPracticeWeatherToSessions(s Store) error {
 	logrus.Infof("Running migration: Migrate Championship Practice Weather to Sessions")
 
 	championships, err := s.ListChampionships()
@@ -1278,6 +1278,10 @@ func migrateChampionPracticeWeatherToSessions(s Store) error {
 	if err != nil {
 		return err
 	}
+
+	sort.Slice(championships, func(i, j int) bool {
+		return championships[i].Updated.Before(championships[j].Updated)
+	})
 
 	for _, championship := range championships {
 		for _, event := range championship.Events {
