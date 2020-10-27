@@ -205,14 +205,6 @@ func (wm *WeatherManager) SendSunAngle() {
 	wm.state.BroadcastAllTCP(bw)
 }
 
-func (wm *WeatherManager) SendSunAngleToCar(car *Car) error {
-	bw := NewPacket(nil)
-	bw.Write(TCPSendSunAngle)
-	bw.Write(wm.sunAngle)
-
-	return bw.WriteTCP(car.Connection.tcpConn)
-}
-
 func (wm *WeatherManager) OnNewSession(session SessionConfig) {
 	wm.mutex.Lock()
 	wm.currentWeatherIndex = 0

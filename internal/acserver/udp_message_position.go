@@ -193,10 +193,6 @@ func (pm *PositionMessageHandler) SendFirstUpdate(car *Car) error {
 		return err
 	}
 
-	if err := pm.weatherManager.SendSunAngleToCar(car); err != nil {
-		return err
-	}
-
 	return nil
 }
 
