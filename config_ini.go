@@ -30,6 +30,8 @@ const (
 	SessionTypeQualifying SessionType = "QUALIFY"
 	SessionTypeRace       SessionType = "RACE"
 
+	SessionTypeChampionshipPractice SessionType = "CHAMPIONSHIP-PRACTICE"
+
 	// SessionTypeSecondRace is a convenience const to allow for checking of
 	// reversed grid positions signifying a second race.
 	SessionTypeSecondRace SessionType = "RACEx2"
@@ -53,12 +55,18 @@ func (s SessionType) String() string {
 		return "Race"
 	case SessionTypeSecondRace:
 		return "2nd Race"
+	case SessionTypeChampionshipPractice:
+		return "Looping Championship Practice"
 	default:
 		return strings.Title(strings.ToLower(string(s)))
 	}
 }
 
 func SessionNameToSessionType(name string) SessionType {
+	if name == SessionTypeChampionshipPractice.String() {
+		return SessionTypeChampionshipPractice
+	}
+
 	for _, t := range AvailableSessions {
 		if t.String() == name {
 			return t
@@ -78,6 +86,8 @@ func (s SessionType) ACServerType() acserver.SessionType {
 		return acserver.SessionTypeQualifying
 	case SessionTypeRace:
 		return acserver.SessionTypeRace
+	case SessionTypeChampionshipPractice:
+		return acserver.SessionType(99)
 	}
 
 	return acserver.SessionTypePractice
