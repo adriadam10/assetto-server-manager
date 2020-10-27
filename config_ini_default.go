@@ -105,16 +105,15 @@ func ConfigDefault() ServerConfig {
 
 			Weather: map[string]*WeatherConfig{
 				"WEATHER_0": {
-					Graphics:                    "3_clear",
-					ChampionshipPracticeWeather: weatherAny,
-					BaseTemperatureAmbient:      26,
-					BaseTemperatureRoad:         11,
-					VariationAmbient:            1,
-					VariationRoad:               1,
-					WindBaseSpeedMin:            3,
-					WindBaseSpeedMax:            15,
-					WindBaseDirection:           30,
-					WindVariationDirection:      15,
+					Graphics:               "3_clear",
+					BaseTemperatureAmbient: 26,
+					BaseTemperatureRoad:    11,
+					VariationAmbient:       1,
+					VariationRoad:          1,
+					WindBaseSpeedMin:       3,
+					WindBaseSpeedMax:       15,
+					WindBaseDirection:      30,
+					WindVariationDirection: 15,
 				},
 			},
 

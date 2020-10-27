@@ -92,6 +92,7 @@ var (
 		addDefaultCustomChecksums,
 		migrateBlacklistToBlockList,
 		addDefaultPenaltyOptionsToCustomRaces,
+		migrateChampionshipPracticeWeatherToSessions,
 	}
 )
 
@@ -1262,6 +1263,52 @@ func addDefaultPenaltyOptionsToCustomRaces(s Store) error {
 		}
 
 		if err := s.UpsertRaceWeekend(raceWeekend); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func migrateChampionshipPracticeWeatherToSessions(s Store) error {
+	logrus.Infof("Running migration: Migrate Championship Practice Weather to Sessions")
+
+	championships, err := s.ListChampionships()
+
+	if err != nil {
+		return err
+	}
+
+	sort.Slice(championships, func(i, j int) bool {
+		return championships[i].Updated.Before(championships[j].Updated)
+	})
+
+	for _, championship := range championships {
+		for _, event := range championship.Events {
+			eventSetup := event.GetRaceSetup()
+
+			for _, weather := range eventSetup.Weather {
+				weather.Sessions = []SessionType{}
+
+				if weather.ChampionshipPracticeWeather == weatherPractice {
+					weather.Sessions = append(weather.Sessions, SessionTypeChampionshipPractice)
+				} else if weather.ChampionshipPracticeWeather == weatherEvent {
+					for session := range eventSetup.Sessions {
+						weather.Sessions = append(weather.Sessions, session)
+					}
+				} else {
+					for session := range eventSetup.Sessions {
+						weather.Sessions = append(weather.Sessions, session)
+					}
+
+					weather.Sessions = append(weather.Sessions, SessionTypeChampionshipPractice)
+				}
+			}
+		}
+
+		err := s.UpsertChampionship(championship)
+
+		if err != nil {
 			return err
 		}
 	}
