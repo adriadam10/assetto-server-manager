@@ -176,7 +176,7 @@ func (m HandshakeMessageHandler) OnMessage(conn net.Conn, p *Packet) error {
 
 	w.Write(carPos)
 
-	car.Driver.JoinTime = currentTimeMillisecond()
+	car.Driver.JoinTime = m.state.CurrentTimeMillisecond()
 	w.Write(m.sessionManager.ElapsedSessionTime().Milliseconds())
 
 	checksumFiles := m.checksumManager.GetFiles()
@@ -192,7 +192,7 @@ func (m HandshakeMessageHandler) OnMessage(conn net.Conn, p *Packet) error {
 
 	w.WriteString(strings.Join(m.state.raceConfig.LegalTyres, ";"))
 	w.Write(m.state.randomSeed)
-	w.Write(uint32(currentTimeMillisecond()))
+	w.Write(uint32(m.state.CurrentTimeMillisecond()))
 
 	if err := w.WriteTCP(conn); err != nil {
 		return err

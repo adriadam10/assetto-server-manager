@@ -9,12 +9,6 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-var serverStartTime = time.Now()
-
-func currentTimeMillisecond() int64 {
-	return time.Since(serverStartTime).Milliseconds()
-}
-
 type SessionConfig struct {
 	SessionType SessionType `json:"session_type" yaml:"session_type"`
 	Name        string      `json:"name" yaml:"name"`
@@ -232,7 +226,7 @@ func (sm *SessionManager) NextSession(force bool) {
 
 	sm.mutex.Lock()
 	sm.currentSession = NewCurrentSession(*sm.state.raceConfig.Sessions[sm.currentSessionIndex])
-	sm.currentSession.startTime = currentTimeMillisecond() + int64(sm.currentSession.Config.WaitTime*1000)
+	sm.currentSession.startTime = sm.state.CurrentTimeMillisecond() + int64(sm.currentSession.Config.WaitTime*1000)
 	sm.currentSession.moveToNextSessionAt = 0
 	sm.currentSession.sessionOverBroadcast = false
 	currentSessionIndex := sm.currentSessionIndex
@@ -317,9 +311,9 @@ func (sm *SessionManager) loop(ctx context.Context) {
 				sm.mutex.Lock()
 				switch sm.currentSession.Config.SessionType {
 				case SessionTypeBooking:
-					sm.currentSession.moveToNextSessionAt = currentTimeMillisecond()
+					sm.currentSession.moveToNextSessionAt = sm.state.CurrentTimeMillisecond()
 				default:
-					sm.currentSession.moveToNextSessionAt = currentTimeMillisecond() + int64(sm.state.raceConfig.ResultScreenTime*1000)
+					sm.currentSession.moveToNextSessionAt = sm.state.CurrentTimeMillisecond() + int64(sm.state.raceConfig.ResultScreenTime*1000)
 				}
 				sm.currentSession.sessionOverBroadcast = true
 				sm.mutex.Unlock()
@@ -351,7 +345,7 @@ func (sm *SessionManager) loop(ctx context.Context) {
 func (sm *SessionManager) CanMoveToNextSession() bool {
 	sm.mutex.RLock()
 	defer sm.mutex.RUnlock()
-	return sm.currentSession.sessionOverBroadcast && currentTimeMillisecond() > sm.currentSession.moveToNextSessionAt
+	return sm.currentSession.sessionOverBroadcast && sm.state.CurrentTimeMillisecond() > sm.currentSession.moveToNextSessionAt
 }
 
 func (sm *SessionManager) CanBroadcastEndSession() bool {
@@ -442,7 +436,7 @@ func (sm *SessionManager) RemainingSessionTime() time.Duration {
 	sm.mutex.RLock()
 	defer sm.mutex.RUnlock()
 
-	return time.Duration(sm.currentSession.FinishTime()-currentTimeMillisecond()) * time.Millisecond
+	return time.Duration(sm.currentSession.FinishTime()-sm.state.CurrentTimeMillisecond()) * time.Millisecond
 }
 
 func (sm *SessionManager) RemainingLaps() int {
@@ -510,7 +504,7 @@ func (sm *SessionManager) BestLapTimeInSession() time.Duration {
 func (sm *SessionManager) ElapsedSessionTime() time.Duration {
 	sm.mutex.RLock()
 	defer sm.mutex.RUnlock()
-	return time.Duration(currentTimeMillisecond()-sm.currentSession.startTime) * time.Millisecond
+	return time.Duration(sm.state.CurrentTimeMillisecond()-sm.currentSession.startTime) * time.Millisecond
 }
 
 func (sm *SessionManager) ClearSessionData() {
@@ -695,7 +689,7 @@ func (sm *SessionManager) CompleteLap(carID CarID, lap *LapCompleted, target *Ca
 	if sm.currentSession.Config.Laps > 0 {
 		car.SetHasCompletedSession(car.LapCount() == int(sm.currentSession.Config.Laps))
 	} else {
-		if currentTimeMillisecond() > sm.currentSession.FinishTime() {
+		if sm.state.CurrentTimeMillisecond() > sm.currentSession.FinishTime() {
 			leader := leaderboard[0]
 
 			if sm.state.raceConfig.RaceExtraLap {

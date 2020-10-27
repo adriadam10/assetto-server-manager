@@ -21,7 +21,7 @@ func (pmh PingMessageHandler) OnMessage(conn net.PacketConn, addr net.Addr, p *P
 		return nil
 	}
 
-	time := currentTimeMillisecond()
+	time := pmh.state.CurrentTimeMillisecond()
 	theirTime := p.ReadUint32()
 	timeOffset := p.ReadUint32()
 

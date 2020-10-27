@@ -109,7 +109,7 @@ func (wm *WeatherManager) ChangeWeather(weatherConfig *WeatherConfig, weatherUpd
 	wm.logger.Infof("Changed weather to: %s", wm.currentWeather.String())
 
 	if weatherConfig.Duration > 0 {
-		wm.nextWeatherUpdate = currentTimeMillisecond() + (weatherUpdateOffsetSeconds * 1000) + (weatherConfig.Duration * 60000)
+		wm.nextWeatherUpdate = wm.state.CurrentTimeMillisecond() + (weatherUpdateOffsetSeconds * 1000) + (weatherConfig.Duration * 60000)
 	} else {
 		wm.logger.Infof("Weather progression completed.")
 		wm.weatherProgression = false
@@ -203,14 +203,6 @@ func (wm *WeatherManager) SendSunAngle() {
 	bw.Write(wm.sunAngle)
 
 	wm.state.BroadcastAllTCP(bw)
-}
-
-func (wm *WeatherManager) SendSunAngleToCar(car *Car) error {
-	bw := NewPacket(nil)
-	bw.Write(TCPSendSunAngle)
-	bw.Write(wm.sunAngle)
-
-	return bw.WriteTCP(car.Connection.tcpConn)
 }
 
 func (wm *WeatherManager) OnNewSession(session SessionConfig) {
