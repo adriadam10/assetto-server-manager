@@ -33,11 +33,21 @@ func (l LapCompletedMessageHandler) OnMessage(conn net.Conn, p *Packet) error {
 	p.Read(&lap.LapTime)
 	p.Read(&lap.NumSplits)
 
-	lap.Splits = make([]uint32, lap.NumSplits)
-
 	for i := uint8(0); i < lap.NumSplits; i++ {
-		p.Read(&lap.Splits[i])
+		var split uint32
+
+		p.Read(&split)
+
+		if split > 0 && split <= lap.LapTime {
+			// tracks like Nordschleife Touristenfahrten only have one sector, yet
+			// incorrectly report two sectors on crossing the line. filter out any
+			// splits which are greater than the lap time.
+			lap.Splits = append(lap.Splits, split)
+		}
 	}
+
+	// correct number of splits, if a split was filtered out
+	lap.NumSplits = uint8(len(lap.Splits))
 
 	p.Read(&lap.Cuts)
 	p.Read(&lap.LapCount)

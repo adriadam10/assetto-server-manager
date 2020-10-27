@@ -215,6 +215,11 @@ func (l *Lobby) buildSessionUpdateRequest(currentSession SessionType, timeLeft i
 
 	q := r.URL.Query()
 
+	if timeLeft < 0 {
+		// kunos lobby cannot handle negative timeLeft
+		timeLeft = 0
+	}
+
 	q.Add("session", strconv.Itoa(int(currentSession)))
 
 	q.Add("timeleft", strconv.Itoa(timeLeft))

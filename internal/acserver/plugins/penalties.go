@@ -214,7 +214,7 @@ func (p *PenaltiesPlugin) OnEndSession(sessionFile string) error {
 		if penalty.driveThrough {
 			// driver finished session with unserved penalty, apply to results
 			for _, result := range results.Result {
-				if result.CarID == int(penalty.carID) {
+				if result.CarID == penalty.carID {
 					result.HasPenalty = true
 					result.PenaltyTime += p.pitLane.AveragePitLaneTime + time.Second*10
 
@@ -232,7 +232,7 @@ func (p *PenaltiesPlugin) OnEndSession(sessionFile string) error {
 		if penalty.clearPenaltyIn > 0 {
 			// driver still had a penalty for some laps, time penalty instead
 			for _, result := range results.Result {
-				if result.CarID == int(penalty.carID) {
+				if result.CarID == penalty.carID {
 					result.HasPenalty = true
 					result.PenaltyTime += time.Second * 5 * time.Duration(penalty.clearPenaltyIn)
 
@@ -249,7 +249,7 @@ func (p *PenaltiesPlugin) OnEndSession(sessionFile string) error {
 
 		for _, timePenalty := range penalty.timePenalties {
 			for _, result := range results.Result {
-				if result.CarID == int(penalty.carID) {
+				if result.CarID == penalty.carID {
 					result.HasPenalty = true
 					result.PenaltyTime += timePenalty
 
