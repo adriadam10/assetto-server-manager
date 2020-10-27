@@ -228,28 +228,35 @@ func (rc *RaceControl) OnCarUpdate(update udp.CarUpdate) (bool, error) {
 		math.Sqrt(math.Pow(float64(update.Velocity.X), 2) + math.Pow(float64(update.Velocity.Z), 2)),
 	)
 
+	if math.IsNaN(speed) {
+		speed = 0
+	}
+
 	driver.mutex.Lock()
 	if speed > driver.CurrentCar().TopSpeedThisLap {
 		driver.CurrentCar().TopSpeedThisLap = speed
 	}
 
+	pitLane := rc.process.SharedPitLane()
+
 	driver.LastSeen = time.Now()
 	driver.LastPos = update.Pos
-	driver.NormalisedSplinePos = update.NormalisedSplinePos
+	if !math.IsNaN(float64(update.NormalisedSplinePos)) {
+		driver.NormalisedSplinePos = update.NormalisedSplinePos
+	}
 	driver.SteerAngle = update.SteerAngle
 	driver.StatusBytes = update.StatusBytes
-	driver.mutex.Unlock()
-
 	wasInPits := driver.IsInPits
 
-	driver.IsInPits = rc.process.SharedPitLane().IsInPits(update)
+	driver.IsInPits = pitLane.IsInPits(update)
+	driver.mutex.Unlock()
 
 	sendUpdatedRaceControlStatus := false
 
 	if driver.IsInPits != wasInPits {
 		sendUpdatedRaceControlStatus = true
 
-		rc.process.SharedPitLane().UpdateCar(uint8(update.CarID), driver.IsInPits)
+		pitLane.UpdateCar(uint8(update.CarID), driver.IsInPits)
 	}
 
 	rc.ConnectedDrivers.sort()
@@ -1258,10 +1265,10 @@ func chatMessagePlugin(chat udp.Chat) error {
 }
 
 func (rc *RaceControl) SortDrivers(driverGroup RaceControlDriverGroup, driverA, driverB *RaceControlDriver) bool {
-	driverA.mutex.Lock()
-	defer driverA.mutex.Unlock()
-	driverB.mutex.Lock()
-	defer driverB.mutex.Unlock()
+	driverA.mutex.RLock()
+	defer driverA.mutex.RUnlock()
+	driverB.mutex.RLock()
+	defer driverB.mutex.RUnlock()
 
 	driverACar := driverA.CurrentCar()
 	driverBCar := driverB.CurrentCar()

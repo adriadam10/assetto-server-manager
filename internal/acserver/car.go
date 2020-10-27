@@ -231,6 +231,39 @@ func (c *Car) GUIDs() []string {
 	return out
 }
 
+// GUIDsWithLaps returns the set of all GUIDs which have completed one or more laps in the Car.
+func (c *Car) GUIDsWithLaps() []string {
+	c.mutex.RLock()
+	defer c.mutex.RUnlock()
+
+	guidMap := make(map[string]bool)
+
+	guidMap[c.Driver.GUID] = true
+
+	for _, driver := range c.Drivers {
+		hasLaps := false
+
+		for _, lap := range c.SessionData.Laps {
+			if lap.DriverGUID == driver.GUID {
+				hasLaps = true
+				break
+			}
+		}
+
+		if hasLaps {
+			guidMap[driver.GUID] = true
+		}
+	}
+
+	var out []string
+
+	for guid := range guidMap {
+		out = append(out, guid)
+	}
+
+	return out
+}
+
 func (c *Car) SwapDrivers(newDriver Driver, conn Connection, isAdmin bool) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()

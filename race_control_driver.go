@@ -60,7 +60,7 @@ type RaceControlDriver struct {
 	driverSwapContext context.Context
 	driverSwapCfn     context.CancelFunc
 
-	mutex sync.Mutex
+	mutex sync.RWMutex
 }
 
 func (rcd *RaceControlDriver) CurrentCar() *RaceControlCarLapInfo {
@@ -92,8 +92,8 @@ func (rcd *RaceControlDriver) ClearSessionInfo() {
 }
 
 func (rcd *RaceControlDriver) MarshalJSON() ([]byte, error) {
-	rcd.mutex.Lock()
-	defer rcd.mutex.Unlock()
+	rcd.mutex.RLock()
+	defer rcd.mutex.RUnlock()
 
 	return json.Marshal(rcd.RaceControlDriverData)
 }
