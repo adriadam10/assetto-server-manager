@@ -650,10 +650,10 @@ type DynamicTrackConfig struct {
 	LapGain         int `ini:"LAP_GAIN" help:"how many laps are needed to add 1% grip"`
 }
 
+// Deprecated: Use Sessions instead.
 const (
 	weatherPractice = "weatherPractice"
 	weatherEvent    = "weatherEvent"
-	weatherAny      = "weatherAny"
 )
 
 type WeatherConfig struct {
@@ -668,6 +668,7 @@ type WeatherConfig struct {
 	WindBaseDirection      int `ini:"WIND_BASE_DIRECTION" help:"base direction of the wind (wind is pointing at); 0 = North, 90 = East etc"`
 	WindVariationDirection int `ini:"WIND_VARIATION_DIRECTION" help:"variation (+ or -) of the base direction"`
 
+	// Deprecated: Use Sessions instead.
 	ChampionshipPracticeWeather string `ini:"-"`
 
 	// custom ac server
