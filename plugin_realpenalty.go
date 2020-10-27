@@ -43,6 +43,10 @@ func RealPenaltyFolderPath() string {
 }
 
 func IsRealPenaltyInstalled() bool {
+	if !config.Server.DisablePlugins {
+		return false
+	}
+
 	if _, err := os.Stat(RealPenaltyExecutablePath()); os.IsNotExist(err) {
 		return false
 	} else if err != nil {

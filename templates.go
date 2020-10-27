@@ -570,6 +570,7 @@ type BaseTemplateVars struct {
 	BaseURLIsValid        bool
 	ServerID              ServerID
 	ShowEventDetailsPopup bool
+	PluginsEnabled        bool
 }
 
 func (b *BaseTemplateVars) Get() *BaseTemplateVars {
@@ -618,6 +619,7 @@ func (tr *Renderer) addData(w http.ResponseWriter, r *http.Request, vars Templat
 	data.ACSREnabled = opts.EnableACSR
 	data.ServerID = serverID
 	data.ShowEventDetailsPopup = opts.ShowEventDetailsPopup
+	data.PluginsEnabled = !config.Server.DisablePlugins
 
 	if opts.OGImage != "" {
 		data.OGImage = opts.OGImage

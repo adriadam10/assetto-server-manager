@@ -44,6 +44,10 @@ func KissMyRankConfigPath() string {
 
 // IsKissMyRankInstalled looks in the ServerInstallPath for a "kissmyrank" directory with the correct kissmyrank executable for the given platform
 func IsKissMyRankInstalled() bool {
+	if !config.Server.DisablePlugins {
+		return false
+	}
+
 	if _, err := os.Stat(KissMyRankExecutablePath()); os.IsNotExist(err) {
 		return false
 	} else if err != nil {

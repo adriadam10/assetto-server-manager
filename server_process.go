@@ -339,6 +339,10 @@ func (sp *AssettoServerProcess) startRaceEvent(raceEvent RaceEvent, serverOption
 		})
 	}
 
+	if config.Server.DisablePlugins {
+		return nil
+	}
+
 	strackerOptions, err := sp.store.LoadStrackerOptions()
 	strackerEnabled := err == nil && strackerOptions.EnableStracker && IsStrackerInstalled()
 

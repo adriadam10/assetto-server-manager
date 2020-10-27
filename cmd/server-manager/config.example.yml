@@ -193,6 +193,17 @@ server:
   # have deleted content, started/stopped events when they shouldn't have etc.
   audit_logging: true
 
+  # Server Manager has built in support for some plugins (STracker, KissMyRank
+  # and Real Penalty). If you want to use these plugins you can enable them
+  # here, then use the Server Manager UI to activate and configure them.
+  #
+  # note: If you are using any of these plugins please do not contact us for
+  # support with them. If you are experiencing any issues with stability etc.
+  # the first thing we will always suggest is disabling plugins. If you are
+  # experiencing issues with the plugins themselves we cannot provide
+  # support as we do not have access to the source code of the plugins.
+  disable_plugins: true
+
   # performance mode disables live timing entirely, and prioritises low cpu
   # usage.
   performance_mode: false

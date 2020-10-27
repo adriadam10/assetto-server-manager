@@ -109,7 +109,9 @@ func Router(
 		r.Get("/", serverAdministrationHandler.home)
 		r.Get("/changelog", serverAdministrationHandler.changelog)
 
-		r.Mount("/stracker/", http.HandlerFunc(strackerHandler.proxy))
+		if !config.Server.DisablePlugins {
+			r.Mount("/stracker/", http.HandlerFunc(strackerHandler.proxy))
+		}
 
 		// content
 		r.Get("/cars", carsHandler.list)
@@ -348,10 +350,12 @@ func Router(
 		r.HandleFunc("/send-chat", raceControlHandler.sendChat)
 		r.HandleFunc("/countdown", raceControlHandler.countdown)
 
-		r.HandleFunc("/stracker/options", strackerHandler.options)
-		r.HandleFunc("/kissmyrank/options", kissMyRankHandler.options)
-		r.HandleFunc("/realpenalty/options", realPenaltyHandler.options)
-		r.HandleFunc("/realpenalty/logs", realPenaltyHandler.downloadLogs)
+		if !config.Server.DisablePlugins {
+			r.HandleFunc("/stracker/options", strackerHandler.options)
+			r.HandleFunc("/kissmyrank/options", kissMyRankHandler.options)
+			r.HandleFunc("/realpenalty/options", realPenaltyHandler.options)
+			r.HandleFunc("/realpenalty/logs", realPenaltyHandler.downloadLogs)
+		}
 	})
 
 	FileServer(r, "/static", fs, false)
