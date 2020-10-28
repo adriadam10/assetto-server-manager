@@ -250,6 +250,8 @@ func (a *AdminCommandManager) Command(entrant *Car, command string) error {
 					return a.state.SendChat(ServerCarID, entrant.CarID, "The help command provides context for server commands, just like this!", false)
 				case "admin":
 					return a.state.SendChat(ServerCarID, entrant.CarID, "The admin command will give you access to admin commands! (e.g. /admin password)", false)
+				case "direct", "pm":
+					return a.state.SendChat(ServerCarID, entrant.CarID, "The pm command lets you send a direct message to another driver using car ID, GUID or name! Message must be wrapped in quotes (e.g. /pm Billy \"How are you doing today?\")", false)
 				default:
 					return a.state.SendChat(ServerCarID, entrant.CarID, fmt.Sprintf("%s is not a recognised command, or you do not have access to it", strings.ToLower(commandSplit[1])), false)
 				}
@@ -285,6 +287,36 @@ func (a *AdminCommandManager) Command(entrant *Car, command string) error {
 			}
 		} else {
 			return a.state.SendChat(ServerCarID, entrant.CarID, "The admin command will give you access to admin commands! (e.g. /admin password)", false)
+		}
+	case "/direct", "/pm":
+		if len(commandSplit) >= 2 {
+			var detailsSplit []string
+			var messageStartIndex int
+
+			for i, split := range commandSplit {
+				if strings.HasPrefix(split, string('"')) {
+					messageStartIndex = i
+					break
+				}
+
+				detailsSplit = append(detailsSplit, split)
+			}
+
+			if messageStartIndex == 0 {
+				return a.state.SendChat(ServerCarID, entrant.CarID, "Direct chat messages require the car ID, GUID or name followed by the message in quotes! (e.g. /direct Seb \"Hi seb!\")", false)
+			}
+
+			entrantToSendMessage := a.GetEntrantFromCommandSplit(detailsSplit, entrant)
+
+			if entrantToSendMessage != nil {
+				message := strings.Join(commandSplit[messageStartIndex:], " ")
+				message = strings.Trim(message, string('"'))
+
+				return a.state.SendChat(entrant.CarID, entrantToSendMessage.CarID, message, false)
+			}
+
+		} else {
+			return a.state.SendChat(ServerCarID, entrant.CarID, "Direct chat messages require the car ID, GUID or name followed by the message in quotes! (e.g. /direct Seb \"Hi seb!\")", false)
 		}
 	default:
 		return a.state.SendChat(ServerCarID, entrant.CarID, fmt.Sprintf("%s is not a recognised server command", commandType), false)

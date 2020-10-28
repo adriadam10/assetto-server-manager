@@ -649,11 +649,12 @@ func (rc *RaceControl) OnClientDisconnect(client udp.SessionCarInfo) error {
 	}
 
 	chat := udp.Chat{
-		CarID:      acserver.ServerCarID,
-		Message:    fmt.Sprintf("%s disconnected from the server", driverName(driver.CarInfo.DriverName)),
-		Time:       time.Now(),
-		DriverGUID: "0",
-		DriverName: "Server",
+		CarID:          acserver.ServerCarID,
+		RecipientCarID: acserver.ServerCarID,
+		Message:        fmt.Sprintf("%s disconnected from the server", driverName(driver.CarInfo.DriverName)),
+		Time:           time.Now(),
+		DriverGUID:     "0",
+		DriverName:     "Server",
 	}
 
 	err := rc.OnChatMessage(chat)
@@ -974,11 +975,12 @@ func (rc *RaceControl) OnClientLoaded(loadedCar udp.ClientLoaded) error {
 	logrus.Debugf("Driver: %s (%s) loaded", driver.CarInfo.DriverName, driver.CarInfo.DriverGUID)
 
 	chat := udp.Chat{
-		CarID:      acserver.ServerCarID,
-		Message:    fmt.Sprintf("%s loaded into the server", driverName(driver.CarInfo.DriverName)),
-		Time:       time.Now(),
-		DriverGUID: "0",
-		DriverName: "Server",
+		CarID:          acserver.ServerCarID,
+		RecipientCarID: acserver.ServerCarID,
+		Message:        fmt.Sprintf("%s loaded into the server", driverName(driver.CarInfo.DriverName)),
+		Time:           time.Now(),
+		DriverGUID:     "0",
+		DriverName:     "Server",
 	}
 
 	err = rc.OnChatMessage(chat)
@@ -1220,6 +1222,10 @@ const (
 
 func (rc *RaceControl) OnChatMessage(chat udp.Chat) error {
 	if strings.HasPrefix(chat.Message, chatCommandPrefix) {
+		return nil
+	}
+
+	if chat.CarID != chat.RecipientCarID && chat.RecipientCarID != acserver.ServerCarID {
 		return nil
 	}
 
@@ -1472,7 +1478,7 @@ func (rc *RaceControl) splitAndBroadcastChat(message string, account *Account) e
 		}
 	}()
 
-	chat, err := udp.NewChat(message, 0, name, udp.DriverGUID(guid))
+	chat, err := udp.NewChat(message, acserver.ServerCarID, acserver.ServerCarID, name, udp.DriverGUID(guid))
 
 	if err == nil {
 		return rc.OnChatMessage(chat)
