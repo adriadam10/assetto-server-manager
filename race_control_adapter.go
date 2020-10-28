@@ -229,11 +229,12 @@ func (r *UDPPluginAdapter) OnChat(chat acserver.Chat) error {
 	}
 
 	r.UDPCallback(udp.Chat{
-		CarID:      chat.FromCar,
-		Message:    chat.Message,
-		DriverGUID: udp.DriverGUID(car.Driver.GUID),
-		DriverName: car.Driver.Name,
-		Time:       chat.Time,
+		CarID:          chat.FromCar,
+		RecipientCarID: chat.ToCar,
+		Message:        chat.Message,
+		DriverGUID:     udp.DriverGUID(car.Driver.GUID),
+		DriverName:     car.Driver.Name,
+		Time:           chat.Time,
 	})
 
 	return nil

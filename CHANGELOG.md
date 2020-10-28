@@ -19,6 +19,7 @@ Kunos' acServer, and also provides the following advantages, exclusive to Server
 * Pitlane detection! We've made it so that Live Timings knows when cars are in the pits. To use this new functionality, please reupload your tracks, as they need new files for this to work!
 * Server only penalty system! You can now set custom penalties (drive through, kick, warning and ballast/restrictor) for track cuts in race sessions! We're hoping to expand this system further in the future.
 * Drift detection/points system! In sessions you can now enable Drift Mode, currently this tracks drift points for each driver over a lap and announces the total via chat, with feedback we hope to expand this system for all the drifters out there!
+* New/improved chat commands! Commands that reference drivers can now use the car ID, name of the driver or GUID of the driver! Also added /pm command for direct messages and /next_weather command to manually cycle configured session weathers.
 
 We've also changed the following things in Server Manager itself:
 
