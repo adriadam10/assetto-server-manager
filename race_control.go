@@ -1265,6 +1265,10 @@ func chatMessagePlugin(chat udp.Chat) error {
 }
 
 func (rc *RaceControl) SortDrivers(driverGroup RaceControlDriverGroup, driverA, driverB *RaceControlDriver) bool {
+	if driverA == driverB {
+		return false
+	}
+
 	driverA.mutex.RLock()
 	defer driverA.mutex.RUnlock()
 	driverB.mutex.RLock()

@@ -48,7 +48,7 @@ func NewEntryListManager(state *ServerState, logger Logger) *EntryListManager {
 	}
 }
 
-var ErrNoAvailableSlots = errors.New("openAcServer: no available slots")
+var ErrNoAvailableSlots = errors.New("acserver: no available slots")
 
 func (em *EntryListManager) ConnectCar(conn net.Conn, driver Driver, requestedModel string, isAdmin bool) (*Car, error) {
 	em.mutex.Lock()
