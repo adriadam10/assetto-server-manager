@@ -194,6 +194,10 @@ func (c *Car) ShouldSendUpdate(otherCar *Car) bool {
 		priority = 0
 	}
 
+	if c.Connection.jumpPacketCount == nil {
+		c.Connection.jumpPacketCount = make(map[CarID]int)
+	}
+
 	jumpPacketCount, ok := c.Connection.jumpPacketCount[otherCar.CarID]
 
 	if !ok {
