@@ -988,7 +988,7 @@ func (ch *CarsHandler) delete(w http.ResponseWriter, r *http.Request) {
 	}
 
 	AddFlash(w, r, fmt.Sprintf("Car %s successfully deleted!", carName))
-	http.Redirect(w, r, "/cars", http.StatusFound)
+	http.Redirect(w, r, r.Referer(), http.StatusFound)
 }
 
 const defaultSkinURL = "/static/img/no-preview-car.png"
