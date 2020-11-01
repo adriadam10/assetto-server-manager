@@ -12,7 +12,6 @@ import (
 
 const CurrentResultsVersion = 2
 
-// @TODO extend! -top speed on best lap
 func (ss *ServerState) GenerateResults(sessionInfo SessionConfig) *SessionResults {
 	var result []*SessionResult
 	var cars []*SessionCar
@@ -22,7 +21,7 @@ func (ss *ServerState) GenerateResults(sessionInfo SessionConfig) *SessionResult
 	for _, entrant := range ss.entryList {
 		sessionDriver := SessionDriver{
 			GUID:      entrant.Driver.GUID,
-			GuidsList: entrant.GUIDs(),
+			GuidsList: entrant.GUIDsWithLaps(),
 			Name:      entrant.Driver.Name,
 			Nation:    entrant.Driver.Nation,
 			Team:      entrant.Driver.Team,
@@ -30,7 +29,7 @@ func (ss *ServerState) GenerateResults(sessionInfo SessionConfig) *SessionResult
 
 		cars = append(cars, &SessionCar{
 			BallastKG:  entrant.Ballast,
-			CarID:      int(entrant.CarID),
+			CarID:      entrant.CarID,
 			Driver:     sessionDriver,
 			Model:      entrant.Model,
 			Restrictor: entrant.Restrictor,
@@ -39,11 +38,11 @@ func (ss *ServerState) GenerateResults(sessionInfo SessionConfig) *SessionResult
 	}
 
 	for _, leaderboardLine := range ss.Leaderboard(sessionInfo.SessionType) {
-		carID := int(leaderboardLine.Car.CarID)
+		carID := leaderboardLine.Car.CarID
 
 		sessionDriver := &SessionDriver{
 			GUID:      leaderboardLine.Car.Driver.GUID,
-			GuidsList: leaderboardLine.Car.GUIDs(),
+			GuidsList: leaderboardLine.Car.GUIDsWithLaps(),
 			Name:      leaderboardLine.Car.Driver.Name,
 			Nation:    leaderboardLine.Car.Driver.Nation,
 			Team:      leaderboardLine.Car.Driver.Team,
@@ -85,7 +84,7 @@ func (ss *ServerState) GenerateResults(sessionInfo SessionConfig) *SessionResult
 
 		for _, event := range leaderboardLine.Car.SessionData.Events {
 			var typeString string
-			var otherCarID int
+			var otherCarID CarID
 
 			otherDriver := &SessionDriver{}
 
@@ -100,11 +99,11 @@ func (ss *ServerState) GenerateResults(sessionInfo SessionConfig) *SessionResult
 					continue
 				}
 
-				otherCarID = int(event.OtherCarID)
+				otherCarID = event.OtherCarID
 
 				otherDriver = &SessionDriver{
 					GUID:      otherEntrant.Driver.GUID,
-					GuidsList: otherEntrant.GUIDs(),
+					GuidsList: otherEntrant.GUIDsWithLaps(),
 					Name:      otherEntrant.Driver.Name,
 					Nation:    otherEntrant.Driver.Nation,
 					Team:      otherEntrant.Driver.Team,
@@ -112,11 +111,11 @@ func (ss *ServerState) GenerateResults(sessionInfo SessionConfig) *SessionResult
 			case EventTypeEnvironment:
 				typeString = "COLLISION_WITH_ENV"
 
-				otherCarID = -1
+				otherCarID = 0
 			default:
 				typeString = "UNKNOWN_EVENT"
 
-				otherCarID = -1
+				otherCarID = 0
 			}
 
 			events = append(events, &SessionEvent{
@@ -183,7 +182,7 @@ type SessionResults struct {
 
 type SessionCar struct {
 	BallastKG  float32       `json:"BallastKG"`
-	CarID      int           `json:"CarId"`
+	CarID      CarID         `json:"CarId"`
 	Driver     SessionDriver `json:"Driver"`
 	Model      string        `json:"Model"`
 	Restrictor float32       `json:"Restrictor"`
@@ -199,10 +198,10 @@ type SessionDriver struct {
 }
 
 type SessionEvent struct {
-	CarID         int            `json:"CarId"`
+	CarID         CarID          `json:"CarId"`
 	Driver        *SessionDriver `json:"Driver"`
 	ImpactSpeed   float32        `json:"ImpactSpeed"`
-	OtherCarID    int            `json:"OtherCarId"`
+	OtherCarID    CarID          `json:"OtherCarId"`
 	OtherDriver   *SessionDriver `json:"OtherDriver"`
 	RelPosition   *Vector3F      `json:"RelPosition"`
 	Type          string         `json:"Type"`
@@ -211,7 +210,7 @@ type SessionEvent struct {
 
 type SessionLap struct {
 	BallastKG  float32 `json:"BallastKG"`
-	CarID      int     `json:"CarId"`
+	CarID      CarID   `json:"CarId"`
 	CarModel   string  `json:"CarModel"`
 	Cuts       int     `json:"Cuts"`
 	DriverGUID string  `json:"DriverGuid"`
@@ -226,7 +225,7 @@ type SessionLap struct {
 type SessionResult struct {
 	BallastKG  float32 `json:"BallastKG"`
 	BestLap    int     `json:"BestLap"`
-	CarID      int     `json:"CarId"`
+	CarID      CarID   `json:"CarId"`
 	CarModel   string  `json:"CarModel"`
 	DriverGUID string  `json:"DriverGuid"`
 	DriverName string  `json:"DriverName"`

@@ -282,11 +282,11 @@ class RaceSetup {
             let $this = $(this);
 
             $this.toggleClass("rotate-180");
-        })
+        });
 
         this.$weatherSessionsSelectTemplate.change(function (e) {
             that.updateWeatherSessionHeader($(this));
-        })
+        });
 
         let weatherNum = $parent.find(".weather").length;
 
@@ -306,7 +306,7 @@ class RaceSetup {
             $onLoadWeatherSessionSelects.multiSelect();
 
             // only select sessions in sessionsForWeather
-            sessionsForWeather.split(",").forEach(function (weather, index) {
+            sessionsForWeather.split(", ").forEach(function (weather, index) {
                 $onLoadWeatherSessionSelects.multiSelect("select", weather);
             });
         }
@@ -545,7 +545,7 @@ class RaceSetup {
             } else {
                 $this.addClass("rotate-180");
             }
-        })
+        });
 
         let $weatherSessionSelector = this.$weatherSessionsSelectTemplate.clone(true, true);
 
@@ -573,7 +573,7 @@ class RaceSetup {
 
         $weatherSessionSelector.change(function (e) {
             that.updateWeatherSessionHeader($(this));
-        })
+        });
 
         $newWeather.find(".sessionsWrapper").append($weatherSessionSelector);
         $weatherSessionSelector.multiSelect();

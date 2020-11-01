@@ -135,12 +135,15 @@ func (c *Car) ChangeTyres(tyres string) {
 // UpdatePriorities uses the distance of every Car on track from this Car and ranks them between 0 and 3. The rank
 // defines how many updates can be skipped when updating this Car about the position of the other Cars.
 func (c *Car) UpdatePriorities(entryList EntryList) {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+
 	distances := make(map[CarID]float64)
 
 	var carIDs []CarID
 
 	for _, otherCar := range entryList {
-		if !otherCar.IsConnected() || !otherCar.HasSentFirstUpdate() || otherCar == c {
+		if otherCar == c || !otherCar.IsConnected() || !otherCar.HasSentFirstUpdate() {
 			continue
 		}
 
@@ -156,6 +159,14 @@ func (c *Car) UpdatePriorities(entryList EntryList) {
 
 		return distances[carI] < distances[carJ]
 	})
+
+	if c.Connection.priorities == nil {
+		c.Connection.priorities = make(map[CarID]int)
+	}
+
+	if c.Connection.jumpPacketCount == nil {
+		c.Connection.jumpPacketCount = make(map[CarID]int)
+	}
 
 	for index, carID := range carIDs {
 		switch {
@@ -181,6 +192,10 @@ func (c *Car) ShouldSendUpdate(otherCar *Car) bool {
 
 	if !ok {
 		priority = 0
+	}
+
+	if c.Connection.jumpPacketCount == nil {
+		c.Connection.jumpPacketCount = make(map[CarID]int)
 	}
 
 	jumpPacketCount, ok := c.Connection.jumpPacketCount[otherCar.CarID]
@@ -209,6 +224,39 @@ func (c *Car) GUIDs() []string {
 
 	for _, driver := range c.Drivers {
 		guidMap[driver.GUID] = true
+	}
+
+	var out []string
+
+	for guid := range guidMap {
+		out = append(out, guid)
+	}
+
+	return out
+}
+
+// GUIDsWithLaps returns the set of all GUIDs which have completed one or more laps in the Car.
+func (c *Car) GUIDsWithLaps() []string {
+	c.mutex.RLock()
+	defer c.mutex.RUnlock()
+
+	guidMap := make(map[string]bool)
+
+	guidMap[c.Driver.GUID] = true
+
+	for _, driver := range c.Drivers {
+		hasLaps := false
+
+		for _, lap := range c.SessionData.Laps {
+			if lap.DriverGUID == driver.GUID {
+				hasLaps = true
+				break
+			}
+		}
+
+		if hasLaps {
+			guidMap[driver.GUID] = true
+		}
 	}
 
 	var out []string

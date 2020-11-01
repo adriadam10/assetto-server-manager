@@ -102,12 +102,12 @@ func (vm *VotingManager) BroadcastVote(id CarID) {
 	p := NewPacket(nil)
 
 	p.Write(vm.currentVote.VoteType)
-	p.Write(vm.currentVote.KickID)                                            // car ID to kick, 0 if other vote
-	p.Write(vm.currentVote.NumConnected)                                      // num connected clients
-	p.Write(vm.currentVote.NumVotes)                                          // num votes
-	p.Write(vm.currentVote.VoteFinishTime - uint32(currentTimeMillisecond())) // vote time remaining
-	p.Write(id)                                                               // carID voted
-	p.Write(uint8(0x01))                                                      // either 1 or 0, never anything else
+	p.Write(vm.currentVote.KickID)                                                     // car ID to kick, 0 if other vote
+	p.Write(vm.currentVote.NumConnected)                                               // num connected clients
+	p.Write(vm.currentVote.NumVotes)                                                   // num votes
+	p.Write(vm.currentVote.VoteFinishTime - uint32(vm.state.CurrentTimeMillisecond())) // vote time remaining
+	p.Write(id)                                                                        // carID voted
+	p.Write(uint8(0x01))                                                               // either 1 or 0, never anything else
 
 	vm.logger.Debugf("Broadcasting vote packet")
 
@@ -129,7 +129,7 @@ func (vm *VotingManager) SetVote(voteType MessageType, forOrAgainst uint8, kickI
 		// start new vote
 		vm.currentVote = &Vote{
 			VoteType:       voteType,
-			VoteFinishTime: uint32(currentTimeMillisecond() + int64(vm.state.serverConfig.VoteDuration*1000)),
+			VoteFinishTime: uint32(vm.state.CurrentTimeMillisecond() + int64(vm.state.serverConfig.VoteDuration*1000)),
 			NumVotes:       forOrAgainst,
 			NumConnected:   uint8(vm.state.entryList.NumConnected()),
 			KickID:         kickID,

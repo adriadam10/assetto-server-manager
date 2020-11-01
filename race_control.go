@@ -228,28 +228,35 @@ func (rc *RaceControl) OnCarUpdate(update udp.CarUpdate) (bool, error) {
 		math.Sqrt(math.Pow(float64(update.Velocity.X), 2) + math.Pow(float64(update.Velocity.Z), 2)),
 	)
 
+	if math.IsNaN(speed) {
+		speed = 0
+	}
+
 	driver.mutex.Lock()
 	if speed > driver.CurrentCar().TopSpeedThisLap {
 		driver.CurrentCar().TopSpeedThisLap = speed
 	}
 
+	pitLane := rc.process.SharedPitLane()
+
 	driver.LastSeen = time.Now()
 	driver.LastPos = update.Pos
-	driver.NormalisedSplinePos = update.NormalisedSplinePos
+	if !math.IsNaN(float64(update.NormalisedSplinePos)) {
+		driver.NormalisedSplinePos = update.NormalisedSplinePos
+	}
 	driver.SteerAngle = update.SteerAngle
 	driver.StatusBytes = update.StatusBytes
-	driver.mutex.Unlock()
-
 	wasInPits := driver.IsInPits
 
-	driver.IsInPits = rc.process.SharedPitLane().IsInPits(update)
+	driver.IsInPits = pitLane.IsInPits(update)
+	driver.mutex.Unlock()
 
 	sendUpdatedRaceControlStatus := false
 
 	if driver.IsInPits != wasInPits {
 		sendUpdatedRaceControlStatus = true
 
-		rc.process.SharedPitLane().UpdateCar(uint8(update.CarID), driver.IsInPits)
+		pitLane.UpdateCar(uint8(update.CarID), driver.IsInPits)
 	}
 
 	rc.ConnectedDrivers.sort()
@@ -642,11 +649,12 @@ func (rc *RaceControl) OnClientDisconnect(client udp.SessionCarInfo) error {
 	}
 
 	chat := udp.Chat{
-		CarID:      acserver.ServerCarID,
-		Message:    fmt.Sprintf("%s disconnected from the server", driverName(driver.CarInfo.DriverName)),
-		Time:       time.Now(),
-		DriverGUID: "0",
-		DriverName: "Server",
+		CarID:          acserver.ServerCarID,
+		RecipientCarID: acserver.ServerCarID,
+		Message:        fmt.Sprintf("%s disconnected from the server", driverName(driver.CarInfo.DriverName)),
+		Time:           time.Now(),
+		DriverGUID:     "0",
+		DriverName:     "Server",
 	}
 
 	err := rc.OnChatMessage(chat)
@@ -967,11 +975,12 @@ func (rc *RaceControl) OnClientLoaded(loadedCar udp.ClientLoaded) error {
 	logrus.Debugf("Driver: %s (%s) loaded", driver.CarInfo.DriverName, driver.CarInfo.DriverGUID)
 
 	chat := udp.Chat{
-		CarID:      acserver.ServerCarID,
-		Message:    fmt.Sprintf("%s loaded into the server", driverName(driver.CarInfo.DriverName)),
-		Time:       time.Now(),
-		DriverGUID: "0",
-		DriverName: "Server",
+		CarID:          acserver.ServerCarID,
+		RecipientCarID: acserver.ServerCarID,
+		Message:        fmt.Sprintf("%s loaded into the server", driverName(driver.CarInfo.DriverName)),
+		Time:           time.Now(),
+		DriverGUID:     "0",
+		DriverName:     "Server",
 	}
 
 	err = rc.OnChatMessage(chat)
@@ -1216,6 +1225,10 @@ func (rc *RaceControl) OnChatMessage(chat udp.Chat) error {
 		return nil
 	}
 
+	if chat.CarID != chat.RecipientCarID && chat.RecipientCarID != acserver.ServerCarID {
+		return nil
+	}
+
 	_, err := rc.broadcaster.Send(chat)
 
 	if err != nil {
@@ -1258,10 +1271,14 @@ func chatMessagePlugin(chat udp.Chat) error {
 }
 
 func (rc *RaceControl) SortDrivers(driverGroup RaceControlDriverGroup, driverA, driverB *RaceControlDriver) bool {
-	driverA.mutex.Lock()
-	defer driverA.mutex.Unlock()
-	driverB.mutex.Lock()
-	defer driverB.mutex.Unlock()
+	if driverA == driverB {
+		return false
+	}
+
+	driverA.mutex.RLock()
+	defer driverA.mutex.RUnlock()
+	driverB.mutex.RLock()
+	defer driverB.mutex.RUnlock()
 
 	driverACar := driverA.CurrentCar()
 	driverBCar := driverB.CurrentCar()
@@ -1465,7 +1482,7 @@ func (rc *RaceControl) splitAndBroadcastChat(message string, account *Account) e
 		}
 	}()
 
-	chat, err := udp.NewChat(message, 0, name, udp.DriverGUID(guid))
+	chat, err := udp.NewChat(message, acserver.ServerCarID, acserver.ServerCarID, name, udp.DriverGUID(guid))
 
 	if err == nil {
 		return rc.OnChatMessage(chat)

@@ -30,6 +30,8 @@ const (
 	SessionTypeQualifying SessionType = "QUALIFY"
 	SessionTypeRace       SessionType = "RACE"
 
+	SessionTypeChampionshipPractice SessionType = "CHAMPIONSHIP-PRACTICE"
+
 	// SessionTypeSecondRace is a convenience const to allow for checking of
 	// reversed grid positions signifying a second race.
 	SessionTypeSecondRace SessionType = "RACEx2"
@@ -53,12 +55,18 @@ func (s SessionType) String() string {
 		return "Race"
 	case SessionTypeSecondRace:
 		return "2nd Race"
+	case SessionTypeChampionshipPractice:
+		return "Looping Championship Practice"
 	default:
 		return strings.Title(strings.ToLower(string(s)))
 	}
 }
 
 func SessionNameToSessionType(name string) SessionType {
+	if name == SessionTypeChampionshipPractice.String() {
+		return SessionTypeChampionshipPractice
+	}
+
 	for _, t := range AvailableSessions {
 		if t.String() == name {
 			return t
@@ -78,6 +86,8 @@ func (s SessionType) ACServerType() acserver.SessionType {
 		return acserver.SessionTypeQualifying
 	case SessionTypeRace:
 		return acserver.SessionTypeRace
+	case SessionTypeChampionshipPractice:
+		return acserver.SessionType(4)
 	}
 
 	return acserver.SessionTypePractice
@@ -640,10 +650,10 @@ type DynamicTrackConfig struct {
 	LapGain         int `ini:"LAP_GAIN" help:"how many laps are needed to add 1% grip"`
 }
 
+// Deprecated: Use Sessions instead.
 const (
 	weatherPractice = "weatherPractice"
 	weatherEvent    = "weatherEvent"
-	weatherAny      = "weatherAny"
 )
 
 type WeatherConfig struct {
@@ -658,6 +668,7 @@ type WeatherConfig struct {
 	WindBaseDirection      int `ini:"WIND_BASE_DIRECTION" help:"base direction of the wind (wind is pointing at); 0 = North, 90 = East etc"`
 	WindVariationDirection int `ini:"WIND_VARIATION_DIRECTION" help:"variation (+ or -) of the base direction"`
 
+	// Deprecated: Use Sessions instead.
 	ChampionshipPracticeWeather string `ini:"-"`
 
 	// custom ac server

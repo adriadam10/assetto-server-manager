@@ -47,6 +47,10 @@ func (r *UDPPluginAdapter) Init(server acserver.ServerPlugin, _ acserver.Logger)
 	return nil
 }
 
+func (r *UDPPluginAdapter) Shutdown() error {
+	return nil
+}
+
 func (r *UDPPluginAdapter) OnVersion(version uint16) error {
 	r.UDPCallback(udp.Version(version))
 
@@ -225,11 +229,12 @@ func (r *UDPPluginAdapter) OnChat(chat acserver.Chat) error {
 	}
 
 	r.UDPCallback(udp.Chat{
-		CarID:      chat.FromCar,
-		Message:    chat.Message,
-		DriverGUID: udp.DriverGUID(car.Driver.GUID),
-		DriverName: car.Driver.Name,
-		Time:       chat.Time,
+		CarID:          chat.FromCar,
+		RecipientCarID: chat.ToCar,
+		Message:        chat.Message,
+		DriverGUID:     udp.DriverGUID(car.Driver.GUID),
+		DriverName:     car.Driver.Name,
+		Time:           chat.Time,
 	})
 
 	return nil

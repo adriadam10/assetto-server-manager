@@ -29,11 +29,9 @@ type Server struct {
 
 	logger Logger
 
-	tcpError             chan error
-	udpError             chan error
-	stopped              chan error
-	pluginUpdateInterval chan time.Duration
-	carUpdateOnce        sync.Once
+	tcpError, udpError, stopped chan error
+	pluginUpdateInterval        chan time.Duration
+	carUpdateOnce               sync.Once
 }
 
 func NewServer(ctx context.Context, baseDirectory string, serverConfig *ServerConfig, raceConfig *EventConfig, entryList EntryList, checksums []CustomChecksumFile, logger Logger, plugin Plugin) (*Server, error) {
@@ -92,7 +90,7 @@ func NewServer(ctx context.Context, baseDirectory string, serverConfig *ServerCo
 
 func (s *Server) Start() error {
 	runtime.GOMAXPROCS(s.state.serverConfig.NumberOfThreads)
-	s.logger.Infof("Initialising openAcServer with compatibility for server version %d", CurrentProtocolVersion)
+	s.logger.Infof("Initialising acServer with compatibility for server version %d", CurrentProtocolVersion)
 
 	s.tcp = NewTCP(s.state.serverConfig.TCPPort, s)
 	s.udp = NewUDP(s.state.serverConfig.UDPPort, s, s.state.serverConfig.ReceiveBufferSize, s.state.serverConfig.SendBufferSize)
@@ -127,7 +125,7 @@ func (s *Server) Start() error {
 	}
 
 	if s.state.serverConfig.RegisterToLobby {
-		if err := s.lobby.Try("Register to lobby", s.lobby.Register); err != nil {
+		if err := s.lobby.Try("Register to lobby", s.lobby.Register, true); err != nil {
 			s.logger.WithError(err).Error("All attempts to register to lobby failed")
 			return s.Stop(false)
 		}
@@ -148,6 +146,10 @@ func (s *Server) Stop(persistResults bool) (err error) {
 	}
 
 	s.logger.Infof("Shutting down acServer")
+
+	if err := s.plugin.Shutdown(); err != nil {
+		s.logger.WithError(err).Errorf("Plugin shutdown reported error")
+	}
 
 	s.cfn()
 
@@ -196,7 +198,7 @@ func (s *Server) loop() {
 			s.logger.Debugf("Stopping main server loop")
 			return
 		default:
-			currentTime := currentTimeMillisecond()
+			currentTime := s.state.CurrentTimeMillisecond()
 
 			for _, car := range s.state.entryList {
 				if car.IsConnected() && car.HasSentFirstUpdate() {
@@ -254,7 +256,7 @@ func (s *Server) loop() {
 				}
 			}
 
-			totalTimeForUpdate := currentTimeMillisecond() - currentTime
+			totalTimeForUpdate := s.state.CurrentTimeMillisecond() - currentTime
 			lastSendTime = currentTime
 
 			if sleepTime != idleSleepTime && totalTimeForUpdate > serverTickRate {

@@ -354,53 +354,55 @@
                     </a>
                 </div>
 
-                <div class="col-md-6 col-lg-4 mt-4">
-                    <a class="card" href="/stracker/options">
-                        <div class="card-body">
-                            <div class="row">
-                                <div class="col-5">
-                                    <h1 class="text-center"><i class="fas fa-stopwatch fa-2x"></i></h1>
-                                </div>
+                {{ if $.PluginsEnabled }}
+                    <div class="col-md-6 col-lg-4 mt-4">
+                        <a class="card" href="/stracker/options">
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-5">
+                                        <h1 class="text-center"><i class="fas fa-stopwatch fa-2x"></i></h1>
+                                    </div>
 
-                                <div class="col-7">
-                                    <h3>STracker</h3>
+                                    <div class="col-7">
+                                        <h3>STracker</h3>
+                                    </div>
                                 </div>
                             </div>
-                        </div>
-                    </a>
-                </div>
+                        </a>
+                    </div>
 
-                <div class="col-md-6 col-lg-4 mt-4">
-                    <a class="card" href="/kissmyrank/options">
-                        <div class="card-body">
-                            <div class="row">
-                                <div class="col-5">
-                                    <h1 class="text-center"><i class="fas fa-balance-scale fa-2x"></i></h1>
-                                </div>
+                    <div class="col-md-6 col-lg-4 mt-4">
+                        <a class="card" href="/kissmyrank/options">
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-5">
+                                        <h1 class="text-center"><i class="fas fa-balance-scale fa-2x"></i></h1>
+                                    </div>
 
-                                <div class="col-7">
-                                    <h3>KissMyRank</h3>
-                                </div>
-                            </div>
-                        </div>
-                    </a>
-                </div>
-
-                <div class="col-md-6 col-lg-4 mt-4">
-                    <a class="card" href="/realpenalty/options">
-                        <div class="card-body">
-                            <div class="row">
-                                <div class="col-5">
-                                    <h1 class="text-center"><i class="fas fa-shield-alt fa-2x"></i></h1>
-                                </div>
-
-                                <div class="col-7">
-                                    <h3>Real Penalty</h3>
+                                    <div class="col-7">
+                                        <h3>KissMyRank</h3>
+                                    </div>
                                 </div>
                             </div>
-                        </div>
-                    </a>
-                </div>
+                        </a>
+                    </div>
+
+                    <div class="col-md-6 col-lg-4 mt-4">
+                        <a class="card" href="/realpenalty/options">
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-5">
+                                        <h1 class="text-center"><i class="fas fa-shield-alt fa-2x"></i></h1>
+                                    </div>
+
+                                    <div class="col-7">
+                                        <h3>Real Penalty</h3>
+                                    </div>
+                                </div>
+                            </div>
+                        </a>
+                    </div>
+                {{ end }}
 
                 <div class="col-md-6 col-lg-4 mt-4">
                     <a class="card" href="/current-config">

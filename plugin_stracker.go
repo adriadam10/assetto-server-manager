@@ -45,6 +45,10 @@ func StrackerFolderPath() string {
 
 // IsStrackerInstalled looks in the ServerInstallPath for an "stracker" directory with the correct stracker executable for the given platform
 func IsStrackerInstalled() bool {
+	if !config.Server.DisablePlugins {
+		return false
+	}
+
 	if _, err := os.Stat(StrackerExecutablePath()); os.IsNotExist(err) {
 		return false
 	} else if err != nil {
