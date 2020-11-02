@@ -265,13 +265,14 @@ func (rc *RaceControl) OnCarUpdate(update udp.CarUpdate) (bool, error) {
 	if rc.SessionInfo.Type == acserver.SessionTypeRace {
 		driver.mutex.Lock()
 		rc.ConnectedDrivers.Each(func(guid1 udp.DriverGUID, driverB *RaceControlDriver) error {
+			driverB.mutex.Lock()
+			defer driverB.mutex.Unlock()
+
 			if driverB.Position > driver.Position || guid1 == driver.CarInfo.DriverGUID {
 				// can't have blue flag to driver behind
 				// don't compare driver to themselves
 				return nil
 			}
-
-			driverB.mutex.Lock()
 
 			if driver.TotalNumLaps < driverB.TotalNumLaps {
 				if driver.BlueFlag {
@@ -302,8 +303,6 @@ func (rc *RaceControl) OnCarUpdate(update udp.CarUpdate) (bool, error) {
 					}
 				}
 			}
-
-			driverB.mutex.Unlock()
 
 			return nil
 		})
