@@ -12,6 +12,7 @@ import ReconnectingWebSocket from "reconnecting-websocket";
 import ClickEvent = JQuery.ClickEvent;
 import ChangeEvent = JQuery.ChangeEvent;
 import {DAMAGE_ZONES} from "./models/DamageZones";
+import MouseEnterEvent = JQuery.MouseEnterEvent;
 
 interface WSMessage {
     Message: any;
@@ -446,16 +447,25 @@ class LiveMap implements WebsocketHandler {
                 // find the guid for this car ID:
                 const driverGUID = this.raceControl.status!.CarIDToGUID[update.CarID];
 
+                let blueFlag = false;
+
                 if (this.raceControl.status.ConnectedDrivers) {
                     let driver = this.raceControl.status.ConnectedDrivers.Drivers[driverGUID];
 
                     if (driver) {
                         driver.NormalisedSplinePos = update.NormalisedSplinePos;
+                        blueFlag = driver.BlueFlag
                     }
                 }
 
                 let $myDot = this.dots.get(driverGUID);
                 let dotPos = this.translateToTrackCoordinate(update.Pos);
+
+                if (blueFlag) {
+                    $myDot!.children(".name").addClass("blue-flag");
+                } else {
+                    $myDot!.children(".name").removeClass("blue-flag");
+                }
 
                 $myDot!.css({
                     "left": dotPos.X,
@@ -947,6 +957,11 @@ class LiveTimings implements WebsocketHandler {
                 })));
             }
 
+            $tdName.on({
+                mouseenter: this.highlightDriverDot.bind(this),
+                mouseleave: this.unHighlightDriverDot.bind(this),
+            });
+
             $tdName.attr("class", "driver-link");
             $tdName.data(DriverGUIDDataKey, driver.CarInfo.DriverGUID);
         }
@@ -1248,6 +1263,35 @@ class LiveTimings implements WebsocketHandler {
                 }
             }
         })).appendTo($tbody);
+    }
+
+    private highlightDriverDot(e: MouseEnterEvent): void {
+        const $target = $(e.currentTarget);
+        const driverGUID = $target.data(DriverGUIDDataKey);
+        const $driverDot = this.liveMap.getDotForDriverGUID(driverGUID);
+
+        if (!$driverDot) {
+            return;
+        }
+
+        let r = randomColor({
+            luminosity: 'bright',
+            seed: driverGUID,
+        }) as string;
+
+        $driverDot.children(".name").attr("style", "background-color: " + r + " !important");
+    }
+
+    private unHighlightDriverDot(e: MouseEnterEvent): void {
+        const $target = $(e.currentTarget);
+        const driverGUID = $target.data(DriverGUIDDataKey);
+        const $driverDot = this.liveMap.getDotForDriverGUID(driverGUID);
+
+        if (!$driverDot) {
+            return;
+        }
+
+        $driverDot.children(".name").css("background-color", "");
     }
 
     private toggleDriverSpeed(e: ClickEvent): void {

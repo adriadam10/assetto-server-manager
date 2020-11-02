@@ -350,6 +350,7 @@ class RaceControlDriverMapRaceControlDriver {
     NormalisedSplinePos: number;
     SteerAngle: number;
     StatusBytes: number;
+    BlueFlag: boolean;
     Collisions: RaceControlDriverMapRaceControlDriverCollision[];
     Cars: { [key: string]: RaceControlDriverMapRaceControlDriverRaceControlCarLapInfo };
 
@@ -367,6 +368,7 @@ class RaceControlDriverMapRaceControlDriver {
         this.NormalisedSplinePos = ('NormalisedSplinePos' in d) ? d.NormalisedSplinePos as number : 0;
         this.SteerAngle = ('SteerAngle' in d) ? d.SteerAngle as number : 0;
         this.StatusBytes = ('StatusBytes' in d) ? d.StatusBytes as number : 0;
+        this.BlueFlag = ('BlueFlag' in d) ? d.BlueFlag as boolean: false;
         this.Collisions = Array.isArray(d.Collisions) ? d.Collisions.map((v: any) => new RaceControlDriverMapRaceControlDriverCollision(v)) : [];
         this.Cars = ('Cars' in d) ? d.Cars as { [key: string]: RaceControlDriverMapRaceControlDriverRaceControlCarLapInfo } : {};
     }

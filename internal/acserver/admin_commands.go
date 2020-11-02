@@ -213,7 +213,7 @@ func (a *AdminCommandManager) Command(entrant *Car, command string) error {
 
 			a.weatherManager.NextWeather(a.sessionManager.GetCurrentSession())
 		} else {
-			return a.state.SendChat(ServerCarID, entrant.CarID, "This session does not have weather progression enabled! Look at the readme for more info+", false)
+			return a.state.SendChat(ServerCarID, entrant.CarID, "This session does not have weather progression enabled! Look at the readme for more info", false)
 		}
 	case "/help":
 		if len(commandSplit) == 2 {
@@ -261,14 +261,14 @@ func (a *AdminCommandManager) Command(entrant *Car, command string) error {
 		} else {
 			if entrant.IsAdmin {
 				return errorGroup(
-					a.state.SendChat(ServerCarID, entrant.CarID, "Command list: /kick /ban /next_session /restart_session /client_list /ballast /restrictor /help /admin", false),
+					a.state.SendChat(ServerCarID, entrant.CarID, "Command list: /kick /ban /next_session /restart_session /client_list /ballast /restrictor /next_weather /help /admin /pm", false),
 					a.state.SendChat(ServerCarID, entrant.CarID, "For each command type /help then the command name (e.g. /help kick) for detailed help", false),
 					a.state.SendChat(ServerCarID, entrant.CarID, "You have admin permissions on this server", false),
 				)
 			}
 
 			return errorGroup(
-				a.state.SendChat(ServerCarID, entrant.CarID, "Command list: /help /admin", false),
+				a.state.SendChat(ServerCarID, entrant.CarID, "Command list: /help /admin /pm", false),
 				a.state.SendChat(ServerCarID, entrant.CarID, "For each command type the command name by itself for detailed help", false),
 				a.state.SendChat(ServerCarID, entrant.CarID, "You do not have admin permissions on this server", false),
 			)
