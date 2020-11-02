@@ -16,6 +16,8 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
+	"time"
 
 	"justapengu.in/acsm/cmd/server-manager/static"
 	"justapengu.in/acsm/internal/acserver"
@@ -343,6 +345,19 @@ func (th *TracksHandler) trackImage(w http.ResponseWriter, r *http.Request) {
 	} else {
 		w.Header().Add("Content-Length", strconv.Itoa(int(n)))
 	}
+}
+
+func (th *TracksHandler) rebuildTrackMaps(w http.ResponseWriter, r *http.Request) {
+	go panicCapture(func() {
+		err := th.trackManager.RebuildAllTrackMaps()
+
+		if err != nil {
+			logrus.WithError(err).Error("could not rebuild track maps")
+		}
+	})
+
+	AddFlash(w, r, "Started re-building track maps! This may take some time.")
+	http.Redirect(w, r, r.Referer(), http.StatusFound)
 }
 
 func (th *TracksHandler) trackSplineImage(w http.ResponseWriter, r *http.Request) {
@@ -812,13 +827,19 @@ func (tm *TrackManager) BuildTrackMap(track, layout string) error {
 
 	fastLaneSpline, err := ai.ReadSpline(filepath.Join(trackPath, "ai", "fast_lane.ai"))
 
-	if err != nil {
+	if os.IsNotExist(err) {
+		logrus.Debugf("Cannot build track map for %s (%s), needs fast_lane.ai", track, layout)
+		return nil
+	} else if err != nil {
 		return err
 	}
 
 	fullPitLane, err := ai.ReadSpline(filepath.Join(trackPath, "ai", "pit_lane.ai"))
 
-	if err != nil {
+	if os.IsNotExist(err) {
+		logrus.Debugf("Cannot build track map for %s (%s), needs pit_lane.ai", track, layout)
+		return nil
+	} else if err != nil {
 		return err
 	}
 
@@ -841,6 +862,41 @@ func (tm *TrackManager) BuildTrackMap(track, layout string) error {
 	}
 
 	return trackMapData.Save(filepath.Join(trackPath, "data", "map.ini"))
+}
+
+var trackMapRebuildMutex sync.Mutex
+
+func (tm *TrackManager) RebuildAllTrackMaps() error {
+	trackMapRebuildMutex.Lock()
+	defer trackMapRebuildMutex.Unlock()
+
+	logrus.Infof("Building Track Maps for all Tracks")
+	started := time.Now()
+
+	tracks, err := tm.ListTracks()
+
+	if err != nil {
+		return err
+	}
+
+	for _, track := range tracks {
+		for _, layout := range track.Layouts {
+			if layout == defaultLayoutName {
+				layout = ""
+			}
+
+			if err := tm.BuildTrackMap(track.Name, layout); err != nil {
+				logrus.WithError(err).Errorf("Could not build track map for: %s (%s)", track.Name, layout)
+				continue
+			} else {
+				logrus.Infof("Rebuilt track map for: %s (%s)", track.Name, layout)
+			}
+		}
+	}
+
+	logrus.Infof("Track Map build is complete (took: %s)", time.Since(started).String())
+
+	return nil
 }
 
 type TrackDataGateway interface {

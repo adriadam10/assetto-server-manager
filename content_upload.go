@@ -29,6 +29,11 @@ type ContentFile struct {
 	Size     int    `json:"size"`
 }
 
+type UploadPayload struct {
+	Files             []ContentFile `json:"Files"`
+	GenerateTrackMaps bool          `json:"GenerateTrackMaps"`
+}
+
 var base64HeaderRegex = regexp.MustCompile("^(data:.+;base64,)")
 
 type ContentUploadHandler struct {
@@ -49,16 +54,16 @@ func NewContentUploadHandler(baseHandler *BaseHandler, carManager *CarManager, t
 // Stores Files encoded into r.Body
 func (cuh *ContentUploadHandler) upload(contentType ContentType) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		var files []ContentFile
+		var uploadPayload UploadPayload
 
-		err := json.NewDecoder(r.Body).Decode(&files)
+		err := json.NewDecoder(r.Body).Decode(&uploadPayload)
 
 		if err != nil {
 			logrus.WithError(err).Errorf("could not decode %s json", contentType)
 			return
 		}
 
-		err = cuh.addFiles(files, contentType)
+		err = cuh.handleUploadPayload(uploadPayload, contentType)
 
 		if err != nil {
 			logrus.WithError(err).Error("couldn't upload file")
@@ -70,8 +75,7 @@ func (cuh *ContentUploadHandler) upload(contentType ContentType) http.HandlerFun
 	}
 }
 
-// Stores files in the correct location
-func (cuh *ContentUploadHandler) addFiles(files []ContentFile, contentType ContentType) error {
+func (cuh *ContentUploadHandler) handleUploadPayload(payload UploadPayload, contentType ContentType) error {
 	var contentPath string
 
 	switch contentType {
@@ -88,7 +92,7 @@ func (cuh *ContentUploadHandler) addFiles(files []ContentFile, contentType Conte
 
 	var tags []string
 
-	for _, file := range files {
+	for _, file := range payload.Files {
 		if file.Name == "tags" {
 			tags = strings.Split(file.Data, ",")
 			continue
@@ -170,7 +174,7 @@ func (cuh *ContentUploadHandler) addFiles(files []ContentFile, contentType Conte
 		}
 	}
 
-	if contentType == ContentTypeTrack {
+	if contentType == ContentTypeTrack && payload.GenerateTrackMaps {
 		for track := range uploadedTracks {
 			t, err := cuh.trackManager.GetTrackFromName(track)
 

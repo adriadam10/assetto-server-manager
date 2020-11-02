@@ -21,8 +21,9 @@ type TrackMapRenderer struct {
 	aiSpline, pitLaneSpline *Spline
 	drsZones                map[string]acserver.DRSZone
 
-	offsetX, offsetY int
+	offsetX, offsetY float64
 	bounds           image.Rectangle
+	scaleFactor      float64
 }
 
 func NewTrackMapRenderer(aiSpline, pitLaneSpline *Spline, drsZones map[string]acserver.DRSZone) *TrackMapRenderer {
@@ -47,10 +48,15 @@ var (
 )
 
 const (
-	padding  = 40
-	maxWidth = 12
-	minWidth = 8
+	padding       = 40
+	maxTrackWidth = 14
+	minTrackWidth = 8
+	maxImageWidth = 1600
 )
+
+func (t *TrackMapRenderer) point(pt acserver.Vector3F) (float64, float64) {
+	return (float64(pt.X) + t.offsetX + padding) / t.scaleFactor, (float64(pt.Z) + t.offsetY + padding) / t.scaleFactor
+}
 
 func (t *TrackMapRenderer) calculateAverageWidth() float64 {
 	totalWidth := float64(0)
@@ -61,21 +67,27 @@ func (t *TrackMapRenderer) calculateAverageWidth() float64 {
 
 	avgWidth := totalWidth / float64(len(t.aiSpline.ExtraPoints))
 
-	if avgWidth > maxWidth {
-		avgWidth = maxWidth
+	if avgWidth > maxTrackWidth {
+		avgWidth = maxTrackWidth
 	}
 
-	if avgWidth < minWidth {
-		avgWidth = minWidth
+	if avgWidth < minTrackWidth {
+		avgWidth = minTrackWidth
 	}
 
-	return avgWidth
+	sf := t.scaleFactor
+
+	if sf > 1.5 {
+		sf /= 1.5
+	}
+
+	return avgWidth / sf
 }
 
 func (t *TrackMapRenderer) drawPitLane(ctx *gg.Context) {
 	ctx.Push()
 	for _, point := range t.pitLaneSpline.Points {
-		ctx.LineTo(float64(int(point.Position.X)+t.offsetX+padding), float64(int(point.Position.Z)+t.offsetY+padding))
+		ctx.LineTo(t.point(point.Position))
 	}
 	ctx.SetColor(pitLaneBorderColor)
 	ctx.SetLineWidth(float64(pitLanePointSize) + 4)
@@ -89,7 +101,7 @@ func (t *TrackMapRenderer) drawPitLane(ctx *gg.Context) {
 func (t *TrackMapRenderer) drawTrack(ctx *gg.Context, width float64) {
 	ctx.Push()
 	for _, point := range t.aiSpline.Points {
-		ctx.LineTo(float64(int(point.Position.X)+t.offsetX+padding), float64(int(point.Position.Z)+t.offsetY+padding))
+		ctx.LineTo(t.point(point.Position))
 	}
 	ctx.SetColor(aiSplineBorderColor)
 	ctx.SetLineWidth(width + 4)
@@ -118,9 +130,11 @@ func (t *TrackMapRenderer) drawStartFinishLineAndDRSZones(ctx *gg.Context, width
 			}.Normalize()
 		}
 
+		x, y := t.point(point.Position)
+
 		if i == 0 {
 			// start line
-			drawPerpendicularLine(ctx, forwardVector, image.Pt(int(point.Position.X)+t.offsetX+padding, int(point.Position.Z)+t.offsetY+padding), startLineColor, int(width*3), drsWidth)
+			drawPerpendicularLine(ctx, forwardVector, x, y, startLineColor, int(width*3), drsWidth)
 		}
 
 		isZoneStart := false
@@ -156,15 +170,15 @@ func (t *TrackMapRenderer) drawStartFinishLineAndDRSZones(ctx *gg.Context, width
 		}
 
 		if isDetectionPoint {
-			drawPerpendicularLine(ctx, forwardVector, image.Pt(int(point.Position.X)+t.offsetX+padding, int(point.Position.Z)+t.offsetY+padding), drsDetectionColor, int(width*2), drsWidth)
+			drawPerpendicularLine(ctx, forwardVector, x, y, drsDetectionColor, int(width*2), drsWidth)
 		}
 
 		if isZoneStart {
-			drawPerpendicularLine(ctx, forwardVector, image.Pt(int(point.Position.X)+t.offsetX+padding, int(point.Position.Z)+t.offsetY+padding), drsZoneColor, int(width*2), drsWidth)
+			drawPerpendicularLine(ctx, forwardVector, x, y, drsZoneColor, int(width*2), drsWidth)
 		}
 
 		if isZoneEnd {
-			drawPerpendicularLine(ctx, forwardVector, image.Pt(int(point.Position.X)+t.offsetX+padding, int(point.Position.Z)+t.offsetY+padding), drsZoneColor, int(width*2), drsWidth)
+			drawPerpendicularLine(ctx, forwardVector, x, y, drsZoneColor, int(width*2), drsWidth)
 		}
 	}
 }
@@ -183,17 +197,17 @@ func (t *TrackMapRenderer) Render(w io.Writer) (*TrackMapData, error) {
 	data := &TrackMapData{
 		Width:       float64(t.bounds.Dx()),
 		Height:      float64(t.bounds.Dy()),
-		Margin:      padding,
-		ScaleFactor: 1,
-		OffsetX:     float64(t.offsetX),
-		OffsetZ:     float64(t.offsetY),
+		Margin:      10,
+		ScaleFactor: t.scaleFactor,
+		OffsetX:     t.offsetX + padding,
+		OffsetZ:     t.offsetY + padding,
 		DrawingSize: 10, // idk what this is for, but server manager doesn't need it.
 	}
 
 	return data, ctx.EncodePNG(w)
 }
 
-func drawPerpendicularLine(ctx *gg.Context, forwardVector acserver.Vector3F, point image.Point, color color.Color, length int, width int) {
+func drawPerpendicularLine(ctx *gg.Context, forwardVector acserver.Vector3F, x, y float64, color color.Color, length int, width int) {
 	if forwardVector.Magnitude() == 0 {
 		return
 	}
@@ -202,8 +216,8 @@ func drawPerpendicularLine(ctx *gg.Context, forwardVector acserver.Vector3F, poi
 	min := perpendicularVector.Mul(float32(length) / 2)
 
 	ctx.Push()
-	ctx.LineTo(float64(point.X+int(min.X)), float64(point.Y+int(min.Z)))
-	ctx.LineTo(float64(point.X-int(min.X)), float64(point.Y-int(min.Z)))
+	ctx.LineTo(x+float64(min.X), y+float64(min.Z))
+	ctx.LineTo(x-float64(min.X), y-float64(min.Z))
 	ctx.SetColor(aiSplineBorderColor)
 	ctx.SetLineWidth(float64(width) + 4)
 	ctx.StrokePreserve()
@@ -213,7 +227,7 @@ func drawPerpendicularLine(ctx *gg.Context, forwardVector acserver.Vector3F, poi
 	ctx.Pop()
 }
 
-func (t *TrackMapRenderer) Rect() (rect image.Rectangle, offsetX, offsetY int) {
+func (t *TrackMapRenderer) Rect() (rect image.Rectangle, offsetX, offsetY float64) {
 	minX, minY := t.aiSpline.Min()
 	maxX, maxY := t.aiSpline.Max()
 
@@ -239,15 +253,28 @@ func (t *TrackMapRenderer) Rect() (rect image.Rectangle, offsetX, offsetY int) {
 	}
 
 	if minX != 0 {
-		offsetX = -int(minX)
+		offsetX = -float64(minX)
 		maxX -= minX
 		minX = 0
 	}
 
 	if minY != 0 {
-		offsetY = -int(minY)
+		offsetY = -float64(minY)
 		maxY -= minY
 		minY = 0
+	}
+
+	dx := maxX - minX
+
+	if dx > maxImageWidth {
+		t.scaleFactor = math.Round(float64(dx) / maxImageWidth)
+
+		minX /= float32(t.scaleFactor)
+		maxX /= float32(t.scaleFactor)
+		minY /= float32(t.scaleFactor)
+		maxY /= float32(t.scaleFactor)
+	} else {
+		t.scaleFactor = 1
 	}
 
 	maxX += padding * 2
