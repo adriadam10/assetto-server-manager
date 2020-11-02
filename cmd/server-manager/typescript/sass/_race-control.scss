@@ -121,6 +121,10 @@
   display: inline-grid;
 }
 
+.blue-flag {
+  background: rgba(0,0,255,0.65) !important;
+}
+
 .dot .name {
   position: relative;
   top: 10px;
@@ -133,6 +137,10 @@
   padding-left: 4px;
   padding-right: 4px;
   font-weight: bold;
+}
+
+.name-highlight {
+  filter: invert(100%);
 }
 
 .dot .info {

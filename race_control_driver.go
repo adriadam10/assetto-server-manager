@@ -7,9 +7,10 @@ import (
 	"sync"
 	"time"
 
-	"justapengu.in/acsm/pkg/udp"
-
+	"github.com/sasha-s/go-deadlock"
 	"github.com/sirupsen/logrus"
+
+	"justapengu.in/acsm/pkg/udp"
 )
 
 func NewRaceControlDriver(carInfo udp.SessionCarInfo) *RaceControlDriver {
@@ -47,6 +48,7 @@ type RaceControlDriverData struct {
 	NormalisedSplinePos float32   `json:"NormalisedSplinePos"`
 	SteerAngle          uint8     `json:"SteerAngle"`
 	StatusBytes         uint32    `json:"StatusBytes"`
+	BlueFlag            bool      `json:"BlueFlag"`
 
 	Collisions []Collision `json:"Collisions"`
 
@@ -128,7 +130,7 @@ type DriverMap struct {
 	driverSortLessFunc driverSortLessFunc
 	driverGroup        RaceControlDriverGroup
 
-	rwMutex sync.RWMutex
+	rwMutex deadlock.RWMutex
 }
 
 type RaceControlDriverGroup int
@@ -182,7 +184,7 @@ func (d *DriverMap) Add(driverGUID udp.DriverGUID, driver *RaceControlDriver) {
 	d.rwMutex.Lock()
 	defer func() {
 		d.rwMutex.Unlock()
-		d.sort()
+		d.sort(false)
 	}()
 
 	d.Drivers[driverGUID] = driver
@@ -196,7 +198,7 @@ func (d *DriverMap) Add(driverGUID udp.DriverGUID, driver *RaceControlDriver) {
 	d.GUIDsInPositionalOrder = append(d.GUIDsInPositionalOrder, driverGUID)
 }
 
-func (d *DriverMap) sort() {
+func (d *DriverMap) sort(isRace bool) bool {
 	d.rwMutex.Lock()
 	defer d.rwMutex.Unlock()
 
@@ -216,6 +218,8 @@ func (d *DriverMap) sort() {
 		return d.driverSortLessFunc(d.driverGroup, driverA, driverB)
 	})
 
+	sendUpdatedRaceControlStatus := false
+
 	// correct positions
 	for pos, guid := range d.GUIDsInPositionalOrder {
 		driver, ok := d.Drivers[guid]
@@ -226,15 +230,69 @@ func (d *DriverMap) sort() {
 
 		driver.mutex.Lock()
 		driver.Position = pos + 1
+
+		// calculate blue flags
+		if isRace {
+			for pos1, guid1 := range d.GUIDsInPositionalOrder {
+				if pos1 > pos || guid1 == guid {
+					// can't have blue flag to driver behind
+					// don't compare driver to themselves
+					continue
+				}
+
+				driver1, ok := d.Drivers[guid1]
+
+				if !ok {
+					continue
+				}
+
+				driver1.mutex.Lock()
+
+				if driver.TotalNumLaps < driver1.TotalNumLaps {
+					if driver.BlueFlag {
+						// driver 1 has gone past
+						if driver1.NormalisedSplinePos-driver.NormalisedSplinePos > 0 && driver1.NormalisedSplinePos-driver.NormalisedSplinePos <= 0.1 {
+							driver.BlueFlag = false
+							sendUpdatedRaceControlStatus = true
+						}
+
+						// driver 1 has fallen back
+						if driver.NormalisedSplinePos-driver1.NormalisedSplinePos >= 0 && driver.LastPos.DistanceTo(driver1.LastPos) > 74 {
+							driver.BlueFlag = false
+							sendUpdatedRaceControlStatus = true
+						}
+
+						// driver is in pits
+						if driver.IsInPits {
+							driver.BlueFlag = false
+							sendUpdatedRaceControlStatus = true
+						}
+					} else {
+						if driver.NormalisedSplinePos-driver1.NormalisedSplinePos >= 0 {
+							// driver is ahead, use pos to find distance between
+							if driver.LastPos.DistanceTo(driver1.LastPos) <= 70 && !driver.IsInPits {
+								driver.BlueFlag = true
+								sendUpdatedRaceControlStatus = true
+							}
+						}
+					}
+				}
+
+				driver1.mutex.Unlock()
+			}
+		}
+
 		driver.mutex.Unlock()
 	}
+
+	return sendUpdatedRaceControlStatus
 }
 
 func (d *DriverMap) Del(driverGUID udp.DriverGUID) {
 	d.rwMutex.Lock()
 	defer func() {
 		d.rwMutex.Unlock()
-		d.sort()
+		d.sort(false)
 	}()
 
 	delete(d.Drivers, driverGUID)

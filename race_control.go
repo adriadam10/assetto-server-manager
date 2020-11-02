@@ -12,6 +12,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/mitchellh/go-wordwrap"
+	"github.com/sasha-s/go-deadlock"
 	"github.com/sirupsen/logrus"
 	lua "github.com/yuin/gopher-lua"
 
@@ -43,7 +44,7 @@ type RaceControl struct {
 	penaltiesManager *PenaltiesManager
 	server           acserver.ServerPlugin
 
-	mutex sync.RWMutex
+	mutex deadlock.RWMutex
 
 	serverProcessStopped chan struct{}
 
@@ -259,7 +260,9 @@ func (rc *RaceControl) OnCarUpdate(update udp.CarUpdate) (bool, error) {
 		pitLane.UpdateCar(uint8(update.CarID), driver.IsInPits)
 	}
 
-	rc.ConnectedDrivers.sort()
+	if rc.ConnectedDrivers.sort(rc.SessionInfo.Type == acserver.SessionTypeRace) {
+		sendUpdatedRaceControlStatus = true
+	}
 
 	_, err = rc.broadcaster.Send(update)
 
@@ -1084,7 +1087,7 @@ func (rc *RaceControl) OnLapCompleted(lap udp.LapCompleted) error {
 	currentCar.TopSpeedThisLap = 0
 	driver.mutex.Unlock()
 
-	rc.ConnectedDrivers.sort()
+	rc.ConnectedDrivers.sort(rc.SessionInfo.Type == acserver.SessionTypeRace)
 
 	if rc.SessionInfo.Type == acserver.SessionTypeRace {
 		// calculate split

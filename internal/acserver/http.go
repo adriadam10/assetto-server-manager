@@ -432,5 +432,9 @@ const timeTableHTML = `
 func (h *HTTP) Close() error {
 	h.logger.Debugf("Closing HTTP listener")
 
+	if h.server == nil {
+		return nil
+	}
+
 	return h.server.Close()
 }
