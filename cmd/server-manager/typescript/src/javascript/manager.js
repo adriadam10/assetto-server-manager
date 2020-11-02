@@ -1602,7 +1602,11 @@ let filesToUpload = [];
 
 function submitFiles(path) {
     //JSON encode filestoUpload, JQUERY post request to api endpoint (/api/track/car/upload)
-    let newFiles = [];
+    let uploadPayload = {
+        GenerateTrackMaps: !!$("#GenerateTrackMaps").is(":checked"),
+        Files: [],
+    };
+
     let count = 0;
 
     let tags = $("#tags");
@@ -1611,7 +1615,7 @@ function submitFiles(path) {
         let val = tags.val();
 
         if (val !== "") {
-            newFiles.push({
+            uploadPayload.Files.push({
                 'name': "tags",
                 'dataBase64': val
             });
@@ -1625,7 +1629,7 @@ function submitFiles(path) {
         reader.readAsDataURL(filesToUpload[x]);
 
         reader.addEventListener("load", function () {
-            newFiles.push({
+            uploadPayload.Files.push({
                 'name': filesToUpload[x].name,
                 'size': filesToUpload[x].size,
                 'type': filesToUpload[x].type,
@@ -1636,7 +1640,7 @@ function submitFiles(path) {
             count++;
 
             if (count === filesToUpload.length) {
-                postWithProgressBar(path, JSON.stringify(newFiles), onSuccess, onFail, $("#progress-bar"));
+                postWithProgressBar(path, JSON.stringify(uploadPayload), onSuccess, onFail, $("#progress-bar"));
             }
         });
     }

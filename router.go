@@ -340,6 +340,7 @@ func Router(
 		r.HandleFunc("/accounts/toggle-open", accountHandler.toggleServerOpenStatus)
 		r.HandleFunc("/accounts", accountHandler.manageAccounts)
 		r.HandleFunc("/search-index", carsHandler.rebuildSearchIndex)
+		r.HandleFunc("/tracks/rebuild-maps", tracksHandler.rebuildTrackMaps)
 		r.HandleFunc("/required-apps", customChecksumHandler.index)
 
 		r.HandleFunc("/restart-session", raceControlHandler.restartSession)

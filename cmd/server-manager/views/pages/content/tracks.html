@@ -68,23 +68,59 @@
                         <p class="card-text mb-0">The drag and drop input accepts a single track folder, multiple track folders
                             or a tracks folder containing multiple tracks!</p>
 
-                        <form class="d-inline">
-                            <div class="mt-3 mb-3">
-                                <div class="btn-file btn btn-secondary d-inline-block align-top">
-                                    Choose a Folder
-                                    <input id="input-folder-track" name="input-folder-track[]" type="file"
-                                           webkitdirectory multiple value="Choose Folder"/>
+                        <hr>
+
+                        <form class="mt-3">
+                            <div class="form-group row">
+                                <label for="FileSelect" class="col-sm-4 col-form-label">
+                                    Folder(s) to Upload
+                                </label>
+
+                                <div class="col-sm-8">
+                                    <div class="btn-file btn btn-secondary d-inline-block align-top">
+                                        Choose a Folder
+
+                                        <input id="input-folder-track" name="input-folder-track[]" type="file"
+                                               webkitdirectory multiple value="Choose Folder"/>
+                                    </div>
+
+                                    <span class="ml-3 mr-3">or</span>
+
+                                    <div id="drop-zone" class="track-drop drop-zone d-inline-block">Drag &amp; Drop Folder(s) Here</div>
                                 </div>
+                            </div>
 
-                                <div id="drop-zone" class="track-drop ml-2 mr-2 drop-zone d-inline-block">Or Drag & Drop Folder(s) Here</div>
 
-                                <div class="float-right">
-                                    <label for="only-ks" class="mr-2">Only Upload Official KS Content</label>
-                                    <input type="checkbox" name="only-ks" id="only-ks">
+                            <div class="form-group row">
+                                <label for="only-ks" class="col-sm-4 col-form-label">
+                                    Only Upload Official Kunos Content
+                                </label>
+
+                                <div class="col-sm-8">
+                                    <input type="checkbox" name="only-ks" id="only-ks"><br>
+
+                                    <small>When enabled, only Kunos official content will be uploaded from your selected folders.</small>
                                 </div>
+                            </div>
 
+
+                            <div class="form-group row">
+                                <label for="GenerateTrackMaps" class="col-sm-4 col-form-label">
+                                    Generate Track Maps
+                                </label>
+
+                                <div class="col-sm-8">
+                                    <input type="checkbox" name="GenerateTrackMaps" id="GenerateTrackMaps" checked="checked"><br>
+
+                                    <small>Server Manager will use the track's AI files (if available) to generate a more detailed track map with pit lane, DRS Zones and the start/finish line.</small>
+                                </div>
+                            </div>
+
+                            <div class="float-right mb-3">
                                 <div id="upload-button"></div>
                             </div>
+
+                            <div class="clearfix"></div>
 
                             <div class="progress" style="display: none;">
                                 <div class="progress-bar" id="progress-bar" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>

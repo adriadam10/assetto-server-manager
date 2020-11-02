@@ -14,6 +14,7 @@ import (
 	"github.com/mitchellh/go-wordwrap"
 	"github.com/sirupsen/logrus"
 	lua "github.com/yuin/gopher-lua"
+	"justapengu.in/acsm/pkg/ai"
 
 	"justapengu.in/acsm/internal/acserver"
 	"justapengu.in/acsm/pkg/udp"
@@ -26,7 +27,7 @@ var (
 type RaceControlBroadcastData struct {
 	CurrentRealtimePosInterval int                          `json:"CurrentRealtimePosInterval"`
 	SessionInfo                udp.SessionInfo              `json:"SessionInfo"`
-	TrackMapData               TrackMapData                 `json:"TrackMapData"`
+	TrackMapData               ai.TrackMapData              `json:"TrackMapData"`
 	TrackInfo                  TrackInfo                    `json:"TrackInfo"`
 	SessionStartTime           time.Time                    `json:"SessionStartTime"`
 	ConnectedDrivers           *DriverMap                   `json:"ConnectedDrivers"`

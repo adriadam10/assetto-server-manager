@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"justapengu.in/acsm/internal/acserver"
+	"justapengu.in/acsm/pkg/ai"
 	"justapengu.in/acsm/pkg/pitlanedetection"
 	"justapengu.in/acsm/pkg/udp"
 )
@@ -466,8 +467,8 @@ func (nilTrackData) TrackInfo(name, layout string) (*TrackInfo, error) {
 	return &TrackInfo{}, nil
 }
 
-func (nilTrackData) TrackMap(name, layout string) (*TrackMapData, error) {
-	return &TrackMapData{}, nil
+func (nilTrackData) TrackMap(name, layout string) (*ai.TrackMapData, error) {
+	return &ai.TrackMapData{}, nil
 }
 
 func TestRaceControl_OnNewSession(t *testing.T) {
