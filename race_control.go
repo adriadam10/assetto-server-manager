@@ -269,7 +269,7 @@ func (rc *RaceControl) OnCarUpdate(update udp.CarUpdate) (bool, error) {
 				// don't compare a driver to themselves (also avoid deadlock)
 				return nil
 			}
-			
+
 			driverB.mutex.Lock()
 			defer driverB.mutex.Unlock()
 
