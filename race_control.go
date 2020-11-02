@@ -12,7 +12,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/mitchellh/go-wordwrap"
-	"github.com/sasha-s/go-deadlock"
 	"github.com/sirupsen/logrus"
 	lua "github.com/yuin/gopher-lua"
 
@@ -44,7 +43,7 @@ type RaceControl struct {
 	penaltiesManager *PenaltiesManager
 	server           acserver.ServerPlugin
 
-	mutex deadlock.RWMutex
+	mutex sync.RWMutex
 
 	serverProcessStopped chan struct{}
 
@@ -260,8 +259,59 @@ func (rc *RaceControl) OnCarUpdate(update udp.CarUpdate) (bool, error) {
 		pitLane.UpdateCar(uint8(update.CarID), driver.IsInPits)
 	}
 
-	if rc.ConnectedDrivers.sort(rc.SessionInfo.Type == acserver.SessionTypeRace) {
-		sendUpdatedRaceControlStatus = true
+	rc.ConnectedDrivers.sort()
+
+	// calculate blue flags
+	if rc.SessionInfo.Type == acserver.SessionTypeRace {
+		driver.mutex.Lock()
+		for pos1, guid1 := range rc.ConnectedDrivers.GUIDsInPositionalOrder {
+			if pos1 > driver.Position || guid1 == driver.CarInfo.DriverGUID {
+				// can't have blue flag to driver behind
+				// don't compare driver to themselves
+				continue
+			}
+
+			driverB, ok := rc.ConnectedDrivers.Drivers[guid1]
+
+			if !ok {
+				continue
+			}
+
+			driverB.mutex.Lock()
+
+			if driver.TotalNumLaps < driverB.TotalNumLaps {
+				if driver.BlueFlag {
+					// driver 1 has gone past
+					if driverB.NormalisedSplinePos-driver.NormalisedSplinePos > 0 && driverB.NormalisedSplinePos-driver.NormalisedSplinePos <= 0.1 {
+						driver.BlueFlag = false
+						sendUpdatedRaceControlStatus = true
+					}
+
+					// driver 1 has fallen back
+					if driver.NormalisedSplinePos-driverB.NormalisedSplinePos >= 0 && driver.LastPos.DistanceTo(driverB.LastPos) > 74 {
+						driver.BlueFlag = false
+						sendUpdatedRaceControlStatus = true
+					}
+
+					// driver is in pits
+					if driver.IsInPits {
+						driver.BlueFlag = false
+						sendUpdatedRaceControlStatus = true
+					}
+				} else {
+					if driver.NormalisedSplinePos-driverB.NormalisedSplinePos >= 0 {
+						// driver is ahead, use pos to find distance between
+						if driver.LastPos.DistanceTo(driverB.LastPos) <= 70 && !driver.IsInPits {
+							driver.BlueFlag = true
+							sendUpdatedRaceControlStatus = true
+						}
+					}
+				}
+			}
+
+			driverB.mutex.Unlock()
+		}
+		driver.mutex.Unlock()
 	}
 
 	_, err = rc.broadcaster.Send(update)
@@ -309,6 +359,7 @@ func (rc *RaceControl) OnNewSession(sessionInfo udp.SessionInfo) error {
 		defer driver.mutex.Unlock()
 
 		driver.CurrentCar().LastLapCompletedTime = time.Now()
+		driver.BlueFlag = false
 
 		return nil
 	})
@@ -604,6 +655,7 @@ func (rc *RaceControl) OnClientConnect(client udp.SessionCarInfo) error {
 
 	driver.mutex.Lock()
 	driver.CarInfo = client
+	driver.BlueFlag = false
 
 	if _, ok := driver.Cars[driver.CarInfo.CarModel]; !ok {
 		driver.Cars[driver.CarInfo.CarModel] = NewRaceControlCarLapInfo(driver.CarInfo.CarModel)
@@ -1087,7 +1139,7 @@ func (rc *RaceControl) OnLapCompleted(lap udp.LapCompleted) error {
 	currentCar.TopSpeedThisLap = 0
 	driver.mutex.Unlock()
 
-	rc.ConnectedDrivers.sort(rc.SessionInfo.Type == acserver.SessionTypeRace)
+	rc.ConnectedDrivers.sort()
 
 	if rc.SessionInfo.Type == acserver.SessionTypeRace {
 		// calculate split

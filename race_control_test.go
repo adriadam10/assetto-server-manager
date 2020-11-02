@@ -1088,7 +1088,7 @@ func TestRaceControl_SortDrivers(t *testing.T) {
 
 		rc.ConnectedDrivers.Add(d2.CarInfo.DriverGUID, d2)
 
-		rc.ConnectedDrivers.sort(true)
+		rc.ConnectedDrivers.sort()
 
 		if rc.ConnectedDrivers.GUIDsInPositionalOrder[0] != drivers[1].DriverGUID {
 			t.Error("Driver 1 should be in first")
@@ -1132,7 +1132,7 @@ func TestRaceControl_SortDrivers(t *testing.T) {
 
 			rc.ConnectedDrivers.Add(d3.CarInfo.DriverGUID, d3)
 
-			rc.ConnectedDrivers.sort(false)
+			rc.ConnectedDrivers.sort()
 
 			if rc.ConnectedDrivers.GUIDsInPositionalOrder[0] != drivers[1].DriverGUID {
 				t.Error("Driver 1 should be in first")
@@ -1172,7 +1172,7 @@ func TestRaceControl_SortDrivers(t *testing.T) {
 		d3.CurrentCar().LastLapCompletedTime = time.Now()
 		rc.DisconnectedDrivers.Add(d3.CarInfo.DriverGUID, d3)
 
-		rc.DisconnectedDrivers.sort(true)
+		rc.DisconnectedDrivers.sort()
 
 		if rc.DisconnectedDrivers.GUIDsInPositionalOrder[0] != drivers[2].DriverGUID {
 			t.Error("Driver 2 should be in first")
@@ -1211,7 +1211,7 @@ func TestRaceControl_SortDrivers(t *testing.T) {
 		d3.CurrentCar().BestLap = 0
 		rc.DisconnectedDrivers.Add(d3.CarInfo.DriverGUID, d3)
 
-		rc.DisconnectedDrivers.sort(false)
+		rc.DisconnectedDrivers.sort()
 
 		if rc.DisconnectedDrivers.GUIDsInPositionalOrder[0] != drivers[1].DriverGUID {
 			t.Error("Driver 1 should be in first")
