@@ -84,9 +84,19 @@ export class TrackDetail {
 
         let baseURL: string = $modal.children(".splines-image-base-url").text() as string;
 
-        let distance: number = $form.children(".distance").val() as number;
-        let maxSpeed: number = $form.children(".maxSpeed").val() as number;
-        let maxDistance: number = $form.children(".maxDistance").val() as number;
+        let distance: number = 3.0;
+        let maxSpeed: number = 30.0;
+        let maxDistance: number = 4.0;
+
+        if ($currentTarget.hasClass("defaults")) {
+            $form.children(".distance").val(distance);
+            $form.children(".maxSpeed").val(maxSpeed);
+            $form.children(".maxDistance").val(maxDistance);
+        } else {
+            distance = $form.children(".distance").val() as number;
+            maxSpeed = $form.children(".maxSpeed").val() as number;
+            maxDistance = $form.children(".maxDistance").val() as number;
+        }
 
         let url = baseURL + "?distance=" + distance + "&maxSpeed=" + maxSpeed + "&maxDistance=" + maxDistance;
 

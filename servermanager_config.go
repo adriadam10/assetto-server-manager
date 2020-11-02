@@ -151,6 +151,7 @@ func (s *StoreConfig) BuildStore() (Store, error) {
 
 type ServerExtraConfig struct {
 	Plugins                     []*CommandPlugin `yaml:"plugins"`
+	DisablePlugins              bool             `yaml:"disable_plugins"`
 	AuditLogging                bool             `yaml:"audit_logging"`
 	PerformanceMode             bool             `yaml:"performance_mode"`
 	DisableWindowsBrowserOpen   bool             `yaml:"dont_open_browser"`

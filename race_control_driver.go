@@ -60,7 +60,7 @@ type RaceControlDriver struct {
 	driverSwapContext context.Context
 	driverSwapCfn     context.CancelFunc
 
-	mutex sync.Mutex
+	mutex sync.RWMutex
 }
 
 func (rcd *RaceControlDriver) CurrentCar() *RaceControlCarLapInfo {
@@ -92,8 +92,8 @@ func (rcd *RaceControlDriver) ClearSessionInfo() {
 }
 
 func (rcd *RaceControlDriver) MarshalJSON() ([]byte, error) {
-	rcd.mutex.Lock()
-	defer rcd.mutex.Unlock()
+	rcd.mutex.RLock()
+	defer rcd.mutex.RUnlock()
 
 	return json.Marshal(rcd.RaceControlDriverData)
 }
@@ -180,8 +180,10 @@ func (d *DriverMap) Get(driverGUID udp.DriverGUID) (*RaceControlDriver, bool) {
 
 func (d *DriverMap) Add(driverGUID udp.DriverGUID, driver *RaceControlDriver) {
 	d.rwMutex.Lock()
-	defer d.rwMutex.Unlock()
-	defer d.sort()
+	defer func() {
+		d.rwMutex.Unlock()
+		d.sort()
+	}()
 
 	d.Drivers[driverGUID] = driver
 
@@ -195,6 +197,9 @@ func (d *DriverMap) Add(driverGUID udp.DriverGUID, driver *RaceControlDriver) {
 }
 
 func (d *DriverMap) sort() {
+	d.rwMutex.Lock()
+	defer d.rwMutex.Unlock()
+
 	sort.Slice(d.GUIDsInPositionalOrder, func(i, j int) bool {
 		driverA, ok := d.Drivers[d.GUIDsInPositionalOrder[i]]
 
@@ -227,7 +232,10 @@ func (d *DriverMap) sort() {
 
 func (d *DriverMap) Del(driverGUID udp.DriverGUID) {
 	d.rwMutex.Lock()
-	defer d.rwMutex.Unlock()
+	defer func() {
+		d.rwMutex.Unlock()
+		d.sort()
+	}()
 
 	delete(d.Drivers, driverGUID)
 
@@ -237,8 +245,6 @@ func (d *DriverMap) Del(driverGUID udp.DriverGUID) {
 			break
 		}
 	}
-
-	d.sort()
 }
 
 func (d *DriverMap) Len() int {

@@ -109,7 +109,7 @@ func (wm *WeatherManager) ChangeWeather(weatherConfig *WeatherConfig, weatherUpd
 	wm.logger.Infof("Changed weather to: %s", wm.currentWeather.String())
 
 	if weatherConfig.Duration > 0 {
-		wm.nextWeatherUpdate = currentTimeMillisecond() + (weatherUpdateOffsetSeconds * 1000) + (weatherConfig.Duration * 60000)
+		wm.nextWeatherUpdate = wm.state.CurrentTimeMillisecond() + (weatherUpdateOffsetSeconds * 1000) + (weatherConfig.Duration * 60000)
 	} else {
 		wm.logger.Infof("Weather progression completed.")
 		wm.weatherProgression = false
@@ -195,7 +195,9 @@ func (wm *WeatherManager) SendWeather(entrant *Car) error {
 	return bw.WriteTCP(entrant.Connection.tcpConn)
 }
 
-func (wm *WeatherManager) SendSunAngle() {
+func (wm *WeatherManager) SendSunAngle(currentTime int64) {
+	wm.lastSunUpdate = currentTime
+
 	wm.logger.Debugf("Broadcasting Sun Angle (%.2f)", wm.sunAngle)
 
 	bw := NewPacket(nil)
@@ -205,14 +207,6 @@ func (wm *WeatherManager) SendSunAngle() {
 	wm.state.BroadcastAllTCP(bw)
 }
 
-func (wm *WeatherManager) SendSunAngleToCar(car *Car) error {
-	bw := NewPacket(nil)
-	bw.Write(TCPSendSunAngle)
-	bw.Write(wm.sunAngle)
-
-	return bw.WriteTCP(car.Connection.tcpConn)
-}
-
 func (wm *WeatherManager) OnNewSession(session SessionConfig) {
 	wm.mutex.Lock()
 	wm.currentWeatherIndex = 0
@@ -220,6 +214,8 @@ func (wm *WeatherManager) OnNewSession(session SessionConfig) {
 	wm.nextWeatherUpdate = 0
 	wm.sunAngle = wm.state.raceConfig.SunAngle
 	wm.mutex.Unlock()
+
+	wm.SendSunAngle(wm.state.CurrentTimeMillisecond())
 
 	sessionWeatherIndex := -1
 
@@ -290,20 +286,18 @@ const (
 )
 
 func (wm *WeatherManager) Step(currentTime int64, currentSession SessionConfig) {
+	wm.sunAngle = wm.state.raceConfig.SunAngle + float32(wm.state.raceConfig.TimeOfDayMultiplier)*(0.0044*(float32(currentTime)/1000.0))
+
+	if wm.sunAngle < minSunAngle {
+		wm.sunAngle = minSunAngle
+	} else if wm.sunAngle > maxSunAngle {
+		wm.sunAngle = maxSunAngle
+	}
+
 	// @TODO (improvement) at 1x this loses between 0.5 and 1s evey 60s
 	if currentTime-wm.lastSunUpdate > wm.sunAngleUpdateInterval || wm.lastSunUpdate == 0 {
 		// @TODO with CSP exceeding -80 and 80 works fine, and you can loop!
-		wm.sunAngle = wm.state.raceConfig.SunAngle + float32(wm.state.raceConfig.TimeOfDayMultiplier)*(0.0044*(float32(currentTime)/1000.0))
-
-		if wm.sunAngle < minSunAngle {
-			wm.sunAngle = minSunAngle
-		} else if wm.sunAngle > maxSunAngle {
-			wm.sunAngle = maxSunAngle
-		}
-
-		wm.SendSunAngle()
-
-		wm.lastSunUpdate = currentTime
+		wm.SendSunAngle(currentTime)
 	}
 
 	if wm.ShouldProgressToNextWeather(currentTime) {

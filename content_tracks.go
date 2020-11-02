@@ -297,7 +297,7 @@ func (th *TracksHandler) delete(w http.ResponseWriter, r *http.Request) {
 		AddErrorFlash(w, r, "Sorry, track could not be deleted.")
 	}
 
-	http.Redirect(w, r, "/tracks", http.StatusFound)
+	http.Redirect(w, r, r.Referer(), http.StatusFound)
 }
 
 func (th *TracksHandler) view(w http.ResponseWriter, r *http.Request) {
