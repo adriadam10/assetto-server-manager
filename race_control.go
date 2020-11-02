@@ -262,6 +262,59 @@ func (rc *RaceControl) OnCarUpdate(update udp.CarUpdate) (bool, error) {
 
 	rc.ConnectedDrivers.sort()
 
+	// calculate blue flags
+	if rc.SessionInfo.Type == acserver.SessionTypeRace {
+		driver.mutex.Lock()
+		_ = rc.ConnectedDrivers.Each(func(guid1 udp.DriverGUID, driverB *RaceControlDriver) error {
+			if guid1 == driver.CarInfo.DriverGUID {
+				// don't compare a driver to themselves (also avoid deadlock)
+				return nil
+			}
+
+			driverB.mutex.Lock()
+			defer driverB.mutex.Unlock()
+
+			if driverB.Position > driver.Position {
+				// can't have blue flag to driver behind
+				return nil
+			}
+
+			if driver.TotalNumLaps < driverB.TotalNumLaps {
+				if driver.BlueFlag {
+					// driver 1 has gone past
+					if driverB.NormalisedSplinePos-driver.NormalisedSplinePos > 0 && driverB.NormalisedSplinePos-driver.NormalisedSplinePos <= 0.1 {
+						driver.BlueFlag = false
+						sendUpdatedRaceControlStatus = true
+					}
+
+					// driver 1 has fallen back
+					if driver.NormalisedSplinePos-driverB.NormalisedSplinePos >= 0 && driver.LastPos.DistanceTo(driverB.LastPos) > 74 {
+						driver.BlueFlag = false
+						sendUpdatedRaceControlStatus = true
+					}
+
+					// driver is in pits
+					if driver.IsInPits {
+						driver.BlueFlag = false
+						sendUpdatedRaceControlStatus = true
+					}
+				} else {
+					if driver.NormalisedSplinePos-driverB.NormalisedSplinePos >= 0 {
+						// driver is ahead, use pos to find distance between
+						if driver.LastPos.DistanceTo(driverB.LastPos) <= 70 && !driver.IsInPits {
+							driver.BlueFlag = true
+							sendUpdatedRaceControlStatus = true
+						}
+					}
+				}
+			}
+
+			return nil
+		})
+
+		driver.mutex.Unlock()
+	}
+
 	_, err = rc.broadcaster.Send(update)
 
 	return sendUpdatedRaceControlStatus, err
@@ -307,6 +360,7 @@ func (rc *RaceControl) OnNewSession(sessionInfo udp.SessionInfo) error {
 		defer driver.mutex.Unlock()
 
 		driver.CurrentCar().LastLapCompletedTime = time.Now()
+		driver.BlueFlag = false
 
 		return nil
 	})
@@ -602,6 +656,7 @@ func (rc *RaceControl) OnClientConnect(client udp.SessionCarInfo) error {
 
 	driver.mutex.Lock()
 	driver.CarInfo = client
+	driver.BlueFlag = false
 
 	if _, ok := driver.Cars[driver.CarInfo.CarModel]; !ok {
 		driver.Cars[driver.CarInfo.CarModel] = NewRaceControlCarLapInfo(driver.CarInfo.CarModel)

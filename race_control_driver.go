@@ -7,9 +7,9 @@ import (
 	"sync"
 	"time"
 
-	"justapengu.in/acsm/pkg/udp"
-
 	"github.com/sirupsen/logrus"
+
+	"justapengu.in/acsm/pkg/udp"
 )
 
 func NewRaceControlDriver(carInfo udp.SessionCarInfo) *RaceControlDriver {
@@ -47,6 +47,7 @@ type RaceControlDriverData struct {
 	NormalisedSplinePos float32   `json:"NormalisedSplinePos"`
 	SteerAngle          uint8     `json:"SteerAngle"`
 	StatusBytes         uint32    `json:"StatusBytes"`
+	BlueFlag            bool      `json:"BlueFlag"`
 
 	Collisions []Collision `json:"Collisions"`
 
