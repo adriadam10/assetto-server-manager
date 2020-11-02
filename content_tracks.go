@@ -18,6 +18,7 @@ import (
 	"strings"
 
 	"justapengu.in/acsm/cmd/server-manager/static"
+	"justapengu.in/acsm/internal/acserver"
 	"justapengu.in/acsm/pkg/ai"
 
 	"github.com/cj123/ini"
@@ -802,14 +803,54 @@ func (tm *TrackManager) UpdateTrackMetadata(name string, r *http.Request) error 
 	return track.MetaData.Save(name)
 }
 
+func (tm *TrackManager) BuildTrackMap(track, layout string) error {
+	trackPath := filepath.Join(ServerInstallPath, "content", "tracks", track)
+
+	if layout != "" {
+		trackPath = filepath.Join(trackPath, layout)
+	}
+
+	fastLaneSpline, err := ai.ReadSpline(filepath.Join(trackPath, "ai", "fast_lane.ai"))
+
+	if err != nil {
+		return err
+	}
+
+	fullPitLane, err := ai.ReadSpline(filepath.Join(trackPath, "ai", "pit_lane.ai"))
+
+	if err != nil {
+		return err
+	}
+
+	drsZones, _ := acserver.LoadDRSZones(filepath.Join(trackPath, "data", drsZonesFilename))
+
+	renderer := ai.NewTrackMapRenderer(fastLaneSpline, fullPitLane, drsZones)
+
+	mapPNG, err := os.Create(filepath.Join(trackPath, "map.png"))
+
+	if err != nil {
+		return err
+	}
+
+	defer mapPNG.Close()
+
+	trackMapData, err := renderer.Render(mapPNG)
+
+	if err != nil {
+		return err
+	}
+
+	return trackMapData.Save(filepath.Join(trackPath, "data", "map.ini"))
+}
+
 type TrackDataGateway interface {
 	TrackInfo(name, layout string) (*TrackInfo, error)
-	TrackMap(name, layout string) (*TrackMapData, error)
+	TrackMap(name, layout string) (*ai.TrackMapData, error)
 }
 
 type filesystemTrackData struct{}
 
-func (filesystemTrackData) TrackMap(name, layout string) (*TrackMapData, error) {
+func (filesystemTrackData) TrackMap(name, layout string) (*ai.TrackMapData, error) {
 	return LoadTrackMapData(name, layout)
 }
 
@@ -829,17 +870,7 @@ func (filesystemTrackData) TrackInfo(name, layout string) (*TrackInfo, error) {
 	return trackInfo, err
 }
 
-type TrackMapData struct {
-	Width       float64 `ini:"WIDTH" json:"width"`
-	Height      float64 `ini:"HEIGHT" json:"height"`
-	Margin      float64 `ini:"MARGIN" json:"margin"`
-	ScaleFactor float64 `ini:"SCALE_FACTOR" json:"scale_factor"`
-	OffsetX     float64 `ini:"X_OFFSET" json:"offset_x"`
-	OffsetZ     float64 `ini:"Z_OFFSET" json:"offset_y"`
-	DrawingSize float64 `ini:"DRAWING_SIZE" json:"drawing_size"`
-}
-
-func LoadTrackMapData(track, trackLayout string) (*TrackMapData, error) {
+func LoadTrackMapData(track, trackLayout string) (*ai.TrackMapData, error) {
 	p := filepath.Join(ServerInstallPath, "content", "tracks", track)
 
 	if trackLayout != "" {
@@ -868,7 +899,7 @@ func LoadTrackMapData(track, trackLayout string) (*TrackMapData, error) {
 		return nil, err
 	}
 
-	var mapData TrackMapData
+	var mapData ai.TrackMapData
 
 	if err := s.MapTo(&mapData); err != nil {
 		return nil, err

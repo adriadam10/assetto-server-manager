@@ -34,13 +34,15 @@ var base64HeaderRegex = regexp.MustCompile("^(data:.+;base64,)")
 type ContentUploadHandler struct {
 	*BaseHandler
 
-	carManager *CarManager
+	carManager   *CarManager
+	trackManager *TrackManager
 }
 
-func NewContentUploadHandler(baseHandler *BaseHandler, carManager *CarManager) *ContentUploadHandler {
+func NewContentUploadHandler(baseHandler *BaseHandler, carManager *CarManager, trackManager *TrackManager) *ContentUploadHandler {
 	return &ContentUploadHandler{
-		BaseHandler: baseHandler,
-		carManager:  carManager,
+		BaseHandler:  baseHandler,
+		carManager:   carManager,
+		trackManager: trackManager,
 	}
 }
 
@@ -82,6 +84,7 @@ func (cuh *ContentUploadHandler) addFiles(files []ContentFile, contentType Conte
 	}
 
 	uploadedCars := make(map[string]bool)
+	uploadedTracks := make(map[string]bool)
 
 	var tags []string
 
@@ -128,6 +131,8 @@ func (cuh *ContentUploadHandler) addFiles(files []ContentFile, contentType Conte
 
 		if contentType == ContentTypeCar {
 			uploadedCars[parts[0]] = true
+		} else if contentType == ContentTypeTrack {
+			uploadedTracks[parts[0]] = true
 		}
 
 		err = ioutil.WriteFile(path, fileDecoded, 0644)
@@ -161,6 +166,26 @@ func (cuh *ContentUploadHandler) addFiles(files []ContentFile, contentType Conte
 
 			if err != nil {
 				return err
+			}
+		}
+	}
+
+	if contentType == ContentTypeTrack {
+		for track := range uploadedTracks {
+			t, err := cuh.trackManager.GetTrackFromName(track)
+
+			if err != nil {
+				return err
+			}
+
+			for _, layout := range t.Layouts {
+				if layout == defaultLayoutName {
+					layout = ""
+				}
+
+				if err := cuh.trackManager.BuildTrackMap(track, layout); err != nil {
+					return err
+				}
 			}
 		}
 	}

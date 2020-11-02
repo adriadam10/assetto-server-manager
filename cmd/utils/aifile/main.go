@@ -3,13 +3,11 @@ package main
 import (
 	"flag"
 	"fmt"
-	"image"
-	"image/color"
 	"os"
 	"path/filepath"
 	"strings"
-	"sync"
 
+	"justapengu.in/acsm/internal/acserver"
 	"justapengu.in/acsm/pkg/ai"
 )
 
@@ -46,90 +44,42 @@ func main() {
 		panic(err)
 	}
 
-	var wg sync.WaitGroup
-
 	for _, path := range paths {
 		path := path
-		wg.Add(1)
+		fmt.Println(path)
 
-		go func() {
-			fastLaneSpline, err := ai.ReadSpline(filepath.Join(path, "fast_lane.ai"))
+		fastLaneSpline, err := ai.ReadSpline(filepath.Join(path, "fast_lane.ai"))
 
-			if err != nil {
-				fmt.Println(err)
-				return
-			}
+		if err != nil {
+			fmt.Println(err)
+			continue
+		}
 
-			pitLaneSpline, err := ai.ReadPitLaneSpline(path, fastLaneSpline, 30, 3, 4)
+		fullPitLane, err := ai.ReadSpline(filepath.Join(path, "pit_lane.ai"))
 
-			if err != nil {
-				fmt.Println(err)
-				return
-			}
+		if err != nil {
+			fmt.Println(err)
+			continue
+		}
 
-			renderer := ai.NewTrackMapRenderer(fastLaneSpline, pitLaneSpline)
+		drsZonesPath := filepath.Join(path, "..", "data", "drs_zones.ini")
 
-			/*
-			x, y := fastLaneSpline.Dimensions()
+		drsZones, err := acserver.LoadDRSZones(drsZonesPath)
 
-			padding := 20
-			img := image.NewRGBA(image.Rectangle{Min: image.Pt(0, 0), Max: image.Pt(int(x)+(padding*2), int(y)+(padding*2))})
-			radius := 1
+		if err != nil {
+			fmt.Println(err)
+		}
 
-			minX, minY := fastLaneSpline.Min()
+		renderer := ai.NewTrackMapRenderer(fastLaneSpline, fullPitLane, drsZones)
 
-			for i, point := range fastLaneSpline.Points {
-				extra := fastLaneSpline.ExtraPoints[i]
+		f, _ := os.Create(filepath.Join(wd, "maps", strings.Replace(filepath.ToSlash(path), "/", "_", -1)+"_map.png"))
+		defer f.Close()
 
-				left := point.Position.Sub(extra.Normal.Mul(extra.SideLeft))
-				right := point.Position.Add(extra.Normal.Mul(extra.SideRight))
+		_, err = renderer.Render(f)
 
-				draw.Draw(img, img.Bounds(), &circle{image.Pt(padding+int(point.Position.X-minX), padding+int(point.Position.Z-minY)), radius, color.RGBA{R: 0, G: 125, B: 0, A: 0xff}}, image.Pt(0, 0), draw.Over)
-
-				draw.Draw(img, img.Bounds(), &circle{image.Pt(padding+int(left.X-minX), padding+int(left.Z-minY)), radius, color.RGBA{R: 150, G: 0, B: 0, A: 0xff}}, image.Pt(0, 0), draw.Over)
-				draw.Draw(img, img.Bounds(), &circle{image.Pt(padding+int(right.X-minX), padding+int(right.Z-minY)), radius, color.RGBA{R: 0, G: 0, B: 150, A: 0xff}}, image.Pt(0, 0), draw.Over)
-			}
-
-			for _, point := range pitLaneSpline.Points {
-				draw.Draw(img, img.Bounds(), &circle{image.Pt(padding+int(point.Position.X-minX), padding+int(point.Position.Z-minY)), radius, color.RGBA{R: 255, G: 125, B: 0, A: 0xff}}, image.Pt(0, 0), draw.Over)
-			}*/
-
-			f, _ := os.Create(filepath.Join(wd, "maps", strings.Replace(filepath.ToSlash(path), "/", "_", -1)+"_map.png"))
-			defer f.Close()
-
-			err = renderer.Render(f)
-
-			if err != nil {
-				panic(err)
-			}
-
-			wg.Done()
-		}()
+		if err != nil {
+			fmt.Println(err)
+			continue
+		}
 	}
-
-	wg.Wait()
-}
-
-type circle struct {
-	p     image.Point
-	r     int
-	color color.RGBA
-}
-
-func (c *circle) ColorModel() color.Model {
-	return color.AlphaModel
-}
-
-func (c *circle) Bounds() image.Rectangle {
-	return image.Rect(c.p.X-c.r, c.p.Y-c.r, c.p.X+c.r, c.p.Y+c.r)
-}
-
-func (c *circle) At(x, y int) color.Color {
-	xx, yy, rr := float64(x-c.p.X)+0.5, float64(y-c.p.Y)+0.5, float64(c.r)
-
-	if xx*xx+yy*yy < rr*rr {
-		return c.color
-	}
-
-	return color.RGBA{}
 }

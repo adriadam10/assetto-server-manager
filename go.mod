@@ -24,12 +24,14 @@ require (
 	github.com/facebookgo/stack v0.0.0-20160209184415-751773369052 // indirect
 	github.com/facebookgo/subset v0.0.0-20150612182917-8dac2c3c4870 // indirect
 	github.com/fatih/color v1.7.0
+	github.com/fogleman/gg v1.3.0
 	github.com/getsentry/raven-go v0.2.0
 	github.com/glycerine/go-unsnap-stream v0.0.0-20190901134440-81cf024a9e0a // indirect
 	github.com/go-chi/chi v4.1.2+incompatible
 	github.com/go-http-utils/etag v0.0.0-20161124023236-513ea8f21eb1
 	github.com/go-http-utils/fresh v0.0.0-20161124030543-7231e26a4b27 // indirect
 	github.com/go-http-utils/headers v0.0.0-20181008091004-fed159eddc2a // indirect
+	github.com/golang/freetype v0.0.0-20170609003504-e2365dfdc4a0 // indirect
 	github.com/google/uuid v1.1.2
 	github.com/gorilla/websocket v1.4.2
 	github.com/haisum/recaptcha v0.0.0-20170327142240-7d3b8053900e
@@ -66,11 +68,11 @@ require (
 	github.com/yuin/gopher-lua v0.0.0-20200816102855-ee81675732da
 	go.etcd.io/bbolt v1.3.5
 	golang.org/x/crypto v0.0.0-20200820211705-5c72a883971a
-	golang.org/x/net v0.0.0-20200904194848-62affa334b73
-	golang.org/x/sync v0.0.0-20200625203802-6e8e738ad208
-	golang.org/x/sys v0.0.0-20200909081042-eff7692f9009 // indirect
+	golang.org/x/image v0.0.0-20200927104501-e162460cd6b5 // indirect
+	golang.org/x/net v0.0.0-20201021035429-f5854403a974
+	golang.org/x/sync v0.0.0-20201020160332-67f06af15bc9
 	golang.org/x/text v0.3.3
-	golang.org/x/tools v0.0.0-20201017001424-6003fad69a88 // indirect
+	golang.org/x/tools v0.0.0-20201102043006-b53d4cbd60a6 // indirect
 	google.golang.org/protobuf v1.25.0 // indirect
 	gopkg.in/ini.v1 v1.42.0 // indirect
 	gopkg.in/yaml.v2 v2.3.0
