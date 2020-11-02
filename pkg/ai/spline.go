@@ -5,12 +5,17 @@ package ai
 import (
 	"bufio"
 	"encoding/binary"
+	"encoding/gob"
 	"fmt"
 	"os"
 	"path/filepath"
 
 	"justapengu.in/acsm/internal/acserver"
 )
+
+func init() {
+	gob.Register(&persistedSpline{})
+}
 
 const version = int32(7)
 
@@ -48,6 +53,10 @@ func (s *Spline) Min() (float32, float32) {
 }
 
 func (s *Spline) Max() (float32, float32) {
+	if len(s.Points) == 0 {
+		return 0, 0
+	}
+
 	maxX, maxZ := s.Points[0].Position.X, s.Points[0].Position.Z
 
 	for _, point := range s.Points {
@@ -319,6 +328,14 @@ func ReadSpline(aiFile string) (*Spline, error) {
 }
 
 func ReadPitLaneSpline(dir string, fastLaneSpline *Spline, maxSpeed float32, distance, maxDistance float64) (*Spline, error) {
+	saved, err := readPersistedSpline(dir)
+
+	if err == nil && saved.MaxSpeed == maxSpeed && saved.Distance == distance && saved.MaxDistance == maxDistance {
+		return saved.Spline, nil
+	} else if err != nil && !os.IsNotExist(err) {
+		return nil, err
+	}
+
 	pitLaneFullSpline, err := ReadSpline(filepath.Join(dir, "pit_lane.ai"))
 
 	if err != nil {
@@ -329,5 +346,52 @@ func ReadPitLaneSpline(dir string, fastLaneSpline *Spline, maxSpeed float32, dis
 	pitLaneFullSpline.Subtract(fastLaneSpline, distance)
 	pitLaneFullSpline.FindLargestContinuousSegment(maxDistance)
 
+	if err := saveSpline(dir, pitLaneFullSpline, maxSpeed, distance, maxDistance); err != nil {
+		return nil, err
+	}
+
 	return pitLaneFullSpline, nil
+}
+
+type persistedSpline struct {
+	Spline                *Spline
+	MaxSpeed              float32
+	Distance, MaxDistance float64
+}
+
+const persistedSplineName = "server-manager.ai.gob"
+
+func readPersistedSpline(dir string) (*persistedSpline, error) {
+	f, err := os.Open(filepath.Join(dir, persistedSplineName))
+
+	if err != nil {
+		return nil, err
+	}
+
+	defer f.Close()
+
+	var spline *persistedSpline
+
+	if err := gob.NewDecoder(f).Decode(&spline); err != nil {
+		return nil, err
+	}
+
+	return spline, nil
+}
+
+func saveSpline(dir string, spline *Spline, maxSpeed float32, distance, maxDistance float64) error {
+	f, err := os.Create(filepath.Join(dir, persistedSplineName))
+
+	if err != nil {
+		return err
+	}
+
+	defer f.Close()
+
+	return gob.NewEncoder(f).Encode(&persistedSpline{
+		Spline:      spline,
+		MaxSpeed:    maxSpeed,
+		Distance:    distance,
+		MaxDistance: maxDistance,
+	})
 }
