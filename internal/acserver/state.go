@@ -56,12 +56,6 @@ type Setup struct {
 	values  map[string]float32
 }
 
-type DRSZone struct {
-	detection float32
-	start     float32
-	end       float32
-}
-
 func NewServerState(baseDirectory string, serverConfig *ServerConfig, raceConfig *EventConfig, entryList EntryList, plugin Plugin, logger Logger, dynamicTrack *DynamicTrack) (*ServerState, error) {
 	ss := &ServerState{
 		serverConfig:         serverConfig,
@@ -117,45 +111,12 @@ func (ss *ServerState) initDRSZones() error {
 
 	ss.logger.Debugf("Loading track DRS zones from %s", drsZonesPath)
 
-	drsFile, err := ini.Load(drsZonesPath)
+	var err error
+
+	ss.drsZones, err = LoadDRSZones(drsZonesPath)
 
 	if err != nil {
 		return err
-	}
-
-	ss.drsZones = make(map[string]DRSZone)
-
-	for _, section := range drsFile.Sections() {
-		if section.Name() == "DEFAULT" {
-			continue
-		}
-
-		detection, err := section.Key("DETECTION").Float64()
-
-		if err != nil {
-			ss.logger.WithError(err).Errorf("Could not load DETECTION for %s of %s", section.Name(), drsZonesPath)
-			continue
-		}
-
-		start, err := section.Key("START").Float64()
-
-		if err != nil {
-			ss.logger.WithError(err).Errorf("Could not load START for %s of %s", section.Name(), drsZonesPath)
-			continue
-		}
-
-		end, err := section.Key("END").Float64()
-
-		if err != nil {
-			ss.logger.WithError(err).Errorf("Could not load END for %s of %s", section.Name(), drsZonesPath)
-			continue
-		}
-
-		ss.drsZones[section.Name()] = DRSZone{
-			detection: float32(detection),
-			start:     float32(start),
-			end:       float32(end),
-		}
 	}
 
 	return nil
@@ -590,8 +551,8 @@ func (ss *ServerState) SendDRSZones(entrant *Car) error {
 	bw.Write(uint8(len(ss.drsZones)))
 
 	for _, zone := range ss.drsZones {
-		bw.Write(zone.start)
-		bw.Write(zone.end)
+		bw.Write(zone.Start)
+		bw.Write(zone.End)
 	}
 
 	return bw.WriteTCP(entrant.Connection.tcpConn)
