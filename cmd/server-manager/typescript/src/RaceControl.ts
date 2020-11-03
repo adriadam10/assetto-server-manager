@@ -1020,6 +1020,15 @@ class LiveTimings implements WebsocketHandler {
                 $currentLap.append($tag);
             }
 
+            if (driver.DRSActive) {
+                let $tag = $("<span/>");
+
+                $tag.attr('class', 'badge ml-2 mt-1 badge-success');
+                $tag.text("DRS");
+
+                $currentLap.append($tag);
+            }
+
             for (const splitIndex in carInfo.CurrentLapSplits) {
                 let split = carInfo.CurrentLapSplits[splitIndex];
 
