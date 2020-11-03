@@ -24,7 +24,8 @@ func NewPositionMessageHandler(state *ServerState, sessionManager *SessionManage
 }
 
 const (
-	forceHeadlightByte = 0b100000
+	HeadlightByte = 0b100000
+	DRSByte = 0b10000000000
 )
 
 type CarUpdate struct {
@@ -56,7 +57,7 @@ func (pm *PositionMessageHandler) OnMessage(_ net.PacketConn, addr net.Addr, p *
 	}
 
 	if pm.state.raceConfig.ForceOpponentHeadlights {
-		carUpdate.StatusBytes |= forceHeadlightByte
+		carUpdate.StatusBytes |= HeadlightByte
 	}
 
 	if car.HasSentFirstUpdate() && carUpdate.Timestamp < car.PluginStatus.Timestamp {

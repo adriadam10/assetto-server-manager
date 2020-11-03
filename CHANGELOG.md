@@ -16,8 +16,6 @@ Kunos' acServer, and also provides the following advantages, exclusive to Server
 * Active development - expect fixes for any issues, and further feature development!
 * Force Opponent Headlights - you can now force opponent drivers to always have their headlights on.
 * Race Weekend 'Warm Up' Sessions - add a timed Practice session to the beginning of any Race in a Race Weekend, so drivers can get connected and do a few laps. Their lap times in this practice session will not affect their starting grid position as defined in the Race Weekend Entrylist.
-* Pitlane detection! We've made it so that Live Timings knows when cars are in the pits. To use this new functionality, please reupload your tracks, as they need new files for this to work!
-* Blue Flag detection! Live Timings now displays a blue flag indicator for cars that are being approached by drivers who have completed more laps in a race session.
 * Server only penalty system! You can now set custom penalties (drive through, kick, warning and ballast/restrictor) for track cuts in race sessions! We're hoping to expand this system further in the future.
 * Drift detection/points system! In sessions you can now enable Drift Mode, currently this tracks drift points for each driver over a lap and announces the total via chat, with feedback we hope to expand this system for all the drifters out there!
 * New/improved chat commands! Commands that reference drivers can now use the car ID, name of the driver or GUID of the driver! Also added /pm command for direct messages and /next_weather command to manually cycle configured session weathers.
@@ -28,6 +26,9 @@ We've also changed the following things in Server Manager itself:
 * Significantly improved startup times - we've optimised some of Server Manager's startup logic.
 * Added split information to the Current Lap column of the Live Timings page.
 * Added tyre information to Live Timings.
+* Pitlane detection! We've made it so that Live Timings knows when cars are in the pits. To use this new functionality, please reupload your tracks, as they need new files for this to work!
+* Blue Flag detection! Live Timings now displays a blue flag indicator for cars that are being approached by drivers who have completed more laps in a race session.
+* DRS detection! Live Timings now displays an icon when a driver activates DRS.
 * Live Timings will now accurately show driver order even mid lap in Race Sessions. If one driver overtakes another, you should see their positions change in the Live Timings table!
 
 Fixed:
