@@ -25,7 +25,7 @@ func NewPositionMessageHandler(state *ServerState, sessionManager *SessionManage
 
 const (
 	HeadlightByte = 0b100000
-	DRSByte = 0b10000000000
+	DRSByte       = 0b10000000000
 )
 
 type CarUpdate struct {
