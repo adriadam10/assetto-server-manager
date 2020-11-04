@@ -753,8 +753,15 @@ func (cm *ChampionshipManager) StartEvent(championshipID string, eventID string,
 	filteredWeather := make(map[string]*WeatherConfig)
 
 	i := 0
+	weatherKey := 0
 
-	for _, weather := range raceSetup.Weather {
+	for {
+		weather, ok := raceSetup.Weather[fmt.Sprintf("WEATHER_%d", weatherKey)]
+
+		if !ok {
+			break
+		}
+
 		for _, session := range weather.Sessions {
 			if session == SessionTypeChampionshipPractice {
 				weather.Sessions = []SessionType{SessionTypePractice}
@@ -763,6 +770,8 @@ func (cm *ChampionshipManager) StartEvent(championshipID string, eventID string,
 				i++
 			}
 		}
+
+		weatherKey++
 	}
 
 	raceSetup.Weather = filteredWeather
