@@ -750,6 +750,22 @@ func (cm *ChampionshipManager) StartEvent(championshipID string, eventID string,
 		raceSetup.PickupModeEnabled = 1
 	}
 
+	filteredWeather := make(map[string]*WeatherConfig)
+
+	i := 0
+
+	for _, weather := range raceSetup.Weather {
+		for _, session := range weather.Sessions {
+			if session == SessionTypeChampionshipPractice {
+				weather.Sessions = []SessionType{SessionTypePractice}
+				filteredWeather[fmt.Sprintf("WEATHER_%d", i)] = weather
+
+				i++
+			}
+		}
+	}
+
+	raceSetup.Weather = filteredWeather
 	raceSetup.ResultScreenTime = 30
 
 	return cm.RaceManager.applyConfigAndStart(&ActiveChampionship{
