@@ -187,7 +187,7 @@ func (s *Server) loop() {
 		s.state.serverConfig.SleepTime = 1
 	}
 
-	s.sessionManager.NextSession(false)
+	s.sessionManager.NextSession(false, false)
 
 	activeSleepTime := time.Millisecond * time.Duration(s.state.serverConfig.SleepTime)
 	sleepTime := activeSleepTime
@@ -334,7 +334,7 @@ func (s *Server) KickUser(carIDToKick CarID, reason KickReason) error {
 }
 
 func (s *Server) NextSession() {
-	s.sessionManager.NextSession(true)
+	s.sessionManager.NextSession(true, false)
 }
 
 func (s *Server) RestartSession() {
