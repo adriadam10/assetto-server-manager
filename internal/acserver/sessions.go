@@ -106,13 +106,14 @@ func (s *CurrentSession) IsZero() bool {
 }
 
 type SessionManager struct {
-	state          *ServerState
-	lobby          *Lobby
-	plugin         Plugin
-	logger         Logger
-	weatherManager *WeatherManager
-	dynamicTrack   *DynamicTrack
-	serverStopFn   func(bool) error
+	state                     *ServerState
+	lobby                     *Lobby
+	plugin                    Plugin
+	logger                    Logger
+	weatherManager            *WeatherManager
+	dynamicTrack              *DynamicTrack
+	serverStopFn              func(bool) error
+	leaderboardAtSessionStart []*LeaderboardLine
 
 	mutex               sync.RWMutex
 	currentSessionIndex uint8
@@ -201,10 +202,10 @@ func (sm *SessionManager) SaveResultsAndBuildLeaderboard(forceAdvance bool) (pre
 	return previousSessionLeaderboard, resultsFileName
 }
 
-func (sm *SessionManager) NextSession(force bool) {
+func (sm *SessionManager) NextSession(force, wasRestart bool) {
 	previousSessionLeaderboard, resultsFileName := sm.SaveResultsAndBuildLeaderboard(force)
 
-	if resultsFileName != "" {
+	if resultsFileName != "" && !wasRestart {
 		if err := sm.plugin.OnEndSession(resultsFileName); err != nil {
 			sm.logger.WithError(err).Error("OnEndSession plugin errored")
 		}
@@ -230,9 +231,15 @@ func (sm *SessionManager) NextSession(force bool) {
 	sm.currentSession.moveToNextSessionAt = 0
 	sm.currentSession.sessionOverBroadcast = false
 	currentSessionIndex := sm.currentSessionIndex
-	sm.mutex.Unlock()
 
-	sm.logger.Infof("Advanced to next session: %s", sm.currentSession.String())
+	if !wasRestart {
+		sm.logger.Infof("Advanced to next session: %s", sm.currentSession.String())
+		sm.leaderboardAtSessionStart = previousSessionLeaderboard
+	} else {
+		sm.logger.Infof("Restarted current session: %s", sm.currentSession.String())
+		previousSessionLeaderboard = sm.leaderboardAtSessionStart
+	}
+	sm.mutex.Unlock()
 
 	for _, entrant := range sm.state.entryList {
 		if entrant.IsConnected() {
@@ -338,7 +345,7 @@ func (sm *SessionManager) loop(ctx context.Context) {
 				}
 
 				// move to the next session when the race over packet has been sent and the results screen time has elapsed.
-				sm.NextSession(false)
+				sm.NextSession(false, false)
 			}
 		}
 	}
@@ -363,7 +370,7 @@ func (sm *SessionManager) RestartSession() {
 	sm.mutex.Lock()
 	sm.currentSessionIndex--
 	sm.mutex.Unlock()
-	sm.NextSession(true)
+	sm.NextSession(true, true)
 }
 
 func (sm *SessionManager) CurrentSessionHasFinished() bool {

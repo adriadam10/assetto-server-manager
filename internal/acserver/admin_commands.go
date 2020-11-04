@@ -126,7 +126,7 @@ func (a *AdminCommandManager) Command(entrant *Car, command string) error {
 			return a.state.SendChat(ServerCarID, entrant.CarID, "Only admins can use the /next_session command! Use /admin to get permission", false)
 		}
 
-		a.sessionManager.NextSession(true)
+		a.sessionManager.NextSession(true, false)
 		a.state.BroadcastChat(ServerCarID, fmt.Sprintf("%s instructed the server to change to the next session", entrant.Driver.Name), false)
 	case "/restart_session":
 		if !entrant.IsAdmin {
