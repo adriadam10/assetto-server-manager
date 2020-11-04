@@ -10,13 +10,14 @@ import (
 	"sync"
 	"time"
 
+	_ "github.com/OneOfOne/struct2ts" // Race Control typescript requires this for generation.
 	"github.com/google/uuid"
 	"github.com/mitchellh/go-wordwrap"
 	"github.com/sirupsen/logrus"
 	lua "github.com/yuin/gopher-lua"
-	"justapengu.in/acsm/pkg/ai"
 
 	"justapengu.in/acsm/internal/acserver"
+	"justapengu.in/acsm/pkg/ai"
 	"justapengu.in/acsm/pkg/udp"
 )
 
@@ -34,6 +35,7 @@ type RaceControlBroadcastData struct {
 	DisconnectedDrivers        *DriverMap                   `json:"DisconnectedDrivers"`
 	ChatMessages               []udp.Chat                   `json:"ChatMessages"`
 	CarIDToGUID                map[udp.CarID]udp.DriverGUID `json:"CarIDToGUID"`
+	BestSplits                 []RaceControlCarSplit        `json:"BestSplits"`
 }
 
 type RaceControl struct {
@@ -59,8 +61,6 @@ type RaceControl struct {
 	driverSwapTimers         map[int]*time.Timer
 	driverSwapPenaltiesMutex sync.Mutex
 	driverSwapPenalties      map[udp.DriverGUID]*driverSwapPenalty
-
-	bestSplits []RaceControlCarSplit
 }
 
 func (rc *RaceControl) MarshalJSON() ([]byte, error) {
@@ -333,7 +333,7 @@ func (rc *RaceControl) OnNewSession(sessionInfo udp.SessionInfo) error {
 	rc.driverSwapPenalties = make(map[udp.DriverGUID]*driverSwapPenalty)
 	rc.driverSwapPenaltiesMutex.Unlock()
 
-	rc.bestSplits = []RaceControlCarSplit{}
+	rc.BestSplits = []RaceControlCarSplit{}
 
 	if (rc.ConnectedDrivers.Len() > 0 || rc.DisconnectedDrivers.Len() > 0) && sessionInfo.Type == acserver.SessionTypePractice {
 		if oldSessionInfo.Type == sessionInfo.Type && oldSessionInfo.Track == sessionInfo.Track && oldSessionInfo.TrackConfig == sessionInfo.TrackConfig && oldSessionInfo.Name == sessionInfo.Name {
@@ -402,7 +402,7 @@ func (rc *RaceControl) OnNewSession(sessionInfo udp.SessionInfo) error {
 				}
 			}
 
-			rc.bestSplits = persistedInfo.BestSplits
+			rc.BestSplits = persistedInfo.BestSplits
 
 			logrus.Infof("Loaded previous Live Timings data for %s (%s), num drivers: %d", persistedInfo.Track, persistedInfo.TrackLayout, len(persistedInfo.Drivers))
 		}
@@ -1246,20 +1246,20 @@ func (rc *RaceControl) OnSplitComplete(split udp.SplitCompleted) error {
 
 	hasSplit := false
 
-	for index, bestSplit := range rc.bestSplits {
+	for index, bestSplit := range rc.BestSplits {
 		if newSplit.SplitIndex == bestSplit.SplitIndex {
 			hasSplit = true
 
 			if newSplit.Cuts == 0 && splitDuration < bestSplit.SplitTime {
 				newSplit.IsBest = true
-				rc.bestSplits[index] = newSplit
+				rc.BestSplits[index] = newSplit
 			}
 		}
 	}
 
 	if !hasSplit && newSplit.Cuts == 0 {
 		newSplit.IsBest = true
-		rc.bestSplits = append(rc.bestSplits, newSplit)
+		rc.BestSplits = append(rc.BestSplits, newSplit)
 	}
 
 	currentCar.CurrentLapSplits[newSplit.SplitIndex] = newSplit
@@ -1451,7 +1451,7 @@ func (rc *RaceControl) persistTimingData() {
 		Track:       rc.SessionInfo.Track,
 		TrackLayout: rc.SessionInfo.TrackConfig,
 		SessionName: rc.SessionInfo.Name,
-		BestSplits:  rc.bestSplits,
+		BestSplits:  rc.BestSplits,
 
 		Drivers: rc.AllLapTimes(),
 	}

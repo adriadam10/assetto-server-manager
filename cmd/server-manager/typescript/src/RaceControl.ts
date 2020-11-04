@@ -1,10 +1,11 @@
 import {
     RaceControl as RaceControlData,
-    RaceControlDriverMapRaceControlDriver as Driver,
-    RaceControlDriverMapRaceControlDriverSessionCarInfo as SessionCarInfo
+    RaceControlDriver as Driver,
+    RaceControlCarSplit as Split,
+    SessionCarInfo
 } from "./models/RaceControl";
 
-import {CarUpdate, CarUpdateVector3F} from "./models/UDP";
+import {CarUpdate, Vector3F} from "./models/UDP";
 import {randomColor} from "randomcolor/randomColor";
 import {msToTime, prettifyName} from "./utils";
 import moment from "moment";
@@ -41,7 +42,7 @@ const EventCollisionWithCar = 10,
 const GolangZeroTime = "0001-01-01T00:00:00Z";
 
 interface SimpleCollision {
-    WorldPos: CarUpdateVector3F
+    WorldPos: Vector3F
 }
 
 interface WebsocketHandler {
@@ -229,8 +230,8 @@ export class RaceControl {
             } else if (this.status.SessionInfo.Laps > 0) {
                 let lapsCompleted = 0;
 
-                if (this.status.ConnectedDrivers && this.status.ConnectedDrivers.GUIDsInPositionalOrder.length > 0) {
-                    let driver = this.status.ConnectedDrivers.Drivers[this.status.ConnectedDrivers.GUIDsInPositionalOrder[0]];
+                if (this.status.ConnectedDrivers && this.status.ConnectedDrivers.GUIDsInPositionalOrder!.length > 0) {
+                    let driver = this.status.ConnectedDrivers.Drivers[this.status.ConnectedDrivers.GUIDsInPositionalOrder![0]];
 
                     if (driver.TotalNumLaps > 0) {
                         lapsCompleted = driver.TotalNumLaps;
@@ -401,7 +402,7 @@ class LiveMap implements WebsocketHandler {
                     if (driver.LoadedTime.toString() !== GolangZeroTime && !this.dots.has(driver.CarInfo.DriverGUID)) {
                         // in the event that a user just loaded the race control page, place the
                         // already loaded dots onto the map
-                        let $driverDot = this.buildDriverDot(driver.CarInfo, driver.LastPos as CarUpdateVector3F).show();
+                        let $driverDot = this.buildDriverDot(driver.CarInfo, driver.LastPos as Vector3F).show();
                         this.dots.set(driver.CarInfo.DriverGUID, $driverDot);
                     }
                 }
@@ -544,8 +545,8 @@ class LiveMap implements WebsocketHandler {
         this.loadTrackMapImage();
     }
 
-    private translateToTrackCoordinate(vec: CarUpdateVector3F): CarUpdateVector3F {
-        const out = new CarUpdateVector3F();
+    private translateToTrackCoordinate(vec: Vector3F): Vector3F {
+        const out = new Vector3F();
 
         out.X = ((vec.X + this.trackXOffset + this.trackMargin) / this.trackScale) * this.mapScaleMultiplier;
         out.Z = ((vec.Z + this.trackZOffset + this.trackMargin) / this.trackScale) * this.mapScaleMultiplier;
@@ -553,7 +554,7 @@ class LiveMap implements WebsocketHandler {
         return out;
     }
 
-    private buildDriverDot(driverData: SessionCarInfo, lastPos?: CarUpdateVector3F): JQuery<HTMLElement> {
+    private buildDriverDot(driverData: SessionCarInfo, lastPos?: Vector3F): JQuery<HTMLElement> {
         if (this.dots.has(driverData.DriverGUID)) {
             return this.dots.get(driverData.DriverGUID)!;
         }
@@ -702,9 +703,9 @@ class LiveTimings implements WebsocketHandler {
 
         if (this.raceControl.status.SessionInfo.Type === SessionType.Race) {
             // sort drivers on the fly by their NormalisedSplinePos, if they're on the same lap.
-            let oldGUIDOrder = this.raceControl.status.ConnectedDrivers.GUIDsInPositionalOrder;
+            let oldGUIDOrder = this.raceControl.status.ConnectedDrivers.GUIDsInPositionalOrder!;
 
-            this.raceControl.status.ConnectedDrivers.GUIDsInPositionalOrder.sort((guidA: string, guidB: string): number => {
+            this.raceControl.status.ConnectedDrivers.GUIDsInPositionalOrder!.sort((guidA: string, guidB: string): number => {
                 if (!this.raceControl.status.ConnectedDrivers) {
                     return 0;
                 }
@@ -727,7 +728,7 @@ class LiveTimings implements WebsocketHandler {
             });
 
             let guidOrderHasChanged = false;
-            let newGUIDOrder = this.raceControl.status.ConnectedDrivers.GUIDsInPositionalOrder;
+            let newGUIDOrder = this.raceControl.status.ConnectedDrivers.GUIDsInPositionalOrder!;
 
             if (oldGUIDOrder.length !== newGUIDOrder.length) {
                 guidOrderHasChanged = true;
@@ -849,7 +850,7 @@ class LiveTimings implements WebsocketHandler {
 
         let position = 1;
 
-        for (const driverGUID of this.raceControl.status.ConnectedDrivers.GUIDsInPositionalOrder) {
+        for (const driverGUID of this.raceControl.status.ConnectedDrivers.GUIDsInPositionalOrder!) {
             const driver = this.raceControl.status.ConnectedDrivers.Drivers[driverGUID];
 
             if (!driver) {
@@ -887,7 +888,7 @@ class LiveTimings implements WebsocketHandler {
             return;
         }
 
-        for (const driverGUID of this.raceControl.status.DisconnectedDrivers.GUIDsInPositionalOrder) {
+        for (const driverGUID of this.raceControl.status.DisconnectedDrivers.GUIDsInPositionalOrder!) {
             const driver = this.raceControl.status.DisconnectedDrivers.Drivers[driverGUID];
 
             if (!driver) {
@@ -1020,37 +1021,7 @@ class LiveTimings implements WebsocketHandler {
                 $currentLap.append($tag);
             }
 
-            for (const splitIndex in carInfo.CurrentLapSplits) {
-                let split = carInfo.CurrentLapSplits[splitIndex];
-
-                let $tag = $("<span/>");
-
-                let badgeColour = "warning";
-
-                if (split.IsDriversBest !== undefined && split.IsDriversBest) {
-                    badgeColour = "success";
-                }
-
-                if (split.IsBest !== undefined && split.IsBest) {
-                    badgeColour = "info";
-                }
-
-                if (split.Cuts !== undefined && split.Cuts !== 0) {
-                    badgeColour = "danger";
-                }
-
-                $tag.attr({'id': `split-` + splitIndex, 'class': 'badge ml-2 mt-1 badge-' + badgeColour});
-
-                if (split.SplitIndex === undefined) {
-                    split.SplitIndex = 0
-                }
-
-                $tag.text(
-                    "S" + (split.SplitIndex+1) + ": " + msToTime(split.SplitTime / 1000000, true, 2)
-                );
-
-                $currentLap.append($tag);
-            }
+            this.buildSplits(carInfo.CurrentLapSplits, $currentLap);
         }
 
         if (addingDriverToConnectedTable) {
@@ -1059,7 +1030,12 @@ class LiveTimings implements WebsocketHandler {
         }
 
         // best lap
-        $tr.find(".best-lap").text(msToTime(carInfo.BestLap / 1000000) + (carInfo.TyreBestLap ? " (" + carInfo.TyreBestLap + ")" : ""));
+        let $bestLap = $tr.find(".best-lap");
+        $bestLap.text(msToTime(carInfo.BestLap / 1000000) + (carInfo.TyreBestLap ? " (" + carInfo.TyreBestLap + ")" : ""));
+
+        if (!addingDriverToConnectedTable) {
+            this.buildSplits(carInfo.BestLapSplits, $bestLap);
+        }
 
         if (addingDriverToConnectedTable) {
             // gap
@@ -1230,6 +1206,45 @@ class LiveTimings implements WebsocketHandler {
         }
     }
 
+    private buildSplits(splits: { [key: number]: Split }, $currentLap: JQuery<HTMLElement>) {
+        let i = 0;
+
+        for (const splitIndex in splits) {
+            let split = splits[splitIndex];
+
+            let $tag = $("<span/>");
+
+            let badgeColour = "warning";
+
+            if (split.IsDriversBest !== undefined && split.IsDriversBest) {
+                badgeColour = "success";
+            }
+
+            let raceControlBestSplits = this.raceControl.status.BestSplits!;
+
+            if (split.IsBest !== undefined && split.IsBest && raceControlBestSplits.length > i && raceControlBestSplits[i].SplitTime == split.SplitTime) {
+                badgeColour = "info";
+            }
+
+            if (split.Cuts !== undefined && split.Cuts !== 0) {
+                badgeColour = "danger";
+            }
+
+            $tag.attr({'id': `split-` + splitIndex, 'class': 'badge ml-2 mt-1 badge-' + badgeColour});
+
+            if (split.SplitIndex === undefined) {
+                split.SplitIndex = 0
+            }
+
+            $tag.text(
+                "S" + (split.SplitIndex+1) + ": " + msToTime(split.SplitTime / 1000000, true, 2)
+            );
+
+            $currentLap.append($tag);
+            i++;
+        }
+    }
+
     private sortDisconnectedTable($table: JQuery<HTMLTableElement>) {
         const $tbody = $table.find("tbody");
         const that = this;
@@ -1336,7 +1351,7 @@ class LiveTimings implements WebsocketHandler {
             return;
         }
 
-        for (const driverGUID of this.raceControl.status.ConnectedDrivers.GUIDsInPositionalOrder) {
+        for (const driverGUID of this.raceControl.status.ConnectedDrivers.GUIDsInPositionalOrder!) {
             const driver = this.raceControl.status.ConnectedDrivers.Drivers[driverGUID];
 
             if (!driver) {

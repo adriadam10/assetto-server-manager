@@ -53,7 +53,7 @@ function ToObject(o: any, typeOrCfg: any = {}, child = false): any {
 	return d;
 }
 
-// classes
+// structs
 // struct2ts:justapengu.in/acsm/pkg/udp.SessionInfo
 class SessionInfo {
     Version: number;
@@ -115,8 +115,8 @@ class SessionInfo {
     }
 }
 
-// struct2ts:justapengu.in/acsm/internal/acserver.CarUpdateVector3F
-class CarUpdateVector3F {
+// struct2ts:justapengu.in/acsm/internal/acserver.Vector3F
+class Vector3F {
     X: number;
     Y: number;
     Z: number;
@@ -140,8 +140,8 @@ class CarUpdateVector3F {
 // struct2ts:justapengu.in/acsm/pkg/udp.CarUpdate
 class CarUpdate {
     CarID: number;
-    Pos: CarUpdateVector3F;
-    Velocity: CarUpdateVector3F;
+    Pos: Vector3F;
+    Velocity: Vector3F;
     Gear: number;
     EngineRPM: number;
     NormalisedSplinePos: number;
@@ -151,8 +151,8 @@ class CarUpdate {
     constructor(data?: any) {
         const d: any = (data && typeof data === 'object') ? ToObject(data) : {};
         this.CarID = ('CarID' in d) ? d.CarID as number : 0;
-        this.Pos = new CarUpdateVector3F(d.Pos);
-        this.Velocity = new CarUpdateVector3F(d.Velocity);
+        this.Pos = new Vector3F(d.Pos);
+        this.Velocity = new Vector3F(d.Velocity);
         this.Gear = ('Gear' in d) ? d.Gear as number : 0;
         this.EngineRPM = ('EngineRPM' in d) ? d.EngineRPM as number : 0;
         this.NormalisedSplinePos = ('NormalisedSplinePos' in d) ? d.NormalisedSplinePos as number : 0;
@@ -172,8 +172,8 @@ class CarUpdate {
     }
 }
 
-// struct2ts:justapengu.in/acsm/pkg/udp.LapCompletedLapCompletedCar
-class LapCompletedLapCompletedCar {
+// struct2ts:justapengu.in/acsm/pkg/udp.LapCompletedCar
+class LapCompletedCar {
     CarID: number;
     LapTime: number;
     Laps: number;
@@ -204,7 +204,7 @@ class LapCompleted {
     Cuts: number;
     CarsCount: number;
     Tyres: string;
-    Cars: LapCompletedLapCompletedCar[];
+    Cars: LapCompletedCar[] | null;
 
     constructor(data?: any) {
         const d: any = (data && typeof data === 'object') ? ToObject(data) : {};
@@ -213,7 +213,7 @@ class LapCompleted {
         this.Cuts = ('Cuts' in d) ? d.Cuts as number : 0;
         this.CarsCount = ('CarsCount' in d) ? d.CarsCount as number : 0;
         this.Tyres = ('Tyres' in d) ? d.Tyres as string : '';
-        this.Cars = Array.isArray(d.Cars) ? d.Cars.map((v: any) => new LapCompletedLapCompletedCar(v)) : [];
+        this.Cars = Array.isArray(d.Cars) ? d.Cars.map((v: any) => new LapCompletedCar(v)) : null;
     }
 
     toObject(): any {
@@ -230,16 +230,16 @@ class LapCompleted {
 class CollisionWithEnvironment {
     CarID: number;
     ImpactSpeed: number;
-    WorldPos: CarUpdateVector3F;
-    RelPos: CarUpdateVector3F;
+    WorldPos: Vector3F;
+    RelPos: Vector3F;
     DamageZones: number[];
 
     constructor(data?: any) {
         const d: any = (data && typeof data === 'object') ? ToObject(data) : {};
         this.CarID = ('CarID' in d) ? d.CarID as number : 0;
         this.ImpactSpeed = ('ImpactSpeed' in d) ? d.ImpactSpeed as number : 0;
-        this.WorldPos = new CarUpdateVector3F(d.WorldPos);
-        this.RelPos = new CarUpdateVector3F(d.RelPos);
+        this.WorldPos = new Vector3F(d.WorldPos);
+        this.RelPos = new Vector3F(d.RelPos);
         this.DamageZones = ('DamageZones' in d) ? d.DamageZones as number[] : [];
     }
 
@@ -256,8 +256,8 @@ class CollisionWithCar {
     CarID: number;
     OtherCarID: number;
     ImpactSpeed: number;
-    WorldPos: CarUpdateVector3F;
-    RelPos: CarUpdateVector3F;
+    WorldPos: Vector3F;
+    RelPos: Vector3F;
     DamageZones: number[];
     OtherDamageZones: number[];
 
@@ -266,8 +266,8 @@ class CollisionWithCar {
         this.CarID = ('CarID' in d) ? d.CarID as number : 0;
         this.OtherCarID = ('OtherCarID' in d) ? d.OtherCarID as number : 0;
         this.ImpactSpeed = ('ImpactSpeed' in d) ? d.ImpactSpeed as number : 0;
-        this.WorldPos = new CarUpdateVector3F(d.WorldPos);
-        this.RelPos = new CarUpdateVector3F(d.RelPos);
+        this.WorldPos = new Vector3F(d.WorldPos);
+        this.RelPos = new Vector3F(d.RelPos);
         this.DamageZones = ('DamageZones' in d) ? d.DamageZones as number[] : [];
         this.OtherDamageZones = ('OtherDamageZones' in d) ? d.OtherDamageZones as number[] : [];
     }
@@ -284,6 +284,7 @@ class CollisionWithCar {
 // struct2ts:justapengu.in/acsm/pkg/udp.Chat
 class Chat {
     CarID: number;
+    RecipientCarID: number;
     Message: string;
     DriverGUID: string;
     DriverName: string;
@@ -292,6 +293,7 @@ class Chat {
     constructor(data?: any) {
         const d: any = (data && typeof data === 'object') ? ToObject(data) : {};
         this.CarID = ('CarID' in d) ? d.CarID as number : 0;
+        this.RecipientCarID = ('RecipientCarID' in d) ? d.RecipientCarID as number : 0;
         this.Message = ('Message' in d) ? d.Message as string : '';
         this.DriverGUID = ('DriverGUID' in d) ? d.DriverGUID as string : '';
         this.DriverName = ('DriverName' in d) ? d.DriverName as string : '';
@@ -301,6 +303,7 @@ class Chat {
     toObject(): any {
         const cfg: any = {};
         cfg.CarID = 'number';
+        cfg.RecipientCarID = 'number';
         cfg.Time = 'string';
         return ToObject(this, cfg);
     }
@@ -309,9 +312,9 @@ class Chat {
 // exports
 export {
     SessionInfo,
-    CarUpdateVector3F,
+    Vector3F,
     CarUpdate,
-    LapCompletedLapCompletedCar,
+    LapCompletedCar,
     LapCompleted,
     CollisionWithEnvironment,
     CollisionWithCar,

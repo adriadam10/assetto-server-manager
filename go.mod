@@ -5,6 +5,7 @@ require (
 	github.com/Masterminds/goutils v1.1.0 // indirect
 	github.com/Masterminds/semver v1.5.0
 	github.com/Masterminds/sprig v2.22.0+incompatible
+	github.com/OneOfOne/struct2ts v1.0.5-0.20191214181847-cd5021fe61d7
 	github.com/RoaringBitmap/roaring v0.5.1 // indirect
 	github.com/alecthomas/chroma v0.8.1
 	github.com/blevesearch/bleve v1.0.10
