@@ -127,21 +127,6 @@ func (rm *RaceManager) applyConfigAndStart(event RaceEvent) error {
 		raceConfig.MaxBallastKilograms = greatestBallast
 	}
 
-	// if this is a championship practice and some practice weathers exist replace weather in config with them
-	if event.IsChampionship() && event.IsPractice() {
-		for _, weather := range raceConfig.Weather {
-			for i, session := range weather.Sessions {
-				if session == SessionTypeChampionshipPractice {
-					// convert to normal practice for server
-					weather.Sessions[i] = SessionTypePractice
-				} else {
-					// make sure other weathers aren't eligible
-					weather.Sessions[i] = SessionTypeChampionshipPractice
-				}
-			}
-		}
-	}
-
 	config := ServerConfig{
 		CurrentRaceConfig:  raceConfig,
 		GlobalServerConfig: *serverOpts,
