@@ -3,15 +3,14 @@ v2.0.0
 
 Added:
 
-v2.0.0 of Server Manager now has its own version of the acServer embedded within it. Our server is completely compatible with
+v2.0.0 of Server Manager now has its own version of the acServer built into it. Our server is completely compatible with
 Kunos' acServer, and also provides the following advantages, exclusive to Server Manager owners:
 
 * Improved weather - You can now specify different weather setups for different sessions, or even multiple weathers for one session!
 * Solo Qualifying - turn on Solo Qualifying for any event, and each driver will be able to set their qualifying time without seeing any other cars on track!
 * Custom Plugin enforcement - use Server Manager's new checksum feature to require drivers to have plugins installed. If they don't have the plugins you need installed, they won't be allowed in the server!
 * Tighter integration into Server Manager. As our server and server manager share the same codebase, we have absolute control over the entire server.
-  - Live Timings and the Live Map have been rewritten to utilise a direct connection to the server - so they're faster and more responsive than ever!
-  - @TODO add a thing about race weekend session management in here.
+* Live Timings and the Live Map have been rewritten to utilise a direct connection to the server - so they're faster and more responsive than ever!
 * More platform support - run server manager on anything you like. We've been testing it on a Raspberry Pi!
 * Active development - expect fixes for any issues, and further feature development!
 * Force Opponent Headlights - you can now force opponent drivers to always have their headlights on.
@@ -30,6 +29,7 @@ We've also changed the following things in Server Manager itself:
 * Blue Flag detection! Live Timings now displays a blue flag indicator for cars that are being approached by drivers who have completed more laps in a race session.
 * DRS detection! Live Timings now displays an icon when a driver activates DRS.
 * Live Timings will now accurately show driver order even mid lap in Race Sessions. If one driver overtakes another, you should see their positions change in the Live Timings table!
+* Driver Swaps: you can now separate names by ';', in the same order as the GUIDs, so e.g. Driver Name 1;Driver Name 2;Driver Name 3 would match GUID1;GUID2;GUID3, and drivers names will then show correctly in Live Timings and results files.
 
 Fixed:
 
