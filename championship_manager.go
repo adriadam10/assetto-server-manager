@@ -1691,10 +1691,12 @@ func (cm *ChampionshipManager) HandleChampionshipSignUp(r *http.Request) (respon
 		return nil, false, err
 	}
 
+	guid, name := NormaliseEntrantGUIDsNames(r.FormValue("GUID"), r.FormValue("Name"))
+
 	signUpResponse := &ChampionshipSignUpResponse{
 		Created: time.Now(),
-		Name:    r.FormValue("Name"),
-		GUID:    NormaliseEntrantGUID(r.FormValue("GUID")),
+		Name:    name,
+		GUID:    guid,
 		Team:    r.FormValue("Team"),
 		Email:   r.FormValue("Email"),
 
