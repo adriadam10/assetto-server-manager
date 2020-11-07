@@ -290,6 +290,34 @@ func (a *AdminCommandManager) Command(entrant *Car, command string) error {
 		} else {
 			return a.state.SendChat(ServerCarID, entrant.CarID, "The admin command will give you access to admin commands! (e.g. /admin password)", false)
 		}
+	case "/spectator":
+		if len(commandSplit) >= 2 {
+			if !entrant.IsSpectator() {
+				entrant.SetIsSpectator(false)
+				return a.state.SendChat(ServerCarID, entrant.CarID, "You are no longer in spectator mode", false)
+			} else if a.state.serverConfig.SpectatorPassword == strings.Join(commandSplit[1:], " ") {
+				entrant.SetIsSpectator(true)
+				return a.state.SendChat(ServerCarID, entrant.CarID, "You are now in spectator mode", false)
+			} else {
+				return a.state.SendChat(ServerCarID, entrant.CarID, "Spectator password is incorrect", false)
+			}
+		} else {
+			return a.state.SendChat(ServerCarID, entrant.CarID, "The spectator command will give you access to spectator mode! (e.g. /spectator password)", false)
+		}
+	case "/spectate":
+		if len(commandSplit) >= 2 {
+			if !entrant.IsSpectator() {
+				return a.state.SendChat(ServerCarID, entrant.CarID, "Only admins can use the /spectate command!", false)
+			}
+
+			carID, _ := strconv.Atoi(commandSplit[1])
+
+			entrant.SetSpectatingCarID(CarID(carID))
+
+			return nil // @TODO do we want to confirm this? i'm not sure we do.
+		} else {
+			return a.state.SendChat(ServerCarID, entrant.CarID, "The spectate command enables updates from a selected car, e.g. /spectate 2", false)
+		}
 	case "/direct", "/pm":
 		if len(commandSplit) >= 2 {
 			var detailsSplit []string

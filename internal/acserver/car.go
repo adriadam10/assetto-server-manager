@@ -23,8 +23,9 @@ type CarInfo struct {
 	Restrictor float32 `json:"restrictor" yaml:"restrictor"`
 	FixedSetup string  `json:"fixed_setup" yaml:"fixed_setup"`
 
-	SpectatorMode uint8 `json:"-"`
-	IsAdmin       bool  `json:"-"`
+	IsAdmin         bool `json:"-"`
+	isSpectator     bool
+	spectatingCarID CarID
 
 	Tyres       string     `json:"-"`
 	DamageZones [5]float32 `json:"-"`
@@ -34,6 +35,9 @@ type CarInfo struct {
 	// PluginStatus is sent only to the plugin. It is used so that positional
 	// updates work even when a Qualifying session is in Solo mode
 	PluginStatus CarUpdate `json:"-"`
+
+	// Deprecated: SpectatorMode is not supported by the game itself
+	SpectatorMode uint8 `json:"-"`
 }
 
 type Car struct {
@@ -169,6 +173,11 @@ func (c *Car) UpdatePriorities(entryList EntryList) {
 	}
 
 	for index, carID := range carIDs {
+		if c.isSpectator {
+			// spectator cars see every driver with the highest priority
+			c.Connection.priorities[carID] = 0
+		}
+
 		switch {
 		case index < 5:
 			c.Connection.priorities[carID] = 0
@@ -187,6 +196,10 @@ func (c *Car) UpdatePriorities(entryList EntryList) {
 func (c *Car) ShouldSendUpdate(otherCar *Car) bool {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
+
+	if c.isSpectator {
+		return true
+	}
 
 	priority, ok := c.Connection.priorities[otherCar.CarID]
 
@@ -268,12 +281,13 @@ func (c *Car) GUIDsWithLaps() []string {
 	return out
 }
 
-func (c *Car) SwapDrivers(newDriver Driver, conn Connection, isAdmin bool) {
+func (c *Car) SwapDrivers(newDriver Driver, conn Connection, isAdmin, isSpectator bool) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
 	c.Connection = conn
 	c.IsAdmin = isAdmin
+	c.isSpectator = isSpectator
 
 	if newDriver.GUID == c.Driver.GUID {
 		// the current driver was the last driver
@@ -296,6 +310,34 @@ func (c *Car) SwapDrivers(newDriver Driver, conn Connection, isAdmin bool) {
 	}
 
 	c.Drivers = append(c.Drivers, previousDriver)
+}
+
+func (c *Car) SetIsSpectator(b bool) {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+
+	c.isSpectator = b
+}
+
+func (c *Car) IsSpectator() bool {
+	c.mutex.RLock()
+	defer c.mutex.RUnlock()
+
+	return c.isSpectator
+}
+
+func (c *Car) SetSpectatingCarID(carID CarID) {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+
+	c.spectatingCarID = carID
+}
+
+func (c *Car) GetSpectatingCarID() CarID {
+	c.mutex.RLock()
+	defer c.mutex.RUnlock()
+
+	return c.spectatingCarID
 }
 
 func (c *Car) AddLap(lap *LapCompleted) *Lap {

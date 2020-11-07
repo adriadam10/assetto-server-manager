@@ -256,6 +256,10 @@ func (sm *SessionManager) NextSession(force, wasRestart bool) {
 	sm.weatherManager.OnNewSession(currentSessionConfig)
 	sm.dynamicTrack.OnNewSession(currentSessionConfig.SessionType)
 
+	if currentSessionConfig.IsSoloQualifying() {
+		sm.state.BroadcastChat(ServerCarID, "This session is a Solo Qualifying session. You will not see any other cars on track for the duration of this session.", false)
+	}
+
 	sm.UpdateLobby()
 
 	err := sm.plugin.OnNewSession(SessionInfo{

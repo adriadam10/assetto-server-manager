@@ -50,7 +50,7 @@ func NewEntryListManager(state *ServerState, logger Logger) *EntryListManager {
 
 var ErrNoAvailableSlots = errors.New("acserver: no available slots")
 
-func (em *EntryListManager) ConnectCar(conn net.Conn, driver Driver, requestedModel string, isAdmin bool) (*Car, error) {
+func (em *EntryListManager) ConnectCar(conn net.Conn, driver Driver, requestedModel string, isAdmin, isSpectator bool) (*Car, error) {
 	em.mutex.Lock()
 	defer em.mutex.Unlock()
 
@@ -62,7 +62,7 @@ func (em *EntryListManager) ConnectCar(conn net.Conn, driver Driver, requestedMo
 			}
 
 			if car.HasGUID(driver.GUID) {
-				car.SwapDrivers(driver, NewConnection(conn), isAdmin)
+				car.SwapDrivers(driver, NewConnection(conn), isAdmin, isSpectator)
 
 				return car, nil
 			}
@@ -77,7 +77,7 @@ func (em *EntryListManager) ConnectCar(conn net.Conn, driver Driver, requestedMo
 			}
 
 			if car.HasGUID(driver.GUID) && car.Model == requestedModel {
-				car.SwapDrivers(driver, NewConnection(conn), isAdmin)
+				car.SwapDrivers(driver, NewConnection(conn), isAdmin, isSpectator)
 
 				return car, nil
 			}
@@ -90,7 +90,7 @@ func (em *EntryListManager) ConnectCar(conn net.Conn, driver Driver, requestedMo
 			}
 
 			if car.Model == requestedModel {
-				car.SwapDrivers(driver, NewConnection(conn), isAdmin)
+				car.SwapDrivers(driver, NewConnection(conn), isAdmin, isSpectator)
 				car.ClearSessionData() // reset laps if we've taken someone else's car.
 
 				return car, nil
