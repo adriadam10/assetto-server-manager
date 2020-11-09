@@ -1042,7 +1042,7 @@ class LiveTimings implements WebsocketHandler {
         let $bestLap = $tr.find(".best-lap");
         $bestLap.text(msToTime(carInfo.BestLap / 1000000) + (carInfo.TyreBestLap ? " (" + carInfo.TyreBestLap + ")" : ""));
 
-        if (!addingDriverToConnectedTable) {
+        if (!addingDriverToConnectedTable && !!carInfo.BestLap) {
             this.buildSplits(carInfo.BestLapSplits, $bestLap);
         }
 

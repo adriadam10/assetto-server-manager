@@ -112,7 +112,8 @@ type RaceControlCarLapInfo struct {
 	CarName              string        `json:"CarName"`
 
 	CurrentLapSplits map[uint8]RaceControlCarSplit `json:"CurrentLapSplits"`
-	BestSplits       map[uint8]RaceControlCarSplit `json:"BestLapSplits"`
+	BestSplits       map[uint8]RaceControlCarSplit `json:"BestSplits"`
+	BestLapSplits    map[uint8]RaceControlCarSplit `json:"BestLapSplits"`
 }
 
 type RaceControlCarSplit struct {

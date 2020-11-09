@@ -306,6 +306,7 @@ class RaceControlCarLapInfo {
     TotalLapTime: number;
     CarName: string;
     CurrentLapSplits: { [key: number]: RaceControlCarSplit };
+    BestSplits: { [key: number]: RaceControlCarSplit };
     BestLapSplits: { [key: number]: RaceControlCarSplit };
 
     constructor(data?: any) {
@@ -320,6 +321,7 @@ class RaceControlCarLapInfo {
         this.TotalLapTime = ('TotalLapTime' in d) ? d.TotalLapTime as number : 0;
         this.CarName = ('CarName' in d) ? d.CarName as string : '';
         this.CurrentLapSplits = ('CurrentLapSplits' in d) ? d.CurrentLapSplits as { [key: number]: RaceControlCarSplit } : {};
+        this.BestSplits = ('BestSplits' in d) ? d.BestSplits as { [key: number]: RaceControlCarSplit } : {};
         this.BestLapSplits = ('BestLapSplits' in d) ? d.BestLapSplits as { [key: number]: RaceControlCarSplit } : {};
     }
 

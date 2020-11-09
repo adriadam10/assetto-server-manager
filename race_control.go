@@ -1139,6 +1139,11 @@ func (rc *RaceControl) OnLapCompleted(lap udp.LapCompleted) error {
 		currentCar.BestLap = lapDuration
 		currentCar.TopSpeedBestLap = currentCar.TopSpeedThisLap
 		currentCar.TyresBestLap = lap.Tyres
+		currentCar.BestLapSplits = make(map[uint8]RaceControlCarSplit)
+
+		for splitIndex, split := range currentCar.CurrentLapSplits {
+			currentCar.BestLapSplits[splitIndex] = split
+		}
 	}
 
 	currentCar.TopSpeedThisLap = 0
