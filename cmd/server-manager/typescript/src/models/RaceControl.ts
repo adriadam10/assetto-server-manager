@@ -347,6 +347,7 @@ class RaceControlDriver {
     LastSeen: Date;
     LastPos: Vector3F;
     IsInPits: boolean;
+    DRSActive: boolean;
     NormalisedSplinePos: number;
     SteerAngle: number;
     StatusBytes: number;
@@ -365,6 +366,7 @@ class RaceControlDriver {
         this.LastSeen = ('LastSeen' in d) ? ParseDate(d.LastSeen) : new Date();
         this.LastPos = new Vector3F(d.LastPos);
         this.IsInPits = ('IsInPits' in d) ? d.IsInPits as boolean : false;
+        this.DRSActive = ('DRSActive' in d) ? d.DRSActive as boolean : false;
         this.NormalisedSplinePos = ('NormalisedSplinePos' in d) ? d.NormalisedSplinePos as number : 0;
         this.SteerAngle = ('SteerAngle' in d) ? d.SteerAngle as number : 0;
         this.StatusBytes = ('StatusBytes' in d) ? d.StatusBytes as number : 0;

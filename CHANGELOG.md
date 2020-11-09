@@ -3,21 +3,18 @@ v2.0.0
 
 Added:
 
-v2.0.0 of Server Manager now has its own version of the acServer embedded within it. Our server is completely compatible with
+v2.0.0 of Server Manager now has its own version of the acServer built into it. Our server is completely compatible with
 Kunos' acServer, and also provides the following advantages, exclusive to Server Manager owners:
 
 * Improved weather - You can now specify different weather setups for different sessions, or even multiple weathers for one session!
 * Solo Qualifying - turn on Solo Qualifying for any event, and each driver will be able to set their qualifying time without seeing any other cars on track!
 * Custom Plugin enforcement - use Server Manager's new checksum feature to require drivers to have plugins installed. If they don't have the plugins you need installed, they won't be allowed in the server!
 * Tighter integration into Server Manager. As our server and server manager share the same codebase, we have absolute control over the entire server.
-  - Live Timings and the Live Map have been rewritten to utilise a direct connection to the server - so they're faster and more responsive than ever!
-  - @TODO add a thing about race weekend session management in here.
+* Live Timings and the Live Map have been rewritten to utilise a direct connection to the server - so they're faster and more responsive than ever!
 * More platform support - run server manager on anything you like. We've been testing it on a Raspberry Pi!
 * Active development - expect fixes for any issues, and further feature development!
 * Force Opponent Headlights - you can now force opponent drivers to always have their headlights on.
 * Race Weekend 'Warm Up' Sessions - add a timed Practice session to the beginning of any Race in a Race Weekend, so drivers can get connected and do a few laps. Their lap times in this practice session will not affect their starting grid position as defined in the Race Weekend Entrylist.
-* Pitlane detection! We've made it so that Live Timings knows when cars are in the pits. To use this new functionality, please reupload your tracks, as they need new files for this to work!
-* Blue Flag detection! Live Timings now displays a blue flag indicator for cars that are being approached by drivers who have completed more laps in a race session.
 * Server only penalty system! You can now set custom penalties (drive through, kick, warning and ballast/restrictor) for track cuts in race sessions! We're hoping to expand this system further in the future.
 * Drift detection/points system! In sessions you can now enable Drift Mode, currently this tracks drift points for each driver over a lap and announces the total via chat, with feedback we hope to expand this system for all the drifters out there!
 * New/improved chat commands! Commands that reference drivers can now use the car ID, name of the driver or GUID of the driver! Also added /pm command for direct messages and /next_weather command to manually cycle configured session weathers.
@@ -28,7 +25,11 @@ We've also changed the following things in Server Manager itself:
 * Significantly improved startup times - we've optimised some of Server Manager's startup logic.
 * Added split information to the Current Lap column of the Live Timings page.
 * Added tyre information to Live Timings.
+* Pitlane detection! We've made it so that Live Timings knows when cars are in the pits. To use this new functionality, please reupload your tracks, as they need new files for this to work!
+* Blue Flag detection! Live Timings now displays a blue flag indicator for cars that are being approached by drivers who have completed more laps in a race session.
+* DRS detection! Live Timings now displays an icon when a driver activates DRS.
 * Live Timings will now accurately show driver order even mid lap in Race Sessions. If one driver overtakes another, you should see their positions change in the Live Timings table!
+* Driver Swaps: you can now separate names by ';', in the same order as the GUIDs, so e.g. Driver Name 1;Driver Name 2;Driver Name 3 would match GUID1;GUID2;GUID3, and drivers names will then show correctly in Live Timings and results files.
 
 Fixed:
 
@@ -36,6 +37,7 @@ Fixed:
 * Fixes an issue where Real Penalty config values for Jump Start would not be assigned correctly.
 * The Spectator Car will only be filtered out from Championship Points calculations if Spectator Car is enabled in the Championship settings.
 * Fixes an issue where cars could be duplicated in race setups
+* Fixes a crash that could occur when displaying information about a track.
 
 Removed:
 

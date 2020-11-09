@@ -140,7 +140,13 @@ func (wm *WeatherManager) calculateTemperatures(weatherConfig *WeatherConfig) (a
 		ambientModifier = rand.Intn(weatherConfig.VariationAmbient*2) - weatherConfig.VariationAmbient
 	}
 
-	ambient = uint8(weatherConfig.BaseTemperatureAmbient + ambientModifier)
+	ambientCalculated := weatherConfig.BaseTemperatureAmbient + ambientModifier
+
+	if ambientCalculated < 0 {
+		ambientCalculated = 0
+	}
+
+	ambient = uint8(ambientCalculated)
 
 	var roadModifier int
 
@@ -148,7 +154,13 @@ func (wm *WeatherManager) calculateTemperatures(weatherConfig *WeatherConfig) (a
 		roadModifier = rand.Intn(weatherConfig.VariationRoad*2) - weatherConfig.VariationRoad
 	}
 
-	road = uint8(int(ambient) + weatherConfig.BaseTemperatureRoad + roadModifier)
+	roadCalculated := int(ambient) + weatherConfig.BaseTemperatureRoad + roadModifier
+
+	if roadCalculated < 0 {
+		roadCalculated = 0
+	}
+
+	road = uint8(roadCalculated)
 
 	return ambient, road
 }

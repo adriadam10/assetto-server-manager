@@ -31,14 +31,8 @@ func (e EntryList) ToACServerConfig() acserver.EntryList {
 	var entryList acserver.EntryList
 
 	for carID, entrant := range e.AsSlice() {
-		entryList = append(entryList, &acserver.Car{
+		car := &acserver.Car{
 			CarInfo: acserver.CarInfo{
-				Driver: acserver.Driver{
-					Name: entrant.Name,
-					Team: entrant.Team,
-					GUID: entrant.GUID,
-				},
-				Drivers:       nil, // @TODO driver swap support
 				CarID:         acserver.CarID(carID),
 				Model:         entrant.Model,
 				Skin:          entrant.Skin,
@@ -47,7 +41,56 @@ func (e EntryList) ToACServerConfig() acserver.EntryList {
 				FixedSetup:    entrant.FixedSetup,
 				SpectatorMode: uint8(entrant.SpectatorMode),
 			},
-		})
+		}
+
+		guids := strings.Split(entrant.GUID, driverSwapEntrantSeparator)
+		nameSplit := strings.Split(entrant.Name, driverSwapEntrantSeparator)
+
+		if len(guids) <= 1 {
+			// no driver swap
+			car.Driver = acserver.Driver{
+				Name: entrant.Name,
+				GUID: entrant.GUID,
+				Team: entrant.Team,
+			}
+		} else {
+			// driver swaps
+			if len(nameSplit) == len(guids) {
+				// we have names in the format 'name1;name2;name3', matching all guids
+				for i, guid := range guids {
+					driver := acserver.Driver{
+						Name: nameSplit[i],
+						GUID: guid,
+						Team: entrant.Team,
+					}
+
+					if i == 0 {
+						// place the first driver in the main driver slot
+						car.Driver = driver
+					} else {
+						car.Drivers = append(car.Drivers, driver)
+					}
+				}
+			} else {
+				// there is no split driver name, give all drivers the same name
+				for i, guid := range guids {
+					driver := acserver.Driver{
+						Name: entrant.Name,
+						GUID: guid,
+						Team: entrant.Team,
+					}
+
+					if i == 0 {
+						// place the first driver in the main driver slot
+						car.Driver = driver
+					} else {
+						car.Drivers = append(car.Drivers, driver)
+					}
+				}
+			}
+		}
+
+		entryList = append(entryList, car)
 	}
 
 	return entryList
@@ -370,12 +413,29 @@ func CleanGUID(guid string) string {
 
 // NormaliseEntrantGUID takes a guid which may have driverSwapEntrantSeparators in it,
 // sorts all GUIDs in the string and then rejoins them by driverSwapEntrantSeparator
-func NormaliseEntrantGUID(guid string) string {
-	split := CleanGUIDs(strings.Split(guid, driverSwapEntrantSeparator))
+func NormaliseEntrantGUIDsNames(guid, name string) (guids string, names string) {
+	guidSplit := CleanGUIDs(strings.Split(guid, driverSwapEntrantSeparator))
+	nameSplit := strings.Split(name, driverSwapEntrantSeparator)
 
-	sort.Strings(split)
+	if len(nameSplit) != len(guidSplit) {
+		sort.Strings(guidSplit)
+		return strings.Join(guidSplit, driverSwapEntrantSeparator), name
+	}
 
-	return strings.Join(split, driverSwapEntrantSeparator)
+	// entrant names need to be matched to the correct GUID.
+	guidToName := make(map[string]string)
+
+	for i, guid := range guidSplit {
+		guidToName[guid] = nameSplit[i]
+	}
+
+	sort.Strings(guidSplit)
+
+	for i, guid := range guidSplit {
+		nameSplit[i] = guidToName[guid]
+	}
+
+	return strings.Join(guidSplit, driverSwapEntrantSeparator), strings.Join(nameSplit, driverSwapEntrantSeparator)
 }
 
 // NormaliseEntrantGUIDs takes a list of guids, sorts them and joins them by driverSwapEntrantSeparator

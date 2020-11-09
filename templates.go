@@ -419,9 +419,15 @@ func varSplit(str string) []string {
 	return strings.Split(str, ";")
 }
 
-var trackInfoCache = make(map[string]*TrackInfo)
+var (
+	trackInfoCache      = make(map[string]*TrackInfo)
+	trackInfoCacheMutex sync.Mutex
+)
 
 func trackInfo(track, layout string) *TrackInfo {
+	trackInfoCacheMutex.Lock()
+	defer trackInfoCacheMutex.Unlock()
+
 	if t, ok := trackInfoCache[track+layout]; ok {
 		return t
 	}

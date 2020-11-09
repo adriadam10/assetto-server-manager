@@ -199,7 +199,7 @@ func (vm *VotingManager) StepVote(write uint32) {
 		case TCPMessageVoteNextSession:
 			vm.logger.Debugf("Vote passed! Moving to next session. Percentage of votes in favour: %.2f, quorum: %.0f", votePercent, votingQuorum)
 
-			vm.sessionManager.NextSession(true)
+			vm.sessionManager.NextSession(true, false)
 		case TCPMessageVoteRestartSession:
 			vm.logger.Debugf("Vote passed! Restarting session. Percentage of votes in favour: %.2f, quorum: %.0f", votePercent, votingQuorum)
 			vm.state.BroadcastChat(ServerCarID, fmt.Sprintf("Vote passed! Restarting session. Percentage of votes in favour: %.2f, quorum: %.0f", votePercent, votingQuorum), false)

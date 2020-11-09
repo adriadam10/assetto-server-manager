@@ -248,15 +248,19 @@ func (rc *RaceControl) OnCarUpdate(update udp.CarUpdate) (bool, error) {
 	driver.SteerAngle = update.SteerAngle
 	driver.StatusBytes = update.StatusBytes
 	wasInPits := driver.IsInPits
+	drsWasActive := driver.DRSActive
 
 	driver.IsInPits = pitLane.IsInPits(update)
+	driver.DRSActive = driver.StatusBytes&acserver.DRSByte == acserver.DRSByte
 	driver.mutex.Unlock()
 
 	sendUpdatedRaceControlStatus := false
 
-	if driver.IsInPits != wasInPits {
+	if driver.IsInPits != wasInPits || driver.DRSActive != drsWasActive {
 		sendUpdatedRaceControlStatus = true
+	}
 
+	if driver.IsInPits != wasInPits {
 		pitLane.UpdateCar(uint8(update.CarID), driver.IsInPits)
 	}
 
