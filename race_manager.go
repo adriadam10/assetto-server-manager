@@ -82,8 +82,6 @@ func (rm *RaceManager) CurrentRace() (*ServerConfig, EntryList) {
 
 var ErrEntryListTooBig = errors.New("servermanager: EntryList exceeds MaxClients setting")
 
-const kunosLobbyMaxServerNameLength = 120
-
 func (rm *RaceManager) applyConfigAndStart(event RaceEvent) error {
 	rm.mutex.Lock()
 	defer rm.mutex.Unlock()
