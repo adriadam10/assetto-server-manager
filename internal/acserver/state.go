@@ -620,19 +620,26 @@ func (ss *ServerState) SendMegaPacket(car *Car, currentTime int64, connectedCars
 			continue
 		}
 
+		status := otherCar.Status
+
+		if car.IsSpectator() && car.GetSpectatingCarID() == otherCar.CarID {
+			// spectator cars see the true status of the car they have selected
+			status = otherCar.PluginStatus
+		}
+
 		bw.Write(otherCar.CarID)
-		bw.Write(otherCar.Status.Sequence)
-		bw.Write(otherCar.Status.Timestamp - car.Connection.TimeOffset)
+		bw.Write(status.Sequence)
+		bw.Write(status.Timestamp - car.Connection.TimeOffset)
 		bw.Write(uint16(otherCar.Connection.Ping))
-		bw.Write(otherCar.Status.Position)
-		bw.Write(otherCar.Status.Rotation)
-		bw.Write(otherCar.Status.Velocity)
-		bw.Write(otherCar.Status.TyreAngularSpeed)
-		bw.Write(otherCar.Status.SteerAngle)
-		bw.Write(otherCar.Status.WheelAngle)
-		bw.Write(otherCar.Status.EngineRPM)
-		bw.Write(otherCar.Status.GearIndex)
-		bw.Write(otherCar.Status.StatusBytes)
+		bw.Write(status.Position)
+		bw.Write(status.Rotation)
+		bw.Write(status.Velocity)
+		bw.Write(status.TyreAngularSpeed)
+		bw.Write(status.SteerAngle)
+		bw.Write(status.WheelAngle)
+		bw.Write(status.EngineRPM)
+		bw.Write(status.GearIndex)
+		bw.Write(status.StatusBytes)
 	}
 
 	return bw.WriteUDP(ss.udp, car.Connection.udpAddr)
@@ -648,23 +655,30 @@ func (ss *ServerState) BroadcastCarUpdate(car *Car) {
 			continue
 		}
 
+		status := car.Status
+
+		if otherCar.IsSpectator() && otherCar.GetSpectatingCarID() == car.CarID {
+			// spectator cars see the true status of the car they have selected
+			status = car.PluginStatus
+		}
+
 		p := NewPacket(nil)
 		p.Write(UDPMessageCarUpdate)
 		p.Write(car.CarID)
-		p.Write(car.Status.Sequence)
-		p.Write(car.Status.Timestamp - otherCar.Connection.TimeOffset)
+		p.Write(status.Sequence)
+		p.Write(status.Timestamp - otherCar.Connection.TimeOffset)
 		p.Write(uint16(car.Connection.Ping))
-		p.Write(car.Status.Position)
-		p.Write(car.Status.Rotation)
-		p.Write(car.Status.Velocity)
-		p.Write(car.Status.TyreAngularSpeed)
-		p.Write(car.Status.SteerAngle)
-		p.Write(car.Status.WheelAngle)
-		p.Write(car.Status.EngineRPM)
-		p.Write(car.Status.GearIndex)
-		p.Write(car.Status.StatusBytes)
-		p.Write(car.Status.PerformanceDelta)
-		p.Write(car.Status.Gas)
+		p.Write(status.Position)
+		p.Write(status.Rotation)
+		p.Write(status.Velocity)
+		p.Write(status.TyreAngularSpeed)
+		p.Write(status.SteerAngle)
+		p.Write(status.WheelAngle)
+		p.Write(status.EngineRPM)
+		p.Write(status.GearIndex)
+		p.Write(status.StatusBytes)
+		p.Write(status.PerformanceDelta)
+		p.Write(status.Gas)
 
 		if err := p.WriteUDP(ss.udp, otherCar.Connection.udpAddr); err != nil {
 			ss.logger.WithError(err).Errorf("Could not send CarUpdate to %s", otherCar.String())

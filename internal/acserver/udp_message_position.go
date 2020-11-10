@@ -194,6 +194,14 @@ func (pm *PositionMessageHandler) SendFirstUpdate(car *Car) error {
 		return err
 	}
 
+	currentSession := pm.sessionManager.GetCurrentSession()
+
+	if currentSession.IsSoloQualifying() {
+		if err := pm.state.SendChat(ServerCarID, car.CarID, soloQualifyingIntroMessage, false); err != nil {
+			pm.logger.WithError(err).Errorf("Couldn't send solo qualifying intro message")
+		}
+	}
+
 	return nil
 }
 

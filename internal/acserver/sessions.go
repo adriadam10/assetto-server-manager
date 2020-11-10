@@ -9,6 +9,10 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+const (
+	soloQualifyingIntroMessage = "This session is a Solo Qualifying session. You will not see any other cars on track for the duration of this session."
+)
+
 type SessionConfig struct {
 	SessionType SessionType `json:"session_type" yaml:"session_type"`
 	Name        string      `json:"name" yaml:"name"`
@@ -255,6 +259,10 @@ func (sm *SessionManager) NextSession(force, wasRestart bool) {
 
 	sm.weatherManager.OnNewSession(currentSessionConfig)
 	sm.dynamicTrack.OnNewSession(currentSessionConfig.SessionType)
+
+	if currentSessionConfig.IsSoloQualifying() {
+		sm.state.BroadcastChat(ServerCarID, soloQualifyingIntroMessage, false)
+	}
 
 	sm.UpdateLobby()
 
