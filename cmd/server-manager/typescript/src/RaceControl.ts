@@ -2,7 +2,7 @@ import {
     RaceControl as RaceControlData,
     RaceControlDriver as Driver,
     RaceControlCarSplit as Split,
-    SessionCarInfo
+    SessionCarInfo, Collision
 } from "./models/RaceControl";
 
 import {CarUpdate, Vector3F} from "./models/UDP";
@@ -39,6 +39,7 @@ const EventCollisionWithCar = 10,
     EventTyresChanged = 101
 ;
 
+const KPH_TO_MPH = 0.621371;
 const GolangZeroTime = "0001-01-01T00:00:00Z";
 
 interface SimpleCollision {
@@ -477,7 +478,7 @@ class LiveMap implements WebsocketHandler {
                 let speedUnits = "Km/h";
 
                 if (useMPH) {
-                    speed = Math.floor(speed * 0.621371);
+                    speed = Math.floor(speed * KPH_TO_MPH);
                     speedUnits = "MPH";
                 }
 
@@ -662,7 +663,7 @@ enum SessionType {
     Booking = 0,
 }
 
-enum Collision {
+enum CollisionType {
     WithCar = "with other car",
     WithEnvironment = "with environment",
 }
@@ -1058,7 +1059,7 @@ class LiveTimings implements WebsocketHandler {
         let speedUnits;
 
         if (useMPH) {
-            topSpeed = carInfo.TopSpeedBestLap * 0.621371;
+            topSpeed = carInfo.TopSpeedBestLap * KPH_TO_MPH;
             speedUnits = "MPH";
         } else {
             topSpeed = carInfo.TopSpeedBestLap;
@@ -1070,8 +1071,8 @@ class LiveTimings implements WebsocketHandler {
         if (addingDriverToConnectedTable) {
             let $shownToasts = $('.damage-zone-toast:visible');
 
-            if ($shownToasts.length > 6) {
-                for (let i = 6; i < $shownToasts.length;  i++) {
+            if ($shownToasts.length > LiveTimings.MAX_VISIBLE_COLLISIONS) {
+                for (let i = LiveTimings.MAX_VISIBLE_COLLISIONS; i < $shownToasts.length; i++) {
                     $($shownToasts[i]).toast('hide');
                 }
             }
@@ -1079,113 +1080,7 @@ class LiveTimings implements WebsocketHandler {
             // events
             if (driver.Collisions) {
                 for (const collision of driver.Collisions) {
-                    const collisionID = driver.CarInfo.DriverGUID + "-collision-" + collision.ID;
-
-                    if (moment(collision.Time).utc().add("10", "seconds").isSameOrAfter(moment().utc()) && !$("#" + collisionID).length) {
-
-                        let crashSpeed;
-
-                        if (useMPH) {
-                            crashSpeed = collision.Speed * 0.621371;
-                        } else {
-                            crashSpeed = collision.Speed;
-                        }
-
-                        let $toast = $("<div/>");
-                        let $toastHeader = $("<div/>");
-                        let $toastDismiss = $("<button/>");
-                        let $toastDismissSpanRight = $("<span/>");
-                        let $toastDismissSpanLeft = $("<span/>");
-                        let $toastBody = $("<div/>");
-
-                        let toastHeaderBG = "";
-                        let toastHeaderBD = "";
-
-                        if (collision.Type === Collision.WithCar) {
-                            toastHeaderBG = "bg-danger";
-                            toastHeaderBD = "border-danger";
-
-                            $toastDismissSpanLeft.text(
-                                "Crash with " + collision.OtherDriverName
-                            );
-                        } else {
-                            toastHeaderBG = "bg-warning";
-                            toastHeaderBD = "border-warning";
-
-                            $toastDismissSpanLeft.text(
-                                "Crash " + collision.Type
-                            );
-                        }
-
-                        $toastDismissSpanRight.text(unescape('%u00D7'));
-
-                        $toast.attr({'id': collisionID, 'class': 'toast damage-zone-toast', 'role': 'alert', 'aria-live': 'assertive', 'aria-atomic': 'true'});
-                        $toastHeader.attr('class', 'toast-header damage-zone-toast-header ' + toastHeaderBG + ' ' + toastHeaderBD);
-                        $toastBody.attr('class', 'toast-body damage=zone-toast-body');
-                        $toastDismiss.attr({'type': "button", 'class': 'close', 'data-dismiss': 'toast', 'aria-label': 'Close', 'style': 'width: 19%'});
-                        $toastDismissSpanRight.attr({'aria-hidden': 'true', 'class': 'float-right'});
-                        $toastDismissSpanLeft.attr("style", "width: 81%");
-
-                        $toastDismiss.append($toastDismissSpanRight);
-                        $toastHeader.append($toastDismissSpanLeft, $toastDismiss);
-
-                        let $textContainer = $("<div/>");
-                        $textContainer.attr('style', 'height: 18px');
-
-                        let $driverName = $("<strong/>");
-                        $driverName.text(driver.CarInfo.DriverName + ' ');
-
-                        let $crashSpeed = $("<span/>");
-                        $crashSpeed.attr('class', 'text-secondary');
-                        $crashSpeed.text(crashSpeed.toFixed(2) + speedUnits);
-
-                        $textContainer.append($driverName);
-                        $textContainer.append($crashSpeed);
-
-                        $toastBody.append($textContainer);
-
-                        let $damageZones = $(DAMAGE_ZONES);
-
-                        let frontBumperHue = 70 - collision.DamageZones[0];
-                        let rearBumperHue = 70 - collision.DamageZones[1];
-                        let leftSkirtHue = 70 - collision.DamageZones[2];
-                        let rightSkirtHue = 70 - collision.DamageZones[3];
-
-                        if (frontBumperHue < 0) {
-                            frontBumperHue = 0
-                        }
-
-                        if (rearBumperHue < 0) {
-                            rearBumperHue = 0
-                        }
-
-                        if (leftSkirtHue < 0) {
-                            leftSkirtHue = 0
-                        }
-
-                        if (rightSkirtHue < 0) {
-                            rightSkirtHue = 0
-                        }
-
-                        $damageZones.find(".front-bumper").attr("style", "fill: hsl(" + frontBumperHue + ", 100%, 50%);fill-opacity:1;stroke:none");
-                        $damageZones.find(".rear-bumper").attr("style", "fill: hsl(" + rearBumperHue + ", 100%, 50%);fill-opacity:1;stroke:none");
-                        $damageZones.find(".left-skirt").attr("style", "fill: hsl(" + leftSkirtHue + ", 100%, 50%);fill-opacity:1;stroke:none");
-                        $damageZones.find(".right-skirt").attr("style", "fill: hsl(" + rightSkirtHue + ", 100%, 50%);fill-opacity:1;stroke:none");
-
-                        $toastBody.append($damageZones);
-
-                        $toast.append($toastHeader);
-                        $toast.append($toastBody);
-
-                        $toast.toast({animation: true, autohide: true, delay: 10000});
-                        $toast.toast('show');
-
-                        $("#toasts").append($toast);
-
-                        setTimeout(() => {
-                            $toast.remove();
-                        }, 12000);
-                    }
+                    this.buildCollisionToast(collision, driver, speedUnits);
                 }
             }
         }
@@ -1252,6 +1147,131 @@ class LiveTimings implements WebsocketHandler {
             $currentLap.append($tag);
             i++;
         }
+    }
+
+    private static MAX_VISIBLE_COLLISIONS = 6;
+
+    private buildCollisionToast(collision: Collision, driver: Driver, speedUnits: string): void {
+        const collisionID = driver.CarInfo.DriverGUID + "-collision-" + collision.ID;
+
+        if (!(moment(collision.Time).utc().add("10", "seconds").isSameOrAfter(moment().utc()) && !$("#" + collisionID).length)) {
+            return;
+        }
+
+        let crashSpeed;
+
+        if (useMPH) {
+            crashSpeed = collision.Speed * KPH_TO_MPH;
+        } else {
+            crashSpeed = collision.Speed;
+        }
+
+        let $toast = $("<div/>");
+        let $toastHeader = $("<div/>");
+        let $toastDismiss = $("<button/>");
+        let $toastDismissSpanRight = $("<span/>");
+        let $toastDismissSpanLeft = $("<span/>");
+        let $toastBody = $("<div/>");
+
+        let toastHeaderBG = "";
+        let toastHeaderBD = "";
+
+        if (collision.Type === CollisionType.WithCar) {
+            toastHeaderBG = "bg-danger";
+            toastHeaderBD = "border-danger";
+
+            $toastDismissSpanLeft.text(
+                "Crash with " + collision.OtherDriverName
+            );
+        } else {
+            toastHeaderBG = "bg-warning";
+            toastHeaderBD = "border-warning";
+
+            $toastDismissSpanLeft.text(
+                "Crash " + collision.Type
+            );
+        }
+
+        $toastDismissSpanRight.text(unescape('%u00D7'));
+
+        $toast.attr({
+            'id': collisionID,
+            'class': 'toast damage-zone-toast',
+            'role': 'alert',
+            'aria-live': 'assertive',
+            'aria-atomic': 'true'
+        });
+        $toastHeader.attr('class', 'toast-header damage-zone-toast-header ' + toastHeaderBG + ' ' + toastHeaderBD);
+        $toastBody.attr('class', 'toast-body damage=zone-toast-body');
+        $toastDismiss.attr({
+            'type': "button",
+            'class': 'close',
+            'data-dismiss': 'toast',
+            'aria-label': 'Close',
+            'style': 'width: 19%'
+        });
+        $toastDismissSpanRight.attr({'aria-hidden': 'true', 'class': 'float-right'});
+        $toastDismissSpanLeft.attr("style", "width: 81%");
+
+        $toastDismiss.append($toastDismissSpanRight);
+        $toastHeader.append($toastDismissSpanLeft, $toastDismiss);
+
+        let $textContainer = $("<div/>");
+        $textContainer.attr('style', 'min-height: 18px');
+
+        let $driverName = $("<strong/>");
+        $driverName.text(driver.CarInfo.DriverName + ' ');
+
+        let $crashSpeed = $("<span/>");
+        $crashSpeed.attr('class', 'text-secondary');
+        $crashSpeed.text(crashSpeed.toFixed(2) + speedUnits);
+
+        $textContainer.append($driverName);
+        $textContainer.append($crashSpeed);
+
+        $toastBody.append($textContainer);
+
+        let $damageZones = $(DAMAGE_ZONES);
+
+        let frontBumperHue = 70 - collision.DamageZones[0];
+        let rearBumperHue = 70 - collision.DamageZones[1];
+        let leftSkirtHue = 70 - collision.DamageZones[2];
+        let rightSkirtHue = 70 - collision.DamageZones[3];
+
+        if (frontBumperHue < 0) {
+            frontBumperHue = 0
+        }
+
+        if (rearBumperHue < 0) {
+            rearBumperHue = 0
+        }
+
+        if (leftSkirtHue < 0) {
+            leftSkirtHue = 0
+        }
+
+        if (rightSkirtHue < 0) {
+            rightSkirtHue = 0
+        }
+
+        $damageZones.find(".front-bumper").attr("style", "fill: hsl(" + frontBumperHue + ", 100%, 50%);fill-opacity:1;stroke:none");
+        $damageZones.find(".rear-bumper").attr("style", "fill: hsl(" + rearBumperHue + ", 100%, 50%);fill-opacity:1;stroke:none");
+        $damageZones.find(".left-skirt").attr("style", "fill: hsl(" + leftSkirtHue + ", 100%, 50%);fill-opacity:1;stroke:none");
+        $damageZones.find(".right-skirt").attr("style", "fill: hsl(" + rightSkirtHue + ", 100%, 50%);fill-opacity:1;stroke:none");
+
+        $toastBody.append($damageZones);
+
+        $toast.append($toastHeader);
+        $toast.append($toastBody);
+
+        $toast.toast({animation: true, autohide: true, delay: 10000});
+        $toast.toast('show');
+
+        $("#toasts").append($toast);
+
+        setTimeout(() => {
+            $toast.remove();
+        }, 12000);
     }
 
     private sortDisconnectedTable($table: JQuery<HTMLTableElement>) {
