@@ -314,7 +314,7 @@ func (a *AdminCommandManager) Command(entrant *Car, command string) error {
 	case "/spectate":
 		if len(commandSplit) >= 2 {
 			if !entrant.IsSpectator() {
-				return a.state.SendChat(ServerCarID, entrant.CarID, "Only admins can use the /spectate command!", false)
+				return a.state.SendChat(ServerCarID, entrant.CarID, "Only spectators can use the /spectate command!", false)
 			}
 
 			carID, _ := strconv.Atoi(commandSplit[1])
