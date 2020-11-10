@@ -670,12 +670,6 @@ func (sm *SessionManager) CompleteLap(carID CarID, lap *LapCompleted, target *Ca
 	l := car.AddLap(lap)
 
 	if carID != ServerCarID {
-		err := sm.plugin.OnLapCompleted(car.CarID, *l)
-
-		if err != nil {
-			sm.logger.WithError(err).Error("On lap completed plugin returned an error")
-		}
-
 		// last sector only
 		var cutsInSectorsSoFar uint8
 
@@ -695,6 +689,12 @@ func (sm *SessionManager) CompleteLap(carID CarID, lap *LapCompleted, target *Ca
 
 		if err != nil {
 			sm.logger.WithError(err).Error("On sector completed plugin returned an error")
+		}
+
+		err := sm.plugin.OnLapCompleted(car.CarID, *l)
+
+		if err != nil {
+			sm.logger.WithError(err).Error("On lap completed plugin returned an error")
 		}
 	}
 
