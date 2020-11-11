@@ -349,6 +349,7 @@ class RaceControlDriver {
     LastSeen: Date;
     LastPos: Vector3F;
     IsInPits: boolean;
+    LastPitStop: number;
     DRSActive: boolean;
     NormalisedSplinePos: number;
     SteerAngle: number;
@@ -368,6 +369,7 @@ class RaceControlDriver {
         this.LastSeen = ('LastSeen' in d) ? ParseDate(d.LastSeen) : new Date();
         this.LastPos = new Vector3F(d.LastPos);
         this.IsInPits = ('IsInPits' in d) ? d.IsInPits as boolean : false;
+        this.LastPitStop = ('LastPitStop' in d) ? d.LastPitStop as number : 0;
         this.DRSActive = ('DRSActive' in d) ? d.DRSActive as boolean : false;
         this.NormalisedSplinePos = ('NormalisedSplinePos' in d) ? d.NormalisedSplinePos as number : 0;
         this.SteerAngle = ('SteerAngle' in d) ? d.SteerAngle as number : 0;
@@ -384,6 +386,7 @@ class RaceControlDriver {
         cfg.LoadedTime = 'string';
         cfg.Position = 'number';
         cfg.LastSeen = 'string';
+        cfg.LastPitStop = 'number';
         cfg.NormalisedSplinePos = 'number';
         cfg.SteerAngle = 'number';
         cfg.StatusBytes = 'number';
