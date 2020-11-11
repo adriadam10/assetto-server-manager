@@ -302,6 +302,19 @@ func (s *Server) GetSessionInfo() SessionInfo {
 	}
 }
 
+func (s *Server) AddDriver(name, team, guid, model string) error {
+	driver := Driver{
+		Name:     name,
+		Team:     team,
+		GUID:     guid,
+		JoinTime: 0,
+		LoadTime: time.Time{},
+		Nation:   "",
+	}
+
+	return s.entryListManager.AddDriverToEmptyCar(driver, model)
+}
+
 func (s *Server) GetEventConfig() EventConfig {
 	return *s.state.raceConfig
 }

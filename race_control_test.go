@@ -206,6 +206,10 @@ func (d dummyServer) GetEventConfig() acserver.EventConfig {
 	return acserver.EventConfig{}
 }
 
+func (d dummyServer) AddDriver(name, team, guid, model string) error {
+	return nil
+}
+
 func (d dummyServer) SendChat(message string, from, to acserver.CarID, rateLimit bool) error {
 	return nil
 }

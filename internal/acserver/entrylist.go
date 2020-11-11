@@ -146,3 +146,18 @@ func (em *EntryListManager) UnBookCar(guid string) error {
 
 	return nil
 }
+
+func (em *EntryListManager) AddDriverToEmptyCar(driver Driver, model string) error {
+	for _, car := range em.state.entryList {
+		if car.IsConnected() {
+			continue
+		}
+
+		if car.Driver.GUID == "" && car.Model == model {
+			car.SwapDrivers(driver, Connection{}, false, false)
+			return nil
+		}
+	}
+
+	return ErrNoAvailableSlots
+}
