@@ -44,6 +44,7 @@ type RaceControlDriverData struct {
 	LastSeen            time.Time `json:"LastSeen" ts:"date"`
 	LastPos             udp.Vec   `json:"LastPos"`
 	IsInPits            bool      `json:"IsInPits"`
+	LastPitStop         int       `json:"LastPitStop"`
 	DRSActive           bool      `json:"DRSActive"`
 	NormalisedSplinePos float32   `json:"NormalisedSplinePos"`
 	SteerAngle          uint8     `json:"SteerAngle"`

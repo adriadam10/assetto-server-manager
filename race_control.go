@@ -256,6 +256,10 @@ func (rc *RaceControl) OnCarUpdate(update udp.CarUpdate) (bool, error) {
 
 	sendUpdatedRaceControlStatus := false
 
+	if driver.IsInPits && speed < 2 {
+		driver.LastPitStop = driver.TotalNumLaps
+	}
+
 	if driver.IsInPits != wasInPits || driver.DRSActive != drsWasActive {
 		sendUpdatedRaceControlStatus = true
 	}

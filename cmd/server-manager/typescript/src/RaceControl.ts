@@ -1052,8 +1052,14 @@ class LiveTimings implements WebsocketHandler {
             $tr.find(".gap").text(driver.Split);
         }
 
+        let pitStopText = ""
+
+        if (driver.LastPitStop != 0 && !isNaN(driver.LastPitStop)) {
+            pitStopText = " (" + (carInfo.NumLaps - driver.LastPitStop) + "/pit)"
+        }
+
         // lap number
-        $tr.find(".num-laps").text(carInfo.NumLaps ? carInfo.NumLaps : "0");
+        $tr.find(".num-laps").text(carInfo.NumLaps ? carInfo.NumLaps + pitStopText : "0");
 
         let topSpeed;
         let speedUnits;
