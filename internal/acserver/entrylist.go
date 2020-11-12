@@ -102,6 +102,9 @@ func (em *EntryListManager) ConnectCar(conn net.Conn, driver Driver, requestedMo
 }
 
 func (em *EntryListManager) BookCar(driver Driver, model, skin string) (*Car, error) {
+	em.mutex.Lock()
+	defer em.mutex.Unlock()
+
 	car := &Car{
 		CarInfo: CarInfo{
 			Driver: driver,
@@ -129,6 +132,9 @@ func (em *EntryListManager) BookCar(driver Driver, model, skin string) (*Car, er
 }
 
 func (em *EntryListManager) UnBookCar(guid string) error {
+	em.mutex.Lock()
+	defer em.mutex.Unlock()
+
 	toRemove := -1
 
 	for index, car := range em.state.entryList {
@@ -145,4 +151,22 @@ func (em *EntryListManager) UnBookCar(guid string) error {
 	}
 
 	return nil
+}
+
+func (em *EntryListManager) AddDriverToEmptyCar(driver Driver, model string) error {
+	em.mutex.Lock()
+	defer em.mutex.Unlock()
+
+	for _, car := range em.state.entryList {
+		if car.IsConnected() {
+			continue
+		}
+
+		if car.Driver.GUID == "" && car.Model == model {
+			car.SwapDrivers(driver, Connection{}, false, false)
+			return nil
+		}
+	}
+
+	return ErrNoAvailableSlots
 }

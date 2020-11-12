@@ -1546,6 +1546,16 @@ func (cm *ChampionshipManager) AddEntrantFromSessionData(championship *Champions
 		if err != nil {
 			logrus.Errorf("Couldn't add entrant (GUID: %s, Name: %s) to autofill list", newEntrant.GUID, newEntrant.Name)
 		}
+
+		if event, ok := cm.process.Event().(*ActiveChampionship); ok && event.IsPracticeSession && event.ChampionshipID == championship.ID {
+			err = cm.raceControl.server.AddDriver(newEntrant.Name, newEntrant.Team, newEntrant.GUID, entrant.Model)
+
+			if err != nil {
+				logrus.WithError(err).Warnf("Driver (%s) was added to the entry list, but could not be added to the active practice event! Please restart the event to add the new driver.", newEntrant.Name)
+			} else {
+				logrus.Infof("Successfully added new driver (%s) to the active practice event entry list.", newEntrant.Name)
+			}
+		}
 	}
 
 	return foundFreeEntrantSlot, entrantClass, nil
