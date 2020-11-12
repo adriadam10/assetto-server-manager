@@ -231,8 +231,8 @@ export class RaceControl {
             } else if (this.status.SessionInfo.Laps > 0) {
                 let lapsCompleted = 0;
 
-                if (this.status.ConnectedDrivers && this.status.ConnectedDrivers.GUIDsInPositionalOrder!.length > 0) {
-                    let driver = this.status.ConnectedDrivers.Drivers[this.status.ConnectedDrivers.GUIDsInPositionalOrder![0]];
+                if (this.status.ConnectedDrivers && this.status.ConnectedDrivers.GUIDsInPositionalOrder && this.status.ConnectedDrivers.GUIDsInPositionalOrder.length > 0) {
+                    let driver = this.status.ConnectedDrivers.Drivers[this.status.ConnectedDrivers.GUIDsInPositionalOrder[0]];
 
                     if (driver.TotalNumLaps > 0) {
                         lapsCompleted = driver.TotalNumLaps;
@@ -702,11 +702,11 @@ class LiveTimings implements WebsocketHandler {
             return;
         }
 
-        if (this.raceControl.status.SessionInfo.Type === SessionType.Race) {
+        if (this.raceControl.status.SessionInfo.Type === SessionType.Race && this.raceControl.status.ConnectedDrivers.GUIDsInPositionalOrder) {
             // sort drivers on the fly by their NormalisedSplinePos, if they're on the same lap.
-            let oldGUIDOrder = this.raceControl.status.ConnectedDrivers.GUIDsInPositionalOrder!;
+            let oldGUIDOrder = this.raceControl.status.ConnectedDrivers.GUIDsInPositionalOrder;
 
-            this.raceControl.status.ConnectedDrivers.GUIDsInPositionalOrder!.sort((guidA: string, guidB: string): number => {
+            this.raceControl.status.ConnectedDrivers.GUIDsInPositionalOrder.sort((guidA: string, guidB: string): number => {
                 if (!this.raceControl.status.ConnectedDrivers) {
                     return 0;
                 }
@@ -729,7 +729,7 @@ class LiveTimings implements WebsocketHandler {
             });
 
             let guidOrderHasChanged = false;
-            let newGUIDOrder = this.raceControl.status.ConnectedDrivers.GUIDsInPositionalOrder!;
+            let newGUIDOrder = this.raceControl.status.ConnectedDrivers.GUIDsInPositionalOrder;
 
             if (oldGUIDOrder.length !== newGUIDOrder.length) {
                 guidOrderHasChanged = true;
@@ -845,13 +845,13 @@ class LiveTimings implements WebsocketHandler {
     }
 
     private populateConnectedDrivers(): void {
-        if (!this.raceControl.status || !this.raceControl.status.ConnectedDrivers) {
+        if (!this.raceControl.status || !this.raceControl.status.ConnectedDrivers || !this.raceControl.status.ConnectedDrivers.GUIDsInPositionalOrder) {
             return;
         }
 
         let position = 1;
 
-        for (const driverGUID of this.raceControl.status.ConnectedDrivers.GUIDsInPositionalOrder!) {
+        for (const driverGUID of this.raceControl.status.ConnectedDrivers.GUIDsInPositionalOrder) {
             const driver = this.raceControl.status.ConnectedDrivers.Drivers[driverGUID];
 
             if (!driver) {
@@ -885,11 +885,11 @@ class LiveTimings implements WebsocketHandler {
     }
 
     private populateDisconnectedDrivers(): void {
-        if (!this.raceControl.status || !this.raceControl.status.DisconnectedDrivers) {
+        if (!this.raceControl.status || !this.raceControl.status.DisconnectedDrivers || !this.raceControl.status.DisconnectedDrivers.GUIDsInPositionalOrder) {
             return;
         }
 
-        for (const driverGUID of this.raceControl.status.DisconnectedDrivers.GUIDsInPositionalOrder!) {
+        for (const driverGUID of this.raceControl.status.DisconnectedDrivers.GUIDsInPositionalOrder) {
             const driver = this.raceControl.status.DisconnectedDrivers.Drivers[driverGUID];
 
             if (!driver) {
@@ -1382,11 +1382,11 @@ class LiveTimings implements WebsocketHandler {
             return
         }
 
-        if (!this.raceControl.status || !this.raceControl.status.ConnectedDrivers) {
+        if (!this.raceControl.status || !this.raceControl.status.ConnectedDrivers || !this.raceControl.status.ConnectedDrivers.GUIDsInPositionalOrder) {
             return;
         }
 
-        for (const driverGUID of this.raceControl.status.ConnectedDrivers.GUIDsInPositionalOrder!) {
+        for (const driverGUID of this.raceControl.status.ConnectedDrivers.GUIDsInPositionalOrder) {
             const driver = this.raceControl.status.ConnectedDrivers.Drivers[driverGUID];
 
             if (!driver) {
