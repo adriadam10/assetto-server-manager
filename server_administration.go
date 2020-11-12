@@ -16,6 +16,7 @@ import (
 	"github.com/go-chi/chi"
 	"github.com/mitchellh/go-wordwrap"
 	"github.com/sirupsen/logrus"
+	"justapengu.in/acsm/internal/acserver"
 )
 
 func init() {
@@ -173,7 +174,11 @@ func (sah *ServerAdministrationHandler) currentConfig(w http.ResponseWriter, r *
 
 	entryList := event.GetEntryList().ToACServerConfig()
 	eventConfig := event.GetRaceConfig().ToACConfig()
-	serverConfig := sah.process.CurrentServerConfig().ToACServerConfig()
+	var serverConfig *acserver.ServerConfig
+
+	if cfg := sah.process.CurrentServerConfig(); cfg != nil {
+		serverConfig = cfg.ToACServerConfig()
+	}
 
 	sah.viewRenderer.MustLoadTemplate(w, r, "server/current-config.html", &currentCFGTemplateVars{
 		EventConfigText:  sah.encodeConfigFile(eventConfig),
