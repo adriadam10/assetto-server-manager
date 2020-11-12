@@ -1547,7 +1547,7 @@ func (cm *ChampionshipManager) AddEntrantFromSessionData(championship *Champions
 			logrus.Errorf("Couldn't add entrant (GUID: %s, Name: %s) to autofill list", newEntrant.GUID, newEntrant.Name)
 		}
 
-		if cm.process.Event().IsPractice() && cm.process.Event().EventName() == championship.Name+" - Looping Practice" {
+		if event, ok := cm.process.Event().(*ActiveChampionship); ok && event.IsPracticeSession && event.ChampionshipID == championship.ID {
 			err = cm.raceControl.server.AddDriver(newEntrant.Name, newEntrant.Team, newEntrant.GUID, entrant.Model)
 
 			if err != nil {
