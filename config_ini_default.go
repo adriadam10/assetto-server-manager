@@ -125,7 +125,25 @@ func ConfigDefault() ServerConfig {
 			CustomCutsBoPAmount:           50,
 			CustomCutsBoPNumLaps:          1,
 			CustomCutsDriveThroughNumLaps: 2,
-			PitLane:                       &pitlanedetection.PitLane{},
+
+			DRSPenaltiesEnabled:             false,
+			DRSPenaltiesEnableOnLap:         3,
+			DRSPenaltiesNumWarnings:         2,
+			DRSPenaltiesPenaltyType:         acserver.CutPenaltyBallast,
+			DRSPenaltiesBoPAmount:           50,
+			DRSPenaltiesBoPNumLaps:          2,
+			DRSPenaltiesDriveThroughNumLaps: 2,
+
+			CollisionPenaltiesEnabled:             false,
+			CollisionPenaltiesIgnoreFirstLap:      true,
+			CollisionPenaltiesOnlyOverSpeed:       40,
+			CollisionPenaltiesNumWarnings:         4,
+			CollisionPenaltiesPenaltyType:         acserver.CutPenaltyDriveThrough,
+			CollisionPenaltiesBoPAmount:           50,
+			CollisionPenaltiesBoPNumLaps:          2,
+			CollisionPenaltiesDriveThroughNumLaps: 2,
+
+			PitLane: &pitlanedetection.PitLane{},
 
 			DriftModeEnabled: false,
 		},

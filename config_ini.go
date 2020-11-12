@@ -408,14 +408,31 @@ type CurrentRaceConfig struct {
 	Weather  map[string]*WeatherConfig `ini:"-"`
 	PitLane  *pitlanedetection.PitLane `ini:"-"`
 
-	CustomCutsEnabled             bool                    `ini:"-"`
-	CustomCutsOnlyIfCleanSet      bool                    `ini:"-"`
-	CustomCutsIgnoreFirstLap      bool                    `ini:"-"`
-	CustomCutsNumWarnings         int                     `ini:"-"`
-	CustomCutsPenaltyType         acserver.CutPenaltyType `ini:"-"`
-	CustomCutsBoPAmount           float32                 `ini:"-"`
-	CustomCutsBoPNumLaps          int                     `ini:"-"`
-	CustomCutsDriveThroughNumLaps int                     `ini:"-"`
+	CustomCutsEnabled             bool                 `ini:"-"`
+	CustomCutsOnlyIfCleanSet      bool                 `ini:"-"`
+	CustomCutsIgnoreFirstLap      bool                 `ini:"-"`
+	CustomCutsNumWarnings         int                  `ini:"-"`
+	CustomCutsPenaltyType         acserver.PenaltyType `ini:"-"`
+	CustomCutsBoPAmount           float32              `ini:"-"`
+	CustomCutsBoPNumLaps          int                  `ini:"-"`
+	CustomCutsDriveThroughNumLaps int                  `ini:"-"`
+
+	DRSPenaltiesEnabled             bool                 `ini:"-"`
+	DRSPenaltiesEnableOnLap         int                  `ini:"-"`
+	DRSPenaltiesNumWarnings         int                  `ini:"-"`
+	DRSPenaltiesPenaltyType         acserver.PenaltyType `ini:"-"`
+	DRSPenaltiesBoPAmount           float32              `ini:"-"`
+	DRSPenaltiesBoPNumLaps          int                  `ini:"-"`
+	DRSPenaltiesDriveThroughNumLaps int                  `ini:"-"`
+
+	CollisionPenaltiesEnabled             bool                 `ini:"-"`
+	CollisionPenaltiesIgnoreFirstLap      bool                 `ini:"-"`
+	CollisionPenaltiesOnlyOverSpeed       int                  `ini:"-"`
+	CollisionPenaltiesNumWarnings         int                  `ini:"-"`
+	CollisionPenaltiesPenaltyType         acserver.PenaltyType `ini:"-"`
+	CollisionPenaltiesBoPAmount           float32              `ini:"-"`
+	CollisionPenaltiesBoPNumLaps          int                  `ini:"-"`
+	CollisionPenaltiesDriveThroughNumLaps int                  `ini:"-"`
 
 	DriftModeEnabled bool `ini:"-"`
 }
@@ -460,15 +477,30 @@ func (c CurrentRaceConfig) ToACConfig() *acserver.EventConfig {
 			SessionTransfer: c.DynamicTrack.SessionTransfer,
 			LapGain:         c.DynamicTrack.LapGain,
 		},
-		CustomCutsEnabled:             c.CustomCutsEnabled,
-		CustomCutsOnlyIfCleanSet:      c.CustomCutsOnlyIfCleanSet,
-		CustomCutsIgnoreFirstLap:      c.CustomCutsIgnoreFirstLap,
-		CustomCutsNumWarnings:         c.CustomCutsNumWarnings,
-		CustomCutsPenaltyType:         c.CustomCutsPenaltyType,
-		CustomCutsBoPAmount:           c.CustomCutsBoPAmount,
-		CustomCutsBoPNumLaps:          c.CustomCutsBoPNumLaps,
-		CustomCutsDriveThroughNumLaps: c.CustomCutsDriveThroughNumLaps,
-		DriftModeEnabled:              c.DriftModeEnabled,
+		CustomCutsEnabled:                     c.CustomCutsEnabled,
+		CustomCutsOnlyIfCleanSet:              c.CustomCutsOnlyIfCleanSet,
+		CustomCutsIgnoreFirstLap:              c.CustomCutsIgnoreFirstLap,
+		CustomCutsNumWarnings:                 c.CustomCutsNumWarnings,
+		CustomCutsPenaltyType:                 c.CustomCutsPenaltyType,
+		CustomCutsBoPAmount:                   c.CustomCutsBoPAmount,
+		CustomCutsBoPNumLaps:                  c.CustomCutsBoPNumLaps,
+		CustomCutsDriveThroughNumLaps:         c.CustomCutsDriveThroughNumLaps,
+		DRSPenaltiesEnabled:                   c.DRSPenaltiesEnabled,
+		DRSPenaltiesEnableOnLap:               c.DRSPenaltiesEnableOnLap,
+		DRSPenaltiesNumWarnings:               c.DRSPenaltiesNumWarnings,
+		DRSPenaltiesPenaltyType:               c.DRSPenaltiesPenaltyType,
+		DRSPenaltiesBoPAmount:                 c.DRSPenaltiesBoPAmount,
+		DRSPenaltiesBoPNumLaps:                c.DRSPenaltiesBoPNumLaps,
+		DRSPenaltiesDriveThroughNumLaps:       c.DRSPenaltiesDriveThroughNumLaps,
+		CollisionPenaltiesEnabled:             c.CollisionPenaltiesEnabled,
+		CollisionPenaltiesIgnoreFirstLap:      c.CollisionPenaltiesIgnoreFirstLap,
+		CollisionPenaltiesOnlyOverSpeed:       c.CollisionPenaltiesOnlyOverSpeed,
+		CollisionPenaltiesNumWarnings:         c.CollisionPenaltiesNumWarnings,
+		CollisionPenaltiesPenaltyType:         c.CollisionPenaltiesPenaltyType,
+		CollisionPenaltiesBoPAmount:           c.CollisionPenaltiesBoPAmount,
+		CollisionPenaltiesBoPNumLaps:          c.CollisionPenaltiesBoPNumLaps,
+		CollisionPenaltiesDriveThroughNumLaps: c.CollisionPenaltiesDriveThroughNumLaps,
+		DriftModeEnabled:                      c.DriftModeEnabled,
 	}
 
 	i := 0

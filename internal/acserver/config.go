@@ -84,29 +84,46 @@ type EventConfig struct {
 	Sessions Sessions         `json:"sessions" yaml:"sessions"`
 	Weather  []*WeatherConfig `json:"weather" yaml:"weather"`
 
-	CustomCutsEnabled             bool           `json:"custom_cuts_enabled" yaml:"custom_cuts_enabled"`
-	CustomCutsOnlyIfCleanSet      bool           `json:"custom_cuts_only_if_clean_set" yaml:"custom_cuts_only_if_clean_set"`
-	CustomCutsIgnoreFirstLap      bool           `json:"custom_cuts_ignore_first_lap" yaml:"custom_cuts_ignore_first_lap"`
-	CustomCutsNumWarnings         int            `json:"custom_cuts_num_warnings" yaml:"custom_cuts_num_warnings"`
-	CustomCutsPenaltyType         CutPenaltyType `json:"custom_cuts_penalty_type" yaml:"custom_cuts_penalty_type"`
-	CustomCutsBoPAmount           float32        `json:"custom_cuts_bop_amount" yaml:"custom_cuts_bop_amount"`
-	CustomCutsBoPNumLaps          int            `json:"custom_cuts_bop_num_laps" yaml:"custom_cuts_bop_num_laps"`
-	CustomCutsDriveThroughNumLaps int            `json:"custom_cuts_drive_through_num_laps" yaml:"custom_cuts_drive_through_num_laps"`
+	CustomCutsEnabled             bool        `json:"custom_cuts_enabled" yaml:"custom_cuts_enabled"`
+	CustomCutsOnlyIfCleanSet      bool        `json:"custom_cuts_only_if_clean_set" yaml:"custom_cuts_only_if_clean_set"`
+	CustomCutsIgnoreFirstLap      bool        `json:"custom_cuts_ignore_first_lap" yaml:"custom_cuts_ignore_first_lap"`
+	CustomCutsNumWarnings         int         `json:"custom_cuts_num_warnings" yaml:"custom_cuts_num_warnings"`
+	CustomCutsPenaltyType         PenaltyType `json:"custom_cuts_penalty_type" yaml:"custom_cuts_penalty_type"`
+	CustomCutsBoPAmount           float32     `json:"custom_cuts_bop_amount" yaml:"custom_cuts_bop_amount"`
+	CustomCutsBoPNumLaps          int         `json:"custom_cuts_bop_num_laps" yaml:"custom_cuts_bop_num_laps"`
+	CustomCutsDriveThroughNumLaps int         `json:"custom_cuts_drive_through_num_laps" yaml:"custom_cuts_drive_through_num_laps"`
+
+	DRSPenaltiesEnabled             bool        `json:"drs_penalties_enabled" yaml:"drs_penalties_enabled"`
+	DRSPenaltiesEnableOnLap         int         `json:"drs_penalties_enable_on_lap" yaml:"drs_penalties_enable_on_lap"`
+	DRSPenaltiesNumWarnings         int         `json:"drs_penalties_num_warnings" yaml:"drs_penalties_num_warnings"`
+	DRSPenaltiesPenaltyType         PenaltyType `json:"drs_penalties_penalty_type" yaml:"drs_penalties_penalty_type"`
+	DRSPenaltiesBoPAmount           float32     `json:"drs_penalties_bop_amount" yaml:"drs_penalties_bop_amount"`
+	DRSPenaltiesBoPNumLaps          int         `json:"drs_penalties_bop_num_laps" yaml:"drs_penalties_bop_num_laps"`
+	DRSPenaltiesDriveThroughNumLaps int         `json:"drs_penalties_drive_through_num_laps" yaml:"drs_penalties_drive_through_num_laps"`
+
+	CollisionPenaltiesEnabled             bool        `json:"collision_penalties_enabled" yaml:"collision_penalties_enabled"`
+	CollisionPenaltiesIgnoreFirstLap      bool        `json:"collision_penalties_ignore_first_lap" yaml:"collision_penalties_ignore_first_lap"`
+	CollisionPenaltiesOnlyOverSpeed       int         `json:"collision_penalties_only_over_speed" yaml:"collision_penalties_only_over_speed"`
+	CollisionPenaltiesNumWarnings         int         `json:"collision_penalties_num_warnings" yaml:"collision_penalties_num_warnings"`
+	CollisionPenaltiesPenaltyType         PenaltyType `json:"collision_penalties_penalty_type" yaml:"collision_penalties_penalty_type"`
+	CollisionPenaltiesBoPAmount           float32     `json:"collision_penalties_bop_amount" yaml:"collision_penalties_bop_amount"`
+	CollisionPenaltiesBoPNumLaps          int         `json:"collision_penalties_bop_num_laps" yaml:"collision_penalties_bop_num_laps"`
+	CollisionPenaltiesDriveThroughNumLaps int         `json:"collision_penalties_drive_through_num_laps" yaml:"collision_penalties_drive_through_num_laps"`
 
 	DriftModeEnabled bool `json:"drift_mode_enabled" yaml:"drift_mode_enabled"`
 }
 
-type CutPenaltyType int
+type PenaltyType int
 
 const (
-	CutPenaltyKick CutPenaltyType = iota
+	CutPenaltyKick PenaltyType = iota
 	CutPenaltyBallast
 	CutPenaltyRestrictor
 	CutPenaltyWarn
 	CutPenaltyDriveThrough
 )
 
-var CutPenaltyOptions = map[CutPenaltyType]string{
+var CutPenaltyOptions = map[PenaltyType]string{
 	CutPenaltyKick:         "Kick",
 	CutPenaltyBallast:      "Apply Ballast",
 	CutPenaltyRestrictor:   "Apply Restrictor",

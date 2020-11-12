@@ -269,7 +269,7 @@ func (sp *AssettoServerProcess) startRaceEvent(raceEvent RaceEvent, serverOption
 		sp.plugin,
 	)
 
-	if raceConfig.CustomCutsEnabled {
+	if raceConfig.CustomCutsEnabled || raceConfig.DRSPenaltiesEnabled || raceConfig.CollisionPenaltiesEnabled {
 		activePlugins = append(activePlugins, plugins.NewPenaltiesPlugin(sp.sharedPitLane))
 	}
 
