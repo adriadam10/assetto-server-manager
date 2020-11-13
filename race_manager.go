@@ -648,7 +648,7 @@ func (rm *RaceManager) BuildCustomRaceFromForm(r *http.Request) (*CurrentRaceCon
 
 		CollisionPenaltiesEnabled:             formValueAsInt(r.FormValue("CollisionPenaltiesEnabled")) == 1,
 		CollisionPenaltiesIgnoreFirstLap:      formValueAsInt(r.FormValue("CollisionPenaltiesIgnoreFirstLap")) == 1,
-		CollisionPenaltiesOnlyOverSpeed:       formValueAsInt(r.FormValue("CollisionPenaltiesOnlyOverSpeed")),
+		CollisionPenaltiesOnlyOverSpeed:       float32(formValueAsFloat(r.FormValue("CollisionPenaltiesOnlyOverSpeed"))),
 		CollisionPenaltiesNumWarnings:         formValueAsInt(r.FormValue("CollisionPenaltiesNumWarnings")),
 		CollisionPenaltiesPenaltyType:         acserver.PenaltyType(formValueAsInt(r.FormValue("CollisionPenaltiesPenaltyType"))),
 		CollisionPenaltiesBoPAmount:           float32(formValueAsFloat(r.FormValue("CollisionPenaltiesBoPAmount"))),

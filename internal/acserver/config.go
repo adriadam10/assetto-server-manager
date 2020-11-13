@@ -103,7 +103,7 @@ type EventConfig struct {
 
 	CollisionPenaltiesEnabled             bool        `json:"collision_penalties_enabled" yaml:"collision_penalties_enabled"`
 	CollisionPenaltiesIgnoreFirstLap      bool        `json:"collision_penalties_ignore_first_lap" yaml:"collision_penalties_ignore_first_lap"`
-	CollisionPenaltiesOnlyOverSpeed       int         `json:"collision_penalties_only_over_speed" yaml:"collision_penalties_only_over_speed"`
+	CollisionPenaltiesOnlyOverSpeed       float32     `json:"collision_penalties_only_over_speed" yaml:"collision_penalties_only_over_speed"`
 	CollisionPenaltiesNumWarnings         int         `json:"collision_penalties_num_warnings" yaml:"collision_penalties_num_warnings"`
 	CollisionPenaltiesPenaltyType         PenaltyType `json:"collision_penalties_penalty_type" yaml:"collision_penalties_penalty_type"`
 	CollisionPenaltiesBoPAmount           float32     `json:"collision_penalties_bop_amount" yaml:"collision_penalties_bop_amount"`

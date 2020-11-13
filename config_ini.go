@@ -427,7 +427,7 @@ type CurrentRaceConfig struct {
 
 	CollisionPenaltiesEnabled             bool                 `ini:"-"`
 	CollisionPenaltiesIgnoreFirstLap      bool                 `ini:"-"`
-	CollisionPenaltiesOnlyOverSpeed       int                  `ini:"-"`
+	CollisionPenaltiesOnlyOverSpeed       float32              `ini:"-"`
 	CollisionPenaltiesNumWarnings         int                  `ini:"-"`
 	CollisionPenaltiesPenaltyType         acserver.PenaltyType `ini:"-"`
 	CollisionPenaltiesBoPAmount           float32              `ini:"-"`
