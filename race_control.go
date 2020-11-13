@@ -36,6 +36,7 @@ type RaceControlBroadcastData struct {
 	ChatMessages               []udp.Chat                   `json:"ChatMessages"`
 	CarIDToGUID                map[udp.CarID]udp.DriverGUID `json:"CarIDToGUID"`
 	BestSplits                 []RaceControlCarSplit        `json:"BestSplits"`
+	DamageMultiplier           int                          `json:"DamageMultiplier"`
 }
 
 type RaceControl struct {
@@ -334,6 +335,7 @@ func (rc *RaceControl) OnNewSession(sessionInfo udp.SessionInfo) error {
 	oldSessionInfo := rc.SessionInfo
 	rc.SessionInfo = sessionInfo
 	rc.SessionStartTime = time.Now()
+	rc.DamageMultiplier = rc.process.Event().GetRaceConfig().DamageMultiplier
 
 	emptyCarInfo := true
 
