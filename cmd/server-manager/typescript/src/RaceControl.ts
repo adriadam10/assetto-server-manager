@@ -953,10 +953,7 @@ class LiveTimings implements WebsocketHandler {
                     dotClass += " dot-inactive";
                 }
 
-                $tdName.prepend($("<div/>").attr({"class": dotClass}).css("background", randomColor({
-                    luminosity: 'bright',
-                    seed: driver.CarInfo.DriverGUID,
-                })));
+                $tdName.prepend($("<div/>").attr({"class": dotClass}).css("background", randomColorForDriver(driver.CarInfo.DriverGUID)));
             }
 
             $tdName.on({
@@ -1237,35 +1234,37 @@ class LiveTimings implements WebsocketHandler {
 
         $toastBody.append($textContainer);
 
-        let $damageZones = $(DAMAGE_ZONES);
+        if (this.raceControl.status.DamageMultiplier > 0) {
+            let $damageZones = $(DAMAGE_ZONES);
 
-        let frontBumperHue = 70 - collision.DamageZones[0];
-        let rearBumperHue = 70 - collision.DamageZones[1];
-        let leftSkirtHue = 70 - collision.DamageZones[2];
-        let rightSkirtHue = 70 - collision.DamageZones[3];
+            let frontBumperHue = 70 - collision.DamageZones[0];
+            let rearBumperHue = 70 - collision.DamageZones[1];
+            let leftSkirtHue = 70 - collision.DamageZones[2];
+            let rightSkirtHue = 70 - collision.DamageZones[3];
 
-        if (frontBumperHue < 0) {
-            frontBumperHue = 0
+            if (frontBumperHue < 0) {
+                frontBumperHue = 0;
+            }
+
+            if (rearBumperHue < 0) {
+                rearBumperHue = 0;
+            }
+
+            if (leftSkirtHue < 0) {
+                leftSkirtHue = 0;
+            }
+
+            if (rightSkirtHue < 0) {
+                rightSkirtHue = 0;
+            }
+
+            $damageZones.find(".front-bumper").attr("style", "fill: hsl(" + frontBumperHue + ", 100%, 50%);fill-opacity:1;stroke:none");
+            $damageZones.find(".rear-bumper").attr("style", "fill: hsl(" + rearBumperHue + ", 100%, 50%);fill-opacity:1;stroke:none");
+            $damageZones.find(".left-skirt").attr("style", "fill: hsl(" + leftSkirtHue + ", 100%, 50%);fill-opacity:1;stroke:none");
+            $damageZones.find(".right-skirt").attr("style", "fill: hsl(" + rightSkirtHue + ", 100%, 50%);fill-opacity:1;stroke:none");
+
+            $toastBody.append($damageZones);
         }
-
-        if (rearBumperHue < 0) {
-            rearBumperHue = 0
-        }
-
-        if (leftSkirtHue < 0) {
-            leftSkirtHue = 0
-        }
-
-        if (rightSkirtHue < 0) {
-            rightSkirtHue = 0
-        }
-
-        $damageZones.find(".front-bumper").attr("style", "fill: hsl(" + frontBumperHue + ", 100%, 50%);fill-opacity:1;stroke:none");
-        $damageZones.find(".rear-bumper").attr("style", "fill: hsl(" + rearBumperHue + ", 100%, 50%);fill-opacity:1;stroke:none");
-        $damageZones.find(".left-skirt").attr("style", "fill: hsl(" + leftSkirtHue + ", 100%, 50%);fill-opacity:1;stroke:none");
-        $damageZones.find(".right-skirt").attr("style", "fill: hsl(" + rightSkirtHue + ", 100%, 50%);fill-opacity:1;stroke:none");
-
-        $toastBody.append($damageZones);
 
         $toast.append($toastHeader);
         $toast.append($toastBody);
@@ -1324,10 +1323,7 @@ class LiveTimings implements WebsocketHandler {
             return;
         }
 
-        let r = randomColor({
-            luminosity: 'bright',
-            seed: driverGUID,
-        }) as string;
+        let r = randomColorForDriver(driverGUID) as string;
 
         $driverDot.children(".name").attr("style", "background-color: " + r + " !important");
     }
@@ -1396,7 +1392,7 @@ class LiveTimings implements WebsocketHandler {
             this.addDriverToAdminSelects(driver.CarInfo);
         }
 
-        this.initialisedAdmin = true
+        this.initialisedAdmin = true;
     }
 
     private addDriverToAdminSelects(carInfo: SessionCarInfo) {
@@ -1430,7 +1426,19 @@ class LiveTimings implements WebsocketHandler {
     }
 }
 
+const driverGUIDOverrides = {
+    "76561198020046073": "#0a84ff",
+    "76561198022717360": "#c91448",
+    "76561198256908075": "#ee9a17",
+}
+
 function randomColorForDriver(driverGUID: string): string {
+    let override = driverGUIDOverrides[driverGUID];
+
+    if (!!override) {
+        return override;
+    }
+
     return randomColor({
         seed: driverGUID,
     })
