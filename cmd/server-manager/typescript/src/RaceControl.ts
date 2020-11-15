@@ -1051,7 +1051,7 @@ class LiveTimings implements WebsocketHandler {
 
         let pitStopText = ""
 
-        if (driver.LastPitStop != 0 && !isNaN(driver.LastPitStop)) {
+        if (driver.LastPitStop > 0 && !isNaN(driver.LastPitStop)) {
             pitStopText = " (" + (carInfo.NumLaps - driver.LastPitStop) + "/pit)"
         }
 
