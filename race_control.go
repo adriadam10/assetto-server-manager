@@ -64,8 +64,6 @@ type RaceControl struct {
 }
 
 func (rc *RaceControl) MarshalJSON() ([]byte, error) {
-	rc.mutex.RLock()
-	defer rc.mutex.RUnlock()
 	return json.Marshal(rc.RaceControlBroadcastData)
 }
 
@@ -112,6 +110,9 @@ func NewRaceControl(broadcaster Broadcaster, trackDataGateway TrackDataGateway, 
 }
 
 func (rc *RaceControl) UDPCallback(message udp.Message) {
+	rc.mutex.Lock()
+	defer rc.mutex.Unlock()
+
 	var err error
 
 	sendUpdatedRaceControlStatus := false
@@ -207,8 +208,6 @@ func (rc *RaceControl) OnVersion(version udp.Version) error {
 	go panicCapture(rc.requestSessionInfo)
 
 	// clear chat messages on new server start
-	rc.mutex.Lock()
-	defer rc.mutex.Unlock()
 	rc.ChatMessages = []udp.Chat{}
 
 	_, err := rc.broadcaster.Send(version)
@@ -427,9 +426,7 @@ func (rc *RaceControl) OnNewSession(sessionInfo udp.SessionInfo) error {
 func (rc *RaceControl) clearAllDrivers() {
 	rc.ConnectedDrivers = NewDriverMap(ConnectedDrivers, rc.SortDrivers)
 	rc.DisconnectedDrivers = NewDriverMap(DisconnectedDrivers, rc.SortDrivers)
-	rc.mutex.Lock()
 	rc.CarIDToGUID = make(map[udp.CarID]udp.DriverGUID)
-	rc.mutex.Unlock()
 }
 
 var sessionInfoRequestInterval = time.Second * 30
@@ -489,8 +486,6 @@ func (rc *RaceControl) disconnectDriver(driver *RaceControlDriver) error {
 
 // OnSessionUpdate is called every sessionRequestInterval.
 func (rc *RaceControl) OnSessionUpdate(sessionInfo udp.SessionInfo) (bool, error) {
-	rc.mutex.Lock()
-	defer rc.mutex.Unlock()
 	oldSessionInfo := rc.SessionInfo
 
 	// we can't just copy over the session information, we must copy individual
@@ -638,9 +633,7 @@ func (rc *RaceControl) addFileToTimeAttackEvent(file string) error {
 // OnClientConnect stores CarID -> DriverGUID mappings. if a driver is known to have previously been in this event,
 // they will be moved from DisconnectedDrivers to ConnectedDrivers.
 func (rc *RaceControl) OnClientConnect(client udp.SessionCarInfo) error {
-	rc.mutex.Lock()
 	rc.CarIDToGUID[client.CarID] = client.DriverGUID
-	rc.mutex.Unlock()
 
 	client.DriverInitials = driverInitials(client.DriverName)
 	client.DriverName = driverName(client.DriverName)
@@ -965,9 +958,7 @@ func (rc *RaceControl) positionHasChanged(initialPosition, currentPosition udp.V
 // findConnectedDriverByCarID looks for a driver in ConnectedDrivers by their CarID. This is the only place CarID
 // is used for a look-up, and it uses the CarIDToGUID map to perform the lookup.
 func (rc *RaceControl) findConnectedDriverByCarID(carID udp.CarID) (*RaceControlDriver, error) {
-	rc.mutex.RLock()
 	driverGUID, ok := rc.CarIDToGUID[carID]
-	rc.mutex.RUnlock()
 
 	if !ok {
 		return nil, fmt.Errorf("racecontrol: could not find DriverGUID for CarID: %d", carID)
@@ -1304,8 +1295,6 @@ func (rc *RaceControl) OnChatMessage(chat udp.Chat) error {
 		return err
 	}
 
-	rc.mutex.Lock()
-	defer rc.mutex.Unlock()
 	rc.ChatMessages = append(rc.ChatMessages, chat)
 
 	if len(rc.ChatMessages) > chatMessageLimit {

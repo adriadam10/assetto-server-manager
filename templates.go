@@ -120,7 +120,7 @@ func shortenDriverName(name string) string {
 	nameParts := strings.Split(name, " ")
 
 	if len(nameParts) > 1 && len(nameParts[len(nameParts)-1]) > 1 {
-		nameParts[len(nameParts)-1] = nameParts[len(nameParts)-1][:1] + "."
+		nameParts[len(nameParts)-1] = string([]rune(nameParts[len(nameParts)-1])[:1]) + "."
 	}
 
 	return strings.Join(nameParts, " ")
@@ -135,7 +135,6 @@ func driverName(name string) string {
 }
 
 func driverInitials(name string) string {
-
 	name = strings.TrimSpace(name)
 
 	if UseShortenedDriverNames {
@@ -147,7 +146,7 @@ func driverInitials(name string) string {
 
 		for i := range nameParts {
 			if len(nameParts[i]) > 0 {
-				nameParts[i] = nameParts[i][:1]
+				nameParts[i] = string([]rune(nameParts[i])[:1])
 			}
 		}
 
@@ -156,11 +155,13 @@ func driverInitials(name string) string {
 
 	nameParts := strings.Split(name, " ")
 
-	if len(nameParts) > 0 && len(nameParts[len(nameParts)-1]) >= 3 {
-		return strings.ToUpper(nameParts[len(nameParts)-1][:3])
+	lastName := nameParts[len(nameParts)-1]
+
+	if len(nameParts) > 0 && len(lastName) >= 3 {
+		return strings.ToUpper(string([]rune(lastName)[:3]))
 	}
 
-	return strings.ToUpper(name)
+	return strings.ToUpper(lastName)
 }
 
 // Renderer is the template engine.
