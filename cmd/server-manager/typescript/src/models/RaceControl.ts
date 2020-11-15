@@ -451,6 +451,7 @@ class RaceControl {
     ChatMessages: Chat[] | null;
     CarIDToGUID: { [key: number]: string };
     BestSplits: RaceControlCarSplit[] | null;
+    DamageMultiplier: number;
 
     constructor(data?: any) {
         const d: any = (data && typeof data === 'object') ? ToObject(data) : {};
@@ -464,12 +465,14 @@ class RaceControl {
         this.ChatMessages = Array.isArray(d.ChatMessages) ? d.ChatMessages.map((v: any) => new Chat(v)) : null;
         this.CarIDToGUID = ('CarIDToGUID' in d) ? d.CarIDToGUID as { [key: number]: string } : {};
         this.BestSplits = Array.isArray(d.BestSplits) ? d.BestSplits.map((v: any) => new RaceControlCarSplit(v)) : null;
+        this.DamageMultiplier = ('DamageMultiplier' in d) ? d.DamageMultiplier as number : 0;
     }
 
     toObject(): any {
         const cfg: any = {};
         cfg.CurrentRealtimePosInterval = 'number';
         cfg.SessionStartTime = 'string';
+        cfg.DamageMultiplier = 'number';
         return ToObject(this, cfg);
     }
 }
