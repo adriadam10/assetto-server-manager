@@ -287,12 +287,17 @@ func (ss *ServerState) GetCarByTCPConn(conn net.Conn) (*Car, error) {
 }
 
 func (ss *ServerState) AssociateUDPConnectionByCarID(addr net.Addr, carID CarID) error {
-	ss.logger.Infof("Associating address: %s to CarID: %d", addr.String(), carID)
 	car, err := ss.GetCarByID(carID)
 
 	if err != nil {
 		return err
 	}
+
+	if car.Connection.udpAddr != nil && car.Connection.udpAddr.String() == addr.String() {
+		return nil
+	}
+
+	ss.logger.Infof("Associating address: %s to CarID: %d", addr.String(), carID)
 
 	car.AssociateUDPAddress(addr)
 
