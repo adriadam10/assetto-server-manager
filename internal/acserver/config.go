@@ -95,6 +95,7 @@ type EventConfig struct {
 
 	DRSPenaltiesEnabled             bool        `json:"drs_penalties_enabled" yaml:"drs_penalties_enabled"`
 	DRSPenaltiesEnableOnLap         int         `json:"drs_penalties_enable_on_lap" yaml:"drs_penalties_enable_on_lap"`
+	DRSPenaltiesWindow              float32     `json:"drs_penalties_window" yaml:"drs_penalties_window"`
 	DRSPenaltiesNumWarnings         int         `json:"drs_penalties_num_warnings" yaml:"drs_penalties_num_warnings"`
 	DRSPenaltiesPenaltyType         PenaltyType `json:"drs_penalties_penalty_type" yaml:"drs_penalties_penalty_type"`
 	DRSPenaltiesBoPAmount           float32     `json:"drs_penalties_bop_amount" yaml:"drs_penalties_bop_amount"`
@@ -116,19 +117,19 @@ type EventConfig struct {
 type PenaltyType int
 
 const (
-	CutPenaltyKick PenaltyType = iota
-	CutPenaltyBallast
-	CutPenaltyRestrictor
-	CutPenaltyWarn
-	CutPenaltyDriveThrough
+	PenaltyKick PenaltyType = iota
+	PenaltyBallast
+	PenaltyRestrictor
+	PenaltyWarn
+	PenaltyDriveThrough
 )
 
 var CutPenaltyOptions = map[PenaltyType]string{
-	CutPenaltyKick:         "Kick",
-	CutPenaltyBallast:      "Apply Ballast",
-	CutPenaltyRestrictor:   "Apply Restrictor",
-	CutPenaltyWarn:         "Warn Driver",
-	CutPenaltyDriveThrough: "Drive Through",
+	PenaltyKick:         "Kick",
+	PenaltyBallast:      "Apply Ballast",
+	PenaltyRestrictor:   "Apply Restrictor",
+	PenaltyWarn:         "Warn Driver",
+	PenaltyDriveThrough: "Drive Through",
 }
 
 func (c EventConfig) Tyres() map[string]bool {

@@ -148,7 +148,9 @@ func (p *PenaltiesPlugin) OnCarUpdate(car acserver.CarInfo) error {
 			for i, zone := range p.drsZones {
 				// record all drs activation zone times
 				if penaltyInfo.lastDRSActivationZoneTime.IsZero() || time.Since(penaltyInfo.lastDRSActivationZoneTime) > time.Second*5 {
-					if car.PluginStatus.NormalisedSplinePos/zone.Detection > 0.97 && car.PluginStatus.NormalisedSplinePos/zone.Detection < 1.0 {
+					splineRatioToDetectionZone := car.PluginStatus.NormalisedSplinePos / zone.Detection
+
+					if splineRatioToDetectionZone > 0.97 && splineRatioToDetectionZone < 1.0 {
 						penaltyInfo.lastDRSActivationZoneTime = time.Now()
 						penaltyInfo.lastDRSActivationZone = i
 
@@ -167,7 +169,7 @@ func (p *PenaltiesPlugin) OnCarUpdate(car acserver.CarInfo) error {
 
 					diff := penaltyInfo.lastDRSActivationZoneTime.Sub(penalty.lastDRSActivationZoneTime)
 
-					if diff <= time.Second*2 && diff > 0 {
+					if diff <= time.Second*time.Duration(p.eventConfig.DRSPenaltiesWindow) && diff > 0 {
 						penaltyInfo.isInDRSWindow = true
 						break
 					} else {
@@ -195,11 +197,6 @@ func (p *PenaltiesPlugin) OnCarUpdate(car acserver.CarInfo) error {
 				if isInZone && penaltyInfo.isInDRSWindow {
 					penaltyInfo.isAllowedDRS = true
 
-					err := p.server.SendChat("DRS: OK", acserver.ServerCarID, penaltyInfo.carID, true)
-
-					if err != nil {
-						p.logger.WithError(err).Error("Send chat returned an error")
-					}
 					break
 				}
 			}
@@ -287,7 +284,7 @@ func (p *PenaltiesPlugin) OnNewSession(newSession acserver.SessionInfo) error {
 		penalty.totalCleanLapTime = 0
 	}
 
-	if !p.pitLane.PitLaneCapable && p.eventConfig.CustomCutsPenaltyType == acserver.CutPenaltyDriveThrough {
+	if !p.pitLane.PitLaneCapable && p.eventConfig.CustomCutsPenaltyType == acserver.PenaltyDriveThrough {
 		logrus.Warn("New session is configured to give drive through penalties but the track is not capable of pit lane detection! " +
 			"Please make sure the track has fast_lane.ai and pit_lane.ai files for each layout and re-upload it to the manager! " +
 			"For this session drivers will be given time penalties in place of drive through penalties.")
@@ -462,6 +459,14 @@ func (p *PenaltiesPlugin) OnLapCompleted(carID acserver.CarID, lap acserver.Lap)
 
 	penaltyInfo.totalLaps++
 
+	if int(penaltyInfo.totalLaps) == p.eventConfig.DRSPenaltiesEnableOnLap {
+		err = p.server.SendChat("DRS Enabled", acserver.ServerCarID, entrant.CarID, true)
+
+		if err != nil {
+			p.logger.WithError(err).Error("Send chat returned an error")
+		}
+	}
+
 	if lap.Cuts == 0 {
 		lapTime := lap.LapTime.Milliseconds()
 
@@ -568,7 +573,7 @@ func (p *PenaltiesPlugin) applyPenalty(entrant acserver.CarInfo, penaltyInfo *pe
 	var err error
 
 	switch penaltyType {
-	case acserver.CutPenaltyKick:
+	case acserver.PenaltyKick:
 		err = p.server.SendChat(fmt.Sprintf("You have been kicked for %s", messageContext), acserver.ServerCarID, entrant.CarID, true)
 
 		if err != nil {
@@ -582,7 +587,7 @@ func (p *PenaltiesPlugin) applyPenalty(entrant acserver.CarInfo, penaltyInfo *pe
 		}()
 
 		return
-	case acserver.CutPenaltyBallast:
+	case acserver.PenaltyBallast:
 		penaltyInfo.penaltyBallast += bopAmount
 
 		err = p.server.UpdateBoP(entrant.CarID, penaltyInfo.penaltyBallast, entrant.Restrictor)
@@ -595,7 +600,7 @@ func (p *PenaltiesPlugin) applyPenalty(entrant acserver.CarInfo, penaltyInfo *pe
 		penaltyInfo.clearPenaltyIn += clearPenaltyIn
 
 		chatMessage = fmt.Sprintf("You have been given %.1fkg of ballast for %d laps for %s", bopAmount, clearPenaltyIn, messageContext)
-	case acserver.CutPenaltyRestrictor:
+	case acserver.PenaltyRestrictor:
 		penaltyInfo.penaltyRestrictor += bopAmount
 
 		err = p.server.UpdateBoP(entrant.CarID, entrant.Ballast, penaltyInfo.penaltyRestrictor)
@@ -608,7 +613,7 @@ func (p *PenaltiesPlugin) applyPenalty(entrant acserver.CarInfo, penaltyInfo *pe
 		penaltyInfo.clearPenaltyIn += clearPenaltyIn
 
 		chatMessage = fmt.Sprintf("You have been given %.0f%% restrictor for %d laps for %s", bopAmount, clearPenaltyIn, messageContext)
-	case acserver.CutPenaltyDriveThrough:
+	case acserver.PenaltyDriveThrough:
 		if !p.pitLane.PitLaneCapable {
 			penaltyInfo.timePenalties = append(penaltyInfo.timePenalties, time.Second*time.Duration(20))
 
@@ -621,7 +626,7 @@ func (p *PenaltiesPlugin) applyPenalty(entrant acserver.CarInfo, penaltyInfo *pe
 
 			chatMessage = fmt.Sprintf("You have been given a Drive Through Penalty %s! Please serve within the next %d lap(s).", messageContext, penaltyInfo.driveThroughLaps)
 		}
-	case acserver.CutPenaltyWarn:
+	case acserver.PenaltyWarn:
 		chatMessage = fmt.Sprintf("Please avoid %s! Your behaviour has been noted for admins to review in the results file", messageContext)
 	}
 

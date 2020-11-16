@@ -418,6 +418,7 @@ type CurrentRaceConfig struct {
 	CustomCutsDriveThroughNumLaps int                  `ini:"-"`
 
 	DRSPenaltiesEnabled             bool                 `ini:"-"`
+	DRSPenaltiesWindow              float32              `ini:"-"`
 	DRSPenaltiesEnableOnLap         int                  `ini:"-"`
 	DRSPenaltiesNumWarnings         int                  `ini:"-"`
 	DRSPenaltiesPenaltyType         acserver.PenaltyType `ini:"-"`
@@ -486,6 +487,7 @@ func (c CurrentRaceConfig) ToACConfig() *acserver.EventConfig {
 		CustomCutsBoPNumLaps:                  c.CustomCutsBoPNumLaps,
 		CustomCutsDriveThroughNumLaps:         c.CustomCutsDriveThroughNumLaps,
 		DRSPenaltiesEnabled:                   c.DRSPenaltiesEnabled,
+		DRSPenaltiesWindow:                    c.DRSPenaltiesWindow,
 		DRSPenaltiesEnableOnLap:               c.DRSPenaltiesEnableOnLap,
 		DRSPenaltiesNumWarnings:               c.DRSPenaltiesNumWarnings,
 		DRSPenaltiesPenaltyType:               c.DRSPenaltiesPenaltyType,

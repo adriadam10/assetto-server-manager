@@ -639,6 +639,7 @@ func (rm *RaceManager) BuildCustomRaceFromForm(r *http.Request) (*CurrentRaceCon
 		CustomCutsDriveThroughNumLaps: formValueAsInt(r.FormValue("CustomCutsDriveThroughNumLaps")),
 
 		DRSPenaltiesEnabled:             formValueAsInt(r.FormValue("DRSPenaltiesEnabled")) == 1,
+		DRSPenaltiesWindow:              float32(formValueAsFloat(r.FormValue("DRSPenaltiesWindow"))),
 		DRSPenaltiesEnableOnLap:         formValueAsInt(r.FormValue("DRSPenaltiesEnableOnLap")),
 		DRSPenaltiesNumWarnings:         formValueAsInt(r.FormValue("DRSPenaltiesNumWarnings")),
 		DRSPenaltiesPenaltyType:         acserver.PenaltyType(formValueAsInt(r.FormValue("DRSPenaltiesPenaltyType"))),
