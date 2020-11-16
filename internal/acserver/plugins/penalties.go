@@ -216,11 +216,11 @@ func (p *PenaltiesPlugin) OnCarUpdate(car acserver.CarInfo) error {
 				penaltyInfo.warningsDRS++
 
 				if penaltyInfo.warningsDRS > p.eventConfig.DRSPenaltiesNumWarnings {
-					p.applyPenalty(car, penaltyInfo, p.eventConfig.DRSPenaltiesPenaltyType, p.eventConfig.DRSPenaltiesBoPNumLaps, p.eventConfig.DRSPenaltiesDriveThroughNumLaps, p.eventConfig.DRSPenaltiesBoPAmount, "using DRS outside of the 2s window")
+					p.applyPenalty(car, penaltyInfo, p.eventConfig.DRSPenaltiesPenaltyType, p.eventConfig.DRSPenaltiesBoPNumLaps, p.eventConfig.DRSPenaltiesDriveThroughNumLaps, p.eventConfig.DRSPenaltiesBoPAmount, fmt.Sprintf("using DRS outside of the %.0fs window", p.eventConfig.DRSPenaltiesWindow))
 
 					penaltyInfo.warningsDRS = 0
 				} else {
-					err := p.server.SendChat(fmt.Sprintf("You used DRS whilst not within a 2s window! (warning %d/%d)", penaltyInfo.warningsDRS, p.eventConfig.DRSPenaltiesNumWarnings), acserver.ServerCarID, car.CarID, true)
+					err := p.server.SendChat(fmt.Sprintf("You used DRS whilst not within the %.1fs window! (warning %d/%d)", p.eventConfig.DRSPenaltiesWindow, penaltyInfo.warningsDRS, p.eventConfig.DRSPenaltiesNumWarnings), acserver.ServerCarID, car.CarID, true)
 
 					if err != nil {
 						p.logger.WithError(err).Error("Send chat returned an error")
