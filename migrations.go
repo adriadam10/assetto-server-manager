@@ -1178,7 +1178,7 @@ func addDefaultPenaltyOptionsToCustomRaces(s Store) error {
 
 	for _, customRace := range customRaces {
 		customRace.RaceConfig.CustomCutsEnabled = false
-		customRace.RaceConfig.CustomCutsPenaltyType = acserver.CutPenaltyKick
+		customRace.RaceConfig.CustomCutsPenaltyType = acserver.PenaltyKick
 		customRace.RaceConfig.CustomCutsBoPNumLaps = 2
 		customRace.RaceConfig.CustomCutsNumWarnings = 4
 		customRace.RaceConfig.CustomCutsBoPAmount = 50
@@ -1213,7 +1213,7 @@ func addDefaultPenaltyOptionsToCustomRaces(s Store) error {
 
 				for _, event := range raceWeekend.Sessions {
 					event.RaceConfig.CustomCutsEnabled = false
-					event.RaceConfig.CustomCutsPenaltyType = acserver.CutPenaltyKick
+					event.RaceConfig.CustomCutsPenaltyType = acserver.PenaltyKick
 					event.RaceConfig.CustomCutsBoPNumLaps = 2
 					event.RaceConfig.CustomCutsNumWarnings = 4
 					event.RaceConfig.CustomCutsBoPAmount = 50
@@ -1227,7 +1227,7 @@ func addDefaultPenaltyOptionsToCustomRaces(s Store) error {
 			}
 
 			event.RaceSetup.CustomCutsEnabled = false
-			event.RaceSetup.CustomCutsPenaltyType = acserver.CutPenaltyKick
+			event.RaceSetup.CustomCutsPenaltyType = acserver.PenaltyKick
 			event.RaceSetup.CustomCutsBoPNumLaps = 2
 			event.RaceSetup.CustomCutsNumWarnings = 4
 			event.RaceSetup.CustomCutsBoPAmount = 50
@@ -1255,7 +1255,7 @@ func addDefaultPenaltyOptionsToCustomRaces(s Store) error {
 	for _, raceWeekend := range raceWeekends {
 		for _, event := range raceWeekend.Sessions {
 			event.RaceConfig.CustomCutsEnabled = false
-			event.RaceConfig.CustomCutsPenaltyType = acserver.CutPenaltyKick
+			event.RaceConfig.CustomCutsPenaltyType = acserver.PenaltyKick
 			event.RaceConfig.CustomCutsBoPNumLaps = 2
 			event.RaceConfig.CustomCutsNumWarnings = 4
 			event.RaceConfig.CustomCutsBoPAmount = 50

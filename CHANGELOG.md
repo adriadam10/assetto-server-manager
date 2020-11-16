@@ -15,7 +15,7 @@ Kunos' acServer, and also provides the following advantages, exclusive to Server
 * Active development - expect fixes for any issues, and further feature development!
 * Force Opponent Headlights - you can now force opponent drivers to always have their headlights on.
 * Race Weekend 'Warm Up' Sessions - add a timed Practice session to the beginning of any Race in a Race Weekend, so drivers can get connected and do a few laps. Their lap times in this practice session will not affect their starting grid position as defined in the Race Weekend Entrylist.
-* Server only penalty system! You can now set custom penalties (drive through, kick, warning and ballast/restrictor) for track cuts in race sessions! We're hoping to expand this system further in the future.
+* Server only penalty system! You can now set custom penalties (drive through, kick, warning and ballast/restrictor) for track cuts, collisions and incorrect DRS usage in race sessions! We're hoping to expand this system further in the future.
 * Drift detection/points system! In sessions you can now enable Drift Mode, currently this tracks drift points for each driver over a lap and announces the total via chat, with feedback we hope to expand this system for all the drifters out there!
 * New/improved chat commands! Commands that reference drivers can now use the car ID, name of the driver or GUID of the driver! Also added /pm command for direct messages and /next_weather command to manually cycle configured session weathers.
 * New Track Maps! When you upload a track, if possible, Server Manager will calculate its own track map, including the start finish line, pit lane, and DRS markings. You can also build track maps for all your tracks using the button on the Server Options page. This requires your tracks to be reuploaded, as it needs new track files to work!
@@ -30,6 +30,7 @@ We've also changed the following things in Server Manager itself:
 * Blue Flag detection! Live Timings now displays a blue flag indicator for cars that are being approached by drivers who have completed more laps in a race session.
 * DRS detection! Live Timings now displays an icon when a driver activates DRS.
 * Live Timings will now accurately show driver order even mid lap in Race Sessions. If one driver overtakes another, you should see their positions change in the Live Timings table!
+* Live Timings collision speed detection is now a lot more accurate.
 * Live Timings will now show the number of laps a driver has completed since their last pit stop.
 * If a new entrant signs up to a Championship whilst a practice session is in progress they are now added to the entry list live and will be able to join the server without a restart!
 * Driver Swaps: you can now separate names by ';', in the same order as the GUIDs, so e.g. Driver Name 1;Driver Name 2;Driver Name 3 would match GUID1;GUID2;GUID3, and drivers names will then show correctly in Live Timings and results files.

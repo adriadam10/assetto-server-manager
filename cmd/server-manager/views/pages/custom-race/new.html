@@ -1862,13 +1862,13 @@
 
         <div class="card mt-3 border-secondary">
             <div class="card-header">
-                <strong>Custom Penalties</strong>
+                <strong>Custom Cut Penalties</strong>
             </div>
 
             <div class="card-body">
 
                 <div class="form-group row">
-                    <label for="CustomCutsEnabled" class="col-sm-3 col-form-label">Enable Custom Penalties</label>
+                    <label for="CustomCutsEnabled" class="col-sm-3 col-form-label">Enable Custom Cut Penalties</label>
 
                     <div class="col-sm-9">
 
@@ -2029,6 +2029,340 @@
                     </div>
                 </div>
 
+            </div>
+        </div>
+
+        <div class="card mt-3 border-secondary">
+            <div class="card-header">
+                <strong>Custom Collision Penalties</strong>
+            </div>
+
+            <div class="card-body">
+
+                <div class="form-group row">
+                    <label for="CollisionPenaltiesEnabled" class="col-sm-3 col-form-label">Enable Custom Collision Penalties</label>
+
+                    <div class="col-sm-9">
+
+                        <input
+                                class="form-control"
+                                type="checkbox"
+                                id="CollisionPenaltiesEnabled"
+                                name="CollisionPenaltiesEnabled"
+                                {{ if $f.CollisionPenaltiesEnabled }}
+                                    checked="checked"
+                                {{ end }}
+                        ><br/>
+
+                        <small>
+                            Custom collision penalties are controlled entirely by the server to prevent driver intervention.
+                            If a driver collides with another driver above the configured minimum speed
+                            they will be given a warning. If their number of warnings exceeds the number of warnings set
+                            they will be given the configured penalty and their warning counter will reset.
+
+                            <strong>These penalties only apply in race sessions.</strong>
+                        </small>
+                    </div>
+                </div>
+
+                <div class="form-group row">
+                    <label for="CollisionPenaltiesNumWarnings" class="col-sm-3 col-form-label">Number of Warnings</label>
+
+                    <div class="col-sm-9">
+                        <input
+                                type="number"
+                                id="CollisionPenaltiesNumWarnings"
+                                name="CollisionPenaltiesNumWarnings"
+                                class="form-control"
+                                value="{{ $f.CollisionPenaltiesNumWarnings }}"
+                                min="0"
+                                step="1"
+                        >
+
+                        <small>The number of collision warnings to give before applying the configured penalty.</small>
+                    </div>
+                </div>
+
+                <div class="form-group row">
+                    <label for="CollisionPenaltiesOnlyOverSpeed" class="col-sm-3 col-form-label">Minimum Speed</label>
+
+                    <div class="col-sm-9">
+                        <input
+                                type="number"
+                                id="CollisionPenaltiesOnlyOverSpeed"
+                                name="CollisionPenaltiesOnlyOverSpeed"
+                                class="form-control"
+                                value="{{ $f.CollisionPenaltiesOnlyOverSpeed }}"
+                                min="0"
+                                step="1"
+                        >
+
+                        <small>The collision speed (km/h) must be at least this value for the driver to receive a warning.</small>
+                    </div>
+                </div>
+
+                <div class="form-group row">
+                    <label for="CollisionPenaltiesPenaltyType" class="col-sm-3 col-form-label">Penalty Type</label>
+
+                    <div class="col-sm-9">
+
+                        <select class="form-control" id="CollisionPenaltiesPenaltyType" name="CollisionPenaltiesPenaltyType">
+                            {{ range $val, $name := .CutPenaltyOptions }}
+                                <option value="{{ $val }}" {{ if eq $f.CollisionPenaltiesPenaltyType $val }} selected="selected" {{ end }}>{{ $name }}</option>
+                            {{ end }}
+                        </select>
+
+                        <small>The type of penalty to apply when the number of warnings is exceeded.</small>
+                    </div>
+                </div>
+
+                {{ $hideBoPOptionsCollision := and (ne $f.CollisionPenaltiesPenaltyType 1) (ne $f.CollisionPenaltiesPenaltyType 2) }}
+
+                <div class="form-group row" style="{{ if $hideBoPOptionsCollision }}display: none;{{ end }}" id="CollisionPenaltiesBoPAmountWrapper">
+                    <label for="CollisionPenaltiesBoPAmount" class="col-sm-3 col-form-label">Ballast(kg)/Restrictor(%) to Apply</label>
+
+                    <div class="col-sm-9">
+                        <input
+                                type="number"
+                                id="CollisionPenaltiesBoPAmount"
+                                name="CollisionPenaltiesBoPAmount"
+                                class="form-control"
+                                value="{{ $f.CollisionPenaltiesBoPAmount }}"
+                                {{ if not $hideBoPOptionsCollision }}
+                                    min="0"
+                                {{ end }}
+                                step="0.01"
+                        >
+
+                        <small>The amount of ballast/restrictor to apply when the penalty is applied.</small>
+                    </div>
+                </div>
+
+                <div class="form-group row" style="{{ if $hideBoPOptionsCollision }}display: none;{{ end }}" id="CollisionPenaltiesBoPNumLapsWrapper">
+                    <label for="CollisionPenaltiesBoPNumLaps" class="col-sm-3 col-form-label">Number of Laps of Penalty Ballast/Restrictor</label>
+
+                    <div class="col-sm-9">
+                        <input
+                                type="number"
+                                id="CollisionPenaltiesBoPNumLaps"
+                                name="CollisionPenaltiesBoPNumLaps"
+                                class="form-control"
+                                value="{{ $f.CollisionPenaltiesBoPNumLaps }}"
+                                {{ if not $hideBoPOptionsCollision }}
+                                    min="1"
+                                {{ end }}
+                                step="1"
+                        >
+
+                        <small>After this number of laps the ballast/restrictor penalty will be removed.</small>
+                    </div>
+                </div>
+
+                <div class="form-group row" style="{{ if (ne $f.CollisionPenaltiesPenaltyType 4) }}display: none;{{ end }}" id="CollisionPenaltiesDriveThroughNumLapsWrapper">
+                    <label for="CollisionPenaltiesDriveThroughNumLaps" class="col-sm-3 col-form-label">Number of Laps to Serve Drive Through</label>
+
+                    <div class="col-sm-9">
+                        <input
+                                type="number"
+                                id="CollisionPenaltiesDriveThroughNumLaps"
+                                name="CollisionPenaltiesDriveThroughNumLaps"
+                                class="form-control"
+                                value="{{ $f.CollisionPenaltiesDriveThroughNumLaps }}"
+                                min="1"
+                                step="1"
+                        >
+
+                        <small>If a driver does not complete their drive through within this number of laps they will be kicked.
+                            If a driver completes the race with a pending drive through penalty they will be given an automatic time penalty.</small>
+                    </div>
+                </div>
+
+                <div class="form-group row">
+                    <label for="CollisionPenaltiesIgnoreFirstLap" class="col-sm-3 col-form-label">Ignore First Lap</label>
+
+                    <div class="col-sm-9">
+
+                        <input
+                                class="form-control"
+                                type="checkbox"
+                                id="CollisionPenaltiesIgnoreFirstLap"
+                                name="CollisionPenaltiesIgnoreFirstLap"
+                                {{ if $f.CollisionPenaltiesIgnoreFirstLap }}
+                                    checked="checked"
+                                {{ end }}
+                        ><br/>
+
+                        <small>
+                            If this is enabled collisions in the first lap of a race will be completely ignored.
+                        </small>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        <div class="card mt-3 border-secondary">
+            <div class="card-header">
+                <strong>Custom DRS Penalties</strong>
+            </div>
+
+            <div class="card-body">
+
+                <div class="form-group row">
+                    <label for="DRSPenaltiesEnabled" class="col-sm-3 col-form-label">Enable Custom DRS Penalties</label>
+
+                    <div class="col-sm-9">
+
+                        <input
+                                class="form-control"
+                                type="checkbox"
+                                id="DRSPenaltiesEnabled"
+                                name="DRSPenaltiesEnabled"
+                                {{ if $f.DRSPenaltiesEnabled }}
+                                    checked="checked"
+                                {{ end }}
+                        ><br/>
+
+                        <small>
+                            Custom DRS penalties are controlled entirely by the server to prevent driver intervention.
+                            If a driver uses DRS whilst in a DRS after not crossing the detection zone within the DRS window of another driver
+                            they will be given a warning. If their number of warnings exceeds the number of warnings set
+                            they will be given the configured penalty and their warning counter will reset.
+
+                            <strong>These penalties only apply in race sessions.</strong>
+                        </small>
+                    </div>
+                </div>
+
+                <div class="form-group row">
+                    <label for="DRSPenaltiesWindow" class="col-sm-3 col-form-label">DRS Window</label>
+
+                    <div class="col-sm-9">
+                        <input
+                                type="number"
+                                id="DRSPenaltiesWindow"
+                                name="DRSPenaltiesWindow"
+                                class="form-control"
+                                value="{{ $f.DRSPenaltiesWindow }}"
+                                min="0"
+                                step="0.1"
+                        >
+
+                        <small>The DRS Window in seconds. Following driver must be within this many of seconds of the driver in front to be able to use DRS.</small>
+                    </div>
+                </div>
+
+                <div class="form-group row">
+                    <label for="DRSPenaltiesEnableOnLap" class="col-sm-3 col-form-label">Enable DRS On Lap</label>
+
+                    <div class="col-sm-9">
+                        <input
+                                type="number"
+                                id="DRSPenaltiesEnableOnLap"
+                                name="DRSPenaltiesEnableOnLap"
+                                class="form-control"
+                                value="{{ $f.DRSPenaltiesEnableOnLap }}"
+                                min="0"
+                                step="1"
+                        >
+
+                        <small>DRS will be enabled on this lap. Any DRS usage before this lap will be penalised.</small>
+                    </div>
+                </div>
+
+                <div class="form-group row">
+                    <label for="DRSPenaltiesNumWarnings" class="col-sm-3 col-form-label">Number of Warnings</label>
+
+                    <div class="col-sm-9">
+                        <input
+                                type="number"
+                                id="DRSPenaltiesNumWarnings"
+                                name="DRSPenaltiesNumWarnings"
+                                class="form-control"
+                                value="{{ $f.DRSPenaltiesNumWarnings }}"
+                                min="0"
+                                step="1"
+                        >
+
+                        <small>The number of incorrect DRS usage warnings to give before applying the configured penalty.</small>
+                    </div>
+                </div>
+
+                <div class="form-group row">
+                    <label for="DRSPenaltiesPenaltyType" class="col-sm-3 col-form-label">Penalty Type</label>
+
+                    <div class="col-sm-9">
+
+                        <select class="form-control" id="DRSPenaltiesPenaltyType" name="DRSPenaltiesPenaltyType">
+                            {{ range $val, $name := .CutPenaltyOptions }}
+                                <option value="{{ $val }}" {{ if eq $f.DRSPenaltiesPenaltyType $val }} selected="selected" {{ end }}>{{ $name }}</option>
+                            {{ end }}
+                        </select>
+
+                        <small>The type of penalty to apply when the number of warnings is exceeded.</small>
+                    </div>
+                </div>
+
+                {{ $hideBoPOptionsDRS := and (ne $f.DRSPenaltiesPenaltyType 1) (ne $f.DRSPenaltiesPenaltyType 2) }}
+
+                <div class="form-group row" style="{{ if $hideBoPOptionsDRS }}display: none;{{ end }}" id="DRSPenaltiesBoPAmountWrapper">
+                    <label for="DRSPenaltiesBoPAmount" class="col-sm-3 col-form-label">Ballast(kg)/Restrictor(%) to Apply</label>
+
+                    <div class="col-sm-9">
+                        <input
+                                type="number"
+                                id="DRSPenaltiesBoPAmount"
+                                name="DRSPenaltiesBoPAmount"
+                                class="form-control"
+                                value="{{ $f.DRSPenaltiesBoPAmount }}"
+                                {{ if not $hideBoPOptionsDRS }}
+                                    min="0"
+                                {{ end }}
+                                step="0.01"
+                        >
+
+                        <small>The amount of ballast/restrictor to apply when the penalty is applied.</small>
+                    </div>
+                </div>
+
+                <div class="form-group row" style="{{ if $hideBoPOptionsDRS }}display: none;{{ end }}" id="DRSPenaltiesBoPNumLapsWrapper">
+                    <label for="DRSPenaltiesBoPNumLaps" class="col-sm-3 col-form-label">Number of Laps of Penalty Ballast/Restrictor</label>
+
+                    <div class="col-sm-9">
+                        <input
+                                type="number"
+                                id="DRSPenaltiesBoPNumLaps"
+                                name="DRSPenaltiesBoPNumLaps"
+                                class="form-control"
+                                value="{{ $f.DRSPenaltiesBoPNumLaps }}"
+                                {{ if not $hideBoPOptionsDRS }}
+                                    min="1"
+                                {{ end }}
+                                step="1"
+                        >
+
+                        <small>After this number of laps the ballast/restrictor penalty will be removed.</small>
+                    </div>
+                </div>
+
+                <div class="form-group row" style="{{ if (ne $f.DRSPenaltiesPenaltyType 4) }}display: none;{{ end }}" id="DRSPenaltiesDriveThroughNumLapsWrapper">
+                    <label for="DRSPenaltiesDriveThroughNumLaps" class="col-sm-3 col-form-label">Number of Laps to Serve Drive Through</label>
+
+                    <div class="col-sm-9">
+                        <input
+                                type="number"
+                                id="DRSPenaltiesDriveThroughNumLaps"
+                                name="DRSPenaltiesDriveThroughNumLaps"
+                                class="form-control"
+                                value="{{ $f.DRSPenaltiesDriveThroughNumLaps }}"
+                                min="1"
+                                step="1"
+                        >
+
+                        <small>If a driver does not complete their drive through within this number of laps they will be kicked.
+                            If a driver completes the race with a pending drive through penalty they will be given an automatic time penalty.</small>
+                    </div>
+                </div>
             </div>
         </div>
 

@@ -620,10 +620,28 @@ func (rm *RaceManager) BuildCustomRaceFromForm(r *http.Request) (*CurrentRaceCon
 		CustomCutsOnlyIfCleanSet:      formValueAsInt(r.FormValue("CustomCutsOnlyIfCleanSet")) == 1,
 		CustomCutsIgnoreFirstLap:      formValueAsInt(r.FormValue("CustomCutsIgnoreFirstLap")) == 1,
 		CustomCutsNumWarnings:         formValueAsInt(r.FormValue("CustomCutsNumWarnings")),
-		CustomCutsPenaltyType:         acserver.CutPenaltyType(formValueAsInt(r.FormValue("CustomCutsPenaltyType"))),
+		CustomCutsPenaltyType:         acserver.PenaltyType(formValueAsInt(r.FormValue("CustomCutsPenaltyType"))),
 		CustomCutsBoPAmount:           float32(formValueAsFloat(r.FormValue("CustomCutsBoPAmount"))),
 		CustomCutsBoPNumLaps:          formValueAsInt(r.FormValue("CustomCutsBoPNumLaps")),
 		CustomCutsDriveThroughNumLaps: formValueAsInt(r.FormValue("CustomCutsDriveThroughNumLaps")),
+
+		DRSPenaltiesEnabled:             formValueAsInt(r.FormValue("DRSPenaltiesEnabled")) == 1,
+		DRSPenaltiesWindow:              float32(formValueAsFloat(r.FormValue("DRSPenaltiesWindow"))),
+		DRSPenaltiesEnableOnLap:         formValueAsInt(r.FormValue("DRSPenaltiesEnableOnLap")),
+		DRSPenaltiesNumWarnings:         formValueAsInt(r.FormValue("DRSPenaltiesNumWarnings")),
+		DRSPenaltiesPenaltyType:         acserver.PenaltyType(formValueAsInt(r.FormValue("DRSPenaltiesPenaltyType"))),
+		DRSPenaltiesBoPAmount:           float32(formValueAsFloat(r.FormValue("DRSPenaltiesBoPAmount"))),
+		DRSPenaltiesBoPNumLaps:          formValueAsInt(r.FormValue("DRSPenaltiesBoPNumLaps")),
+		DRSPenaltiesDriveThroughNumLaps: formValueAsInt(r.FormValue("DRSPenaltiesDriveThroughNumLaps")),
+
+		CollisionPenaltiesEnabled:             formValueAsInt(r.FormValue("CollisionPenaltiesEnabled")) == 1,
+		CollisionPenaltiesIgnoreFirstLap:      formValueAsInt(r.FormValue("CollisionPenaltiesIgnoreFirstLap")) == 1,
+		CollisionPenaltiesOnlyOverSpeed:       float32(formValueAsFloat(r.FormValue("CollisionPenaltiesOnlyOverSpeed"))),
+		CollisionPenaltiesNumWarnings:         formValueAsInt(r.FormValue("CollisionPenaltiesNumWarnings")),
+		CollisionPenaltiesPenaltyType:         acserver.PenaltyType(formValueAsInt(r.FormValue("CollisionPenaltiesPenaltyType"))),
+		CollisionPenaltiesBoPAmount:           float32(formValueAsFloat(r.FormValue("CollisionPenaltiesBoPAmount"))),
+		CollisionPenaltiesBoPNumLaps:          formValueAsInt(r.FormValue("CollisionPenaltiesBoPNumLaps")),
+		CollisionPenaltiesDriveThroughNumLaps: formValueAsInt(r.FormValue("CollisionPenaltiesDriveThroughNumLaps")),
 
 		DriftModeEnabled: formValueAsInt(r.FormValue("DriftModeEnabled")) == 1,
 	}
@@ -947,7 +965,7 @@ type RaceTemplateVars struct {
 	RaceWeekendSession              *RaceWeekendSession
 	RaceWeekendHasAtLeastOneSession bool
 
-	CutPenaltyOptions map[acserver.CutPenaltyType]string
+	CutPenaltyOptions map[acserver.PenaltyType]string
 
 	ShowOverridePasswordCard bool
 }

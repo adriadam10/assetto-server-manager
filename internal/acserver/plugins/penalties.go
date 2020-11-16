@@ -21,32 +21,52 @@ type PenaltiesPlugin struct {
 
 	penalties []*penaltyInfo
 
-	pitLane *pitlanedetection.PitLane
+	pitLane          *pitlanedetection.PitLane
+	drsZones         []acserver.DRSZone
+	installPath      string
+	drsZonesFilename string
 }
 
 type penaltyInfo struct {
-	carID    acserver.CarID
-	warnings int
+	carID              acserver.CarID
+	warnings           int
+	warningsDRS        int
+	warningsCollisions int
 
 	timePenalties []time.Duration
 
+	cleanLaps         []int64
+	bestLap           int64
 	totalCleanLapTime int64
-	totalCleanLaps    int64
 	totalLaps         int64
 	clearPenaltyIn    int
 
 	originalBallast    float32
 	originalRestrictor float32
 
+	penaltyBallast    float32
+	penaltyRestrictor float32
+
 	driveThrough        bool
 	driveThroughActive  bool
 	driveThroughStarted time.Time
 	driveThroughLaps    int
+
+	lastDRSActivationZoneTime time.Time
+	lastDRSActivationZone     int
+	isInDRSWindow             bool
+	isAllowedDRS              bool
+	drsIsOpen                 bool
+	drsOpenedAt               time.Time
+
+	collisionRateLimiter time.Time
 }
 
-func NewPenaltiesPlugin(pitLane *pitlanedetection.PitLane) acserver.Plugin {
+func NewPenaltiesPlugin(pitLane *pitlanedetection.PitLane, installPath, drsZonesFilename string) acserver.Plugin {
 	return &PenaltiesPlugin{
-		pitLane: pitLane,
+		pitLane:          pitLane,
+		installPath:      installPath,
+		drsZonesFilename: drsZonesFilename,
 	}
 }
 
@@ -66,6 +86,8 @@ func (p *PenaltiesPlugin) OnNewConnection(car acserver.CarInfo) error {
 		carID:              car.CarID,
 		originalBallast:    car.Ballast,
 		originalRestrictor: car.Restrictor,
+
+		lastDRSActivationZoneTime: time.Time{},
 	})
 
 	return nil
@@ -116,6 +138,101 @@ func (p *PenaltiesPlugin) OnCarUpdate(car acserver.CarInfo) error {
 		return nil
 	}
 
+	sessionInfo := p.server.GetSessionInfo()
+
+	if p.eventConfig.DRSPenaltiesEnabled && sessionInfo.SessionType == acserver.SessionTypeRace {
+		penaltyInfo.isAllowedDRS = false
+		checkIfInWindow := false
+
+		if int(sessionInfo.NumLaps) >= p.eventConfig.DRSPenaltiesEnableOnLap {
+			for i, zone := range p.drsZones {
+				// record all drs activation zone times
+				if penaltyInfo.lastDRSActivationZoneTime.IsZero() || time.Since(penaltyInfo.lastDRSActivationZoneTime) > time.Second*5 {
+					splineRatioToDetectionZone := car.PluginStatus.NormalisedSplinePos / zone.Detection
+
+					if splineRatioToDetectionZone > 0.97 && splineRatioToDetectionZone < 1.0 {
+						penaltyInfo.lastDRSActivationZoneTime = time.Now()
+						penaltyInfo.lastDRSActivationZone = i
+
+						checkIfInWindow = true
+					}
+				}
+			}
+
+			if checkIfInWindow {
+				penaltyInfo.isInDRSWindow = false
+
+				for _, penalty := range p.penalties {
+					if penalty.carID == penaltyInfo.carID || penalty.lastDRSActivationZone != penaltyInfo.lastDRSActivationZone {
+						continue
+					}
+
+					diff := penaltyInfo.lastDRSActivationZoneTime.Sub(penalty.lastDRSActivationZoneTime)
+
+					if diff <= time.Second*time.Duration(p.eventConfig.DRSPenaltiesWindow) && diff > 0 {
+						penaltyInfo.isInDRSWindow = true
+						break
+					} else {
+						penaltyInfo.isInDRSWindow = false
+					}
+				}
+			}
+		} else {
+			penaltyInfo.isInDRSWindow = false
+		}
+
+		for i, zone := range p.drsZones {
+			// only make sure drs is allowed if it's being used, once allowed don't then un-allow due to another zone
+			if car.PluginStatus.StatusBytes&acserver.DRSByte == acserver.DRSByte && i == penaltyInfo.lastDRSActivationZone {
+				isInZone := false
+
+				if zone.Start < zone.End {
+					// zone does not cross the start/finish line
+					isInZone = car.PluginStatus.NormalisedSplinePos >= zone.Start && car.PluginStatus.NormalisedSplinePos <= zone.End
+				} else {
+					// zone does cross the start/finish line
+					isInZone = (car.PluginStatus.NormalisedSplinePos >= zone.Start && car.PluginStatus.NormalisedSplinePos <= 1.0) || (car.PluginStatus.NormalisedSplinePos <= zone.End && car.PluginStatus.NormalisedSplinePos >= 0.0)
+				}
+
+				if isInZone && penaltyInfo.isInDRSWindow {
+					penaltyInfo.isAllowedDRS = true
+
+					break
+				}
+			}
+		}
+
+		drsWasOpen := penaltyInfo.drsIsOpen
+
+		if car.PluginStatus.StatusBytes&acserver.DRSByte == acserver.DRSByte {
+
+			penaltyInfo.drsIsOpen = true
+
+			if penaltyInfo.drsIsOpen != drsWasOpen {
+				penaltyInfo.drsOpenedAt = time.Now()
+			}
+
+			if !penaltyInfo.isAllowedDRS && time.Since(penaltyInfo.drsOpenedAt) >= time.Second {
+				penaltyInfo.warningsDRS++
+
+				if penaltyInfo.warningsDRS > p.eventConfig.DRSPenaltiesNumWarnings {
+					p.applyPenalty(car, penaltyInfo, p.eventConfig.DRSPenaltiesPenaltyType, p.eventConfig.DRSPenaltiesBoPNumLaps, p.eventConfig.DRSPenaltiesDriveThroughNumLaps, p.eventConfig.DRSPenaltiesBoPAmount, fmt.Sprintf("using DRS outside of the %.0fs window", p.eventConfig.DRSPenaltiesWindow))
+
+					penaltyInfo.warningsDRS = 0
+				} else {
+					err := p.server.SendChat(fmt.Sprintf("You used DRS whilst not within the %.1fs window! (warning %d/%d)", p.eventConfig.DRSPenaltiesWindow, penaltyInfo.warningsDRS, p.eventConfig.DRSPenaltiesNumWarnings), acserver.ServerCarID, car.CarID, true)
+
+					if err != nil {
+						p.logger.WithError(err).Error("Send chat returned an error")
+					}
+				}
+			}
+		} else {
+			penaltyInfo.drsIsOpen = false
+			penaltyInfo.drsOpenedAt = time.Time{}
+		}
+	}
+
 	if penaltyInfo.driveThrough {
 		for _, pitLaneCar := range p.pitLane.Cars {
 			if acserver.CarID(pitLaneCar.ID) == penaltyInfo.carID {
@@ -143,6 +260,7 @@ func (p *PenaltiesPlugin) OnCarUpdate(car acserver.CarInfo) error {
 
 func (p *PenaltiesPlugin) OnNewSession(newSession acserver.SessionInfo) error {
 	p.eventConfig = p.server.GetEventConfig()
+
 	for _, penalty := range p.penalties {
 		if penalty.clearPenaltyIn > 0 {
 			err := p.server.UpdateBoP(penalty.carID, penalty.originalBallast, penalty.originalRestrictor)
@@ -162,14 +280,32 @@ func (p *PenaltiesPlugin) OnNewSession(newSession acserver.SessionInfo) error {
 		penalty.clearPenaltyIn = 0
 		penalty.warnings = 0
 		penalty.totalLaps = 0
-		penalty.totalCleanLaps = 0
+		penalty.cleanLaps = nil
 		penalty.totalCleanLapTime = 0
 	}
 
-	if !p.pitLane.PitLaneCapable && p.eventConfig.CustomCutsPenaltyType == acserver.CutPenaltyDriveThrough {
+	if !p.pitLane.PitLaneCapable && p.eventConfig.CustomCutsPenaltyType == acserver.PenaltyDriveThrough {
 		logrus.Warn("New session is configured to give drive through penalties but the track is not capable of pit lane detection! " +
 			"Please make sure the track has fast_lane.ai and pit_lane.ai files for each layout and re-upload it to the manager! " +
 			"For this session drivers will be given time penalties in place of drive through penalties.")
+	}
+
+	if p.eventConfig.DRSPenaltiesEnabled {
+		trackPath := filepath.Join(p.installPath, "content", "tracks", p.eventConfig.Track)
+
+		if p.eventConfig.TrackLayout != "" {
+			trackPath = filepath.Join(trackPath, p.eventConfig.TrackLayout)
+		}
+
+		drsZones, err := acserver.LoadDRSZones(filepath.Join(trackPath, "data", p.drsZonesFilename))
+
+		if err != nil {
+			logrus.WithError(err).Warnf("New session is configured with DRS Penalties, but the track drs_zones.ini file is missing from %s!", filepath.Join("assetto", "content", "tracks", "data", "drs_zones.ini"))
+		} else {
+			for _, zone := range drsZones {
+				p.drsZones = append(p.drsZones, zone)
+			}
+		}
 	}
 
 	return nil
@@ -209,7 +345,9 @@ func (p *PenaltiesPlugin) OnEndSession(sessionFile string) error {
 			continue
 		}
 
-		averageCleanLap := time.Millisecond * time.Duration(float32(penalty.totalCleanLapTime)/float32(penalty.totalCleanLaps))
+		numCleanLaps := len(penalty.cleanLaps)
+
+		averageCleanLap := time.Millisecond * time.Duration(float32(penalty.totalCleanLapTime)/float32(numCleanLaps))
 
 		if penalty.driveThrough {
 			// driver finished session with unserved penalty, apply to results
@@ -220,7 +358,7 @@ func (p *PenaltiesPlugin) OnEndSession(sessionFile string) error {
 
 					p.logger.Infof("adding %s penalty to car %d for unserved drive through penalty", result.CarID, result.PenaltyTime)
 
-					if penalty.totalCleanLaps != 0 {
+					if numCleanLaps != 0 {
 						if result.PenaltyTime > averageCleanLap {
 							result.LapPenalty = int(result.PenaltyTime / averageCleanLap)
 						}
@@ -238,7 +376,7 @@ func (p *PenaltiesPlugin) OnEndSession(sessionFile string) error {
 
 					p.logger.Infof("adding %s penalty to car %d for cutting the track, based on remaining laps of BoP at session end", result.CarID, result.PenaltyTime)
 
-					if penalty.totalCleanLaps != 0 {
+					if numCleanLaps != 0 {
 						if result.PenaltyTime > averageCleanLap {
 							result.LapPenalty = int(result.PenaltyTime / averageCleanLap)
 						}
@@ -255,7 +393,7 @@ func (p *PenaltiesPlugin) OnEndSession(sessionFile string) error {
 
 					p.logger.Infof("adding %s penalty to car %d for cutting the track", result.CarID, result.PenaltyTime)
 
-					if penalty.totalCleanLaps != 0 {
+					if numCleanLaps != 0 {
 						if result.PenaltyTime > averageCleanLap {
 							result.LapPenalty = int(result.PenaltyTime / averageCleanLap)
 						}
@@ -292,155 +430,129 @@ func (p *PenaltiesPlugin) OnClientLoaded(car acserver.CarInfo) error {
 }
 
 func (p *PenaltiesPlugin) OnLapCompleted(carID acserver.CarID, lap acserver.Lap) error {
-	if p.eventConfig.CustomCutsEnabled && p.server.GetSessionInfo().SessionType == acserver.SessionTypeRace {
-		var averageCleanLap int64
+	if p.server.GetSessionInfo().SessionType != acserver.SessionTypeRace {
+		return nil
+	}
 
-		entrant, err := p.server.GetCarInfo(carID)
+	var averageCleanLap int64
+
+	entrant, err := p.server.GetCarInfo(carID)
+
+	if err != nil {
+		return err
+	}
+
+	var penaltyInfo *penaltyInfo
+
+	for _, penalty := range p.penalties {
+		if penalty.carID == carID {
+			penaltyInfo = penalty
+			break
+		}
+	}
+
+	if penaltyInfo == nil {
+		logrus.Warnf("Car %d completed a lap, but is not present in the penalty info list, penalties disabled for this driver", carID)
+
+		return nil
+	}
+
+	penaltyInfo.totalLaps++
+
+	if int(penaltyInfo.totalLaps) == p.eventConfig.DRSPenaltiesEnableOnLap {
+		err = p.server.SendChat("DRS Enabled", acserver.ServerCarID, entrant.CarID, true)
 
 		if err != nil {
-			return err
+			p.logger.WithError(err).Error("Send chat returned an error")
 		}
+	}
 
-		var penaltyInfo *penaltyInfo
+	if lap.Cuts == 0 {
+		lapTime := lap.LapTime.Milliseconds()
 
-		for _, penalty := range p.penalties {
-			if penalty.carID == carID {
-				penaltyInfo = penalty
-				break
-			}
-		}
+		if float32(lapTime) <= float32(penaltyInfo.bestLap)*1.07 || penaltyInfo.bestLap == 0 {
+			penaltyInfo.cleanLaps = append(penaltyInfo.cleanLaps, lapTime)
 
-		if penaltyInfo == nil {
-			logrus.Warnf("Car %d completed a lap, but is not present in the penalty info list, penalties disabled for this driver", carID)
+			if lapTime < penaltyInfo.bestLap || penaltyInfo.bestLap == 0 {
+				penaltyInfo.bestLap = lapTime
 
-			return nil
-		}
-
-		penaltyInfo.totalLaps++
-
-		if penaltyInfo.clearPenaltyIn > 0 {
-			penaltyInfo.clearPenaltyIn--
-
-			if penaltyInfo.clearPenaltyIn == 0 {
-				err = p.server.UpdateBoP(entrant.CarID, penaltyInfo.originalBallast, penaltyInfo.originalRestrictor)
-
-				if err != nil {
-					p.logger.WithError(err).Error("Couldn't reset BoP to original")
-				} else {
-					err = p.server.SendChat("Your penalty BoP has been cleared", acserver.ServerCarID, entrant.CarID, true)
-
-					if err != nil {
-						p.logger.WithError(err).Error("Send chat returned an error")
+				// remove any exiting laps >107% slower than the new best
+				for i, lap := range penaltyInfo.cleanLaps {
+					if float32(lap) > float32(penaltyInfo.bestLap)*1.07 {
+						penaltyInfo.cleanLaps = append(penaltyInfo.cleanLaps[:i], penaltyInfo.cleanLaps[i+1:]...)
 					}
 				}
-
 			}
 		}
+	}
 
-		if penaltyInfo.driveThroughLaps > -1 && penaltyInfo.driveThrough {
-			penaltyInfo.driveThroughLaps--
+	penaltyInfo.totalCleanLapTime = 0
 
-			if penaltyInfo.driveThroughLaps == -1 {
-				err = p.server.SendChat("You have been kicked for cutting the track", acserver.ServerCarID, entrant.CarID, true)
+	for _, lap := range penaltyInfo.cleanLaps {
+		penaltyInfo.totalCleanLapTime += lap
+	}
 
-				if err != nil {
-					p.logger.WithError(err).Error("Send chat returned an error")
-				}
+	numCleanLaps := len(penaltyInfo.cleanLaps)
 
-				go func() {
-					time.Sleep(time.Second * 10)
+	if numCleanLaps != 0 {
+		averageCleanLap = int64(float32(penaltyInfo.totalCleanLapTime) / float32(numCleanLaps))
+	}
 
-					_ = p.server.KickUser(entrant.CarID, acserver.KickReasonGeneric)
-				}()
+	if p.eventConfig.CustomCutsIgnoreFirstLap && penaltyInfo.totalLaps == 1 {
+		return nil
+	}
 
-				return nil
-			}
+	if penaltyInfo.driveThroughLaps > -1 && penaltyInfo.driveThrough {
+		penaltyInfo.driveThroughLaps--
 
-			err = p.server.SendChat(fmt.Sprintf("You have %d laps left to serve your drive through penalty", penaltyInfo.driveThroughLaps), acserver.ServerCarID, entrant.CarID, true)
+		if penaltyInfo.driveThroughLaps == -1 {
+			err = p.server.SendChat("You have been kicked for cutting the track", acserver.ServerCarID, entrant.CarID, true)
 
 			if err != nil {
 				p.logger.WithError(err).Error("Send chat returned an error")
 			}
-		}
 
-		if lap.Cuts == 0 {
-			penaltyInfo.totalCleanLaps++
-			penaltyInfo.totalCleanLapTime += lap.LapTime.Milliseconds()
-		}
+			go func() {
+				time.Sleep(time.Second * 10)
 
-		if penaltyInfo.totalCleanLaps != 0 {
-			averageCleanLap = int64(float32(penaltyInfo.totalCleanLapTime) / float32(penaltyInfo.totalCleanLaps))
-		}
+				_ = p.server.KickUser(entrant.CarID, acserver.KickReasonGeneric)
+			}()
 
-		if p.eventConfig.CustomCutsIgnoreFirstLap && penaltyInfo.totalLaps == 1 {
 			return nil
 		}
 
-		if ((penaltyInfo.totalCleanLaps == 0 && !p.eventConfig.CustomCutsOnlyIfCleanSet) || averageCleanLap > lap.LapTime.Milliseconds()) && lap.Cuts > 0 {
-			penaltyInfo.warnings++
+		err = p.server.SendChat(fmt.Sprintf("You have %d laps left to serve your drive through penalty", penaltyInfo.driveThroughLaps), acserver.ServerCarID, entrant.CarID, true)
 
-			if penaltyInfo.warnings > p.eventConfig.CustomCutsNumWarnings {
-				var chatMessage string
+		if err != nil {
+			p.logger.WithError(err).Error("Send chat returned an error")
+		}
+	}
 
-				switch p.eventConfig.CustomCutsPenaltyType {
-				case acserver.CutPenaltyKick:
-					err = p.server.SendChat("You have been kicked for cutting the track", acserver.ServerCarID, entrant.CarID, true)
+	if penaltyInfo.clearPenaltyIn > 0 {
+		penaltyInfo.clearPenaltyIn--
 
-					if err != nil {
-						p.logger.WithError(err).Error("Send chat returned an error")
-					}
+		if penaltyInfo.clearPenaltyIn == 0 {
+			err = p.server.UpdateBoP(entrant.CarID, penaltyInfo.originalBallast, penaltyInfo.originalRestrictor)
 
-					go func() {
-						time.Sleep(time.Second * 10)
-
-						_ = p.server.KickUser(entrant.CarID, acserver.KickReasonGeneric)
-					}()
-
-					return nil
-				case acserver.CutPenaltyBallast:
-					err = p.server.UpdateBoP(entrant.CarID, p.eventConfig.CustomCutsBoPAmount, entrant.Restrictor)
-
-					if err != nil {
-						p.logger.WithError(err).Error("Couldn't apply ballast from cuts")
-						break
-					}
-
-					penaltyInfo.clearPenaltyIn += p.eventConfig.CustomCutsBoPNumLaps
-
-					chatMessage = fmt.Sprintf("You have been given %.1fkg of ballast for %d laps for cutting the track", p.eventConfig.CustomCutsBoPAmount, p.eventConfig.CustomCutsBoPNumLaps)
-				case acserver.CutPenaltyRestrictor:
-					err = p.server.UpdateBoP(entrant.CarID, entrant.Ballast, p.eventConfig.CustomCutsBoPAmount)
-
-					if err != nil {
-						p.logger.WithError(err).Error("Couldn't apply restrictor from cuts")
-						break
-					}
-
-					penaltyInfo.clearPenaltyIn += p.eventConfig.CustomCutsBoPNumLaps
-
-					chatMessage = fmt.Sprintf("You have been given %.0f%% restrictor for %d laps for cutting the track", p.eventConfig.CustomCutsBoPAmount, p.eventConfig.CustomCutsBoPNumLaps)
-				case acserver.CutPenaltyDriveThrough:
-					if !p.pitLane.PitLaneCapable {
-						penaltyInfo.timePenalties = append(penaltyInfo.timePenalties, time.Second*time.Duration(20))
-
-						chatMessage = fmt.Sprintf("You have been given a %d second penalty for cutting the track", 20)
-					} else {
-						if !penaltyInfo.driveThrough {
-							penaltyInfo.driveThrough = true
-							penaltyInfo.driveThroughLaps = p.eventConfig.CustomCutsDriveThroughNumLaps
-						}
-
-						chatMessage = fmt.Sprintf("You have been given a Drive Through Penalty for cutting! Please serve within the next %d lap(s).", penaltyInfo.driveThroughLaps)
-					}
-				case acserver.CutPenaltyWarn:
-					chatMessage = "Please avoid cutting the track! Your behaviour has been noted for admins to review in the results file"
-				}
-
-				err = p.server.SendChat(chatMessage, acserver.ServerCarID, entrant.CarID, true)
+			if err != nil {
+				p.logger.WithError(err).Error("Couldn't reset BoP to original")
+			} else {
+				err = p.server.SendChat("Your penalty BoP has been cleared", acserver.ServerCarID, entrant.CarID, true)
 
 				if err != nil {
 					p.logger.WithError(err).Error("Send chat returned an error")
 				}
+			}
+
+		}
+	}
+
+	if p.eventConfig.CustomCutsEnabled {
+		if ((numCleanLaps == 0 && !p.eventConfig.CustomCutsOnlyIfCleanSet) || averageCleanLap > lap.LapTime.Milliseconds()) && lap.Cuts > 0 {
+			penaltyInfo.warnings++
+
+			if penaltyInfo.warnings > p.eventConfig.CustomCutsNumWarnings {
+				p.applyPenalty(entrant, penaltyInfo, p.eventConfig.CustomCutsPenaltyType, p.eventConfig.CustomCutsBoPNumLaps, p.eventConfig.CustomCutsDriveThroughNumLaps, p.eventConfig.CustomCutsBoPAmount, "cutting the track")
 
 				penaltyInfo.warnings = 0
 			} else {
@@ -456,15 +568,153 @@ func (p *PenaltiesPlugin) OnLapCompleted(carID acserver.CarID, lap acserver.Lap)
 	return nil
 }
 
+func (p *PenaltiesPlugin) applyPenalty(entrant acserver.CarInfo, penaltyInfo *penaltyInfo, penaltyType acserver.PenaltyType, clearPenaltyIn, driveThroughNumLaps int, bopAmount float32, messageContext string) {
+	var chatMessage string
+	var err error
+
+	switch penaltyType {
+	case acserver.PenaltyKick:
+		err = p.server.SendChat(fmt.Sprintf("You have been kicked for %s", messageContext), acserver.ServerCarID, entrant.CarID, true)
+
+		if err != nil {
+			p.logger.WithError(err).Error("Send chat returned an error")
+		}
+
+		go func() {
+			time.Sleep(time.Second * 10)
+
+			_ = p.server.KickUser(entrant.CarID, acserver.KickReasonGeneric)
+		}()
+
+		return
+	case acserver.PenaltyBallast:
+		penaltyInfo.penaltyBallast += bopAmount
+
+		err = p.server.UpdateBoP(entrant.CarID, penaltyInfo.penaltyBallast, entrant.Restrictor)
+
+		if err != nil {
+			p.logger.WithError(err).Errorf("Couldn't apply ballast for %s", messageContext)
+			break
+		}
+
+		penaltyInfo.clearPenaltyIn += clearPenaltyIn
+
+		chatMessage = fmt.Sprintf("You have been given %.1fkg of ballast for %d laps for %s", bopAmount, clearPenaltyIn, messageContext)
+	case acserver.PenaltyRestrictor:
+		penaltyInfo.penaltyRestrictor += bopAmount
+
+		err = p.server.UpdateBoP(entrant.CarID, entrant.Ballast, penaltyInfo.penaltyRestrictor)
+
+		if err != nil {
+			p.logger.WithError(err).Errorf("Couldn't apply restrictor for %s", messageContext)
+			break
+		}
+
+		penaltyInfo.clearPenaltyIn += clearPenaltyIn
+
+		chatMessage = fmt.Sprintf("You have been given %.0f%% restrictor for %d laps for %s", bopAmount, clearPenaltyIn, messageContext)
+	case acserver.PenaltyDriveThrough:
+		if !p.pitLane.PitLaneCapable {
+			penaltyInfo.timePenalties = append(penaltyInfo.timePenalties, time.Second*time.Duration(20))
+
+			chatMessage = fmt.Sprintf("You have been given a %d second penalty for %s", 20, messageContext)
+		} else {
+			if !penaltyInfo.driveThrough {
+				penaltyInfo.driveThrough = true
+				penaltyInfo.driveThroughLaps = driveThroughNumLaps
+			}
+
+			chatMessage = fmt.Sprintf("You have been given a Drive Through Penalty %s! Please serve within the next %d lap(s).", messageContext, penaltyInfo.driveThroughLaps)
+		}
+	case acserver.PenaltyWarn:
+		chatMessage = fmt.Sprintf("Please avoid %s! Your behaviour has been noted for admins to review in the results file", messageContext)
+	}
+
+	err = p.server.SendChat(chatMessage, acserver.ServerCarID, entrant.CarID, true)
+
+	if err != nil {
+		p.logger.WithError(err).Error("Send chat returned an error")
+	}
+}
+
 func (p *PenaltiesPlugin) OnClientEvent(_ acserver.ClientEvent) error {
 	return nil
 }
 
 func (p *PenaltiesPlugin) OnCollisionWithCar(event acserver.ClientEvent) error {
-	return nil
+	return p.onCollision(event, true)
 }
 
 func (p *PenaltiesPlugin) OnCollisionWithEnv(event acserver.ClientEvent) error {
+	return p.onCollision(event, false)
+}
+
+func (p *PenaltiesPlugin) onCollision(event acserver.ClientEvent, withCar bool) error {
+	if !p.eventConfig.CollisionPenaltiesEnabled {
+		return nil
+	}
+
+	var penaltyInfo *penaltyInfo
+
+	for _, penalty := range p.penalties {
+		if penalty.carID == event.CarID {
+			penaltyInfo = penalty
+			break
+		}
+	}
+
+	if penaltyInfo == nil {
+		logrus.Warnf("Car %d was in a collision, but is not present in the penalty info list, penalties disabled for this driver", event.CarID)
+
+		return nil
+	}
+
+	collisionTime := time.Now()
+
+	// AC often reports multiple collisions for one "collision" if cars bounce a bit etc.
+	// so we add a bit of leniency
+	if !collisionTime.After(penaltyInfo.collisionRateLimiter.Add(time.Second * 2)) {
+		logrus.Debugf("Car %d collision was ignored by penalty system due to collision debouncing", event.CarID)
+
+		return nil
+	}
+
+	penaltyInfo.collisionRateLimiter = time.Now()
+
+	entrant, err := p.server.GetCarInfo(penaltyInfo.carID)
+
+	if err != nil {
+		return err
+	}
+
+	sessionInfo := p.server.GetSessionInfo()
+
+	if sessionInfo.NumLaps <= 1 && p.eventConfig.CollisionPenaltiesIgnoreFirstLap {
+		return nil
+	}
+
+	if event.Speed > p.eventConfig.CollisionPenaltiesOnlyOverSpeed {
+		penaltyInfo.warningsCollisions++
+
+		if penaltyInfo.warningsCollisions > p.eventConfig.CollisionPenaltiesNumWarnings {
+			p.applyPenalty(entrant, penaltyInfo, p.eventConfig.CollisionPenaltiesPenaltyType, p.eventConfig.CollisionPenaltiesBoPNumLaps, p.eventConfig.CollisionPenaltiesDriveThroughNumLaps, p.eventConfig.CollisionPenaltiesBoPAmount, "being involved in collisions")
+
+			penaltyInfo.warningsCollisions = 0
+		} else {
+			context := "the environment"
+
+			if withCar {
+				context = "another driver"
+			}
+
+			err = p.server.SendChat(fmt.Sprintf("You collided with "+context+"! (warning %d/%d)", penaltyInfo.warningsCollisions, p.eventConfig.CollisionPenaltiesNumWarnings), acserver.ServerCarID, entrant.CarID, true)
+
+			if err != nil {
+				p.logger.WithError(err).Error("Send chat returned an error")
+			}
+		}
+	}
+
 	return nil
 }
 

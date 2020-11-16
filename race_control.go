@@ -1393,7 +1393,7 @@ func (rc *RaceControl) OnCollisionWithCar(collision udp.CollisionWithCar) error 
 		ID:          uuid.New().String(),
 		Type:        CollisionWithCar,
 		Time:        time.Now(),
-		Speed:       metersPerSecondToKilometersPerHour(float64(collision.ImpactSpeed)),
+		Speed:       float64(collision.ImpactSpeed),
 		DamageZones: collision.DamageZones,
 	}
 
@@ -1427,7 +1427,7 @@ func (rc *RaceControl) OnCollisionWithEnvironment(collision udp.CollisionWithEnv
 		ID:          uuid.New().String(),
 		Type:        CollisionWithEnvironment,
 		Time:        time.Now(),
-		Speed:       metersPerSecondToKilometersPerHour(float64(collision.ImpactSpeed)),
+		Speed:       float64(collision.ImpactSpeed),
 		DamageZones: collision.DamageZones,
 	})
 
