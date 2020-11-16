@@ -35,8 +35,9 @@ type penaltyInfo struct {
 
 	timePenalties []time.Duration
 
+	cleanLaps         []int64
+	bestLap           int64
 	totalCleanLapTime int64
-	totalCleanLaps    int64
 	totalLaps         int64
 	clearPenaltyIn    int
 
@@ -282,7 +283,7 @@ func (p *PenaltiesPlugin) OnNewSession(newSession acserver.SessionInfo) error {
 		penalty.clearPenaltyIn = 0
 		penalty.warnings = 0
 		penalty.totalLaps = 0
-		penalty.totalCleanLaps = 0
+		penalty.cleanLaps = nil
 		penalty.totalCleanLapTime = 0
 	}
 
@@ -347,7 +348,9 @@ func (p *PenaltiesPlugin) OnEndSession(sessionFile string) error {
 			continue
 		}
 
-		averageCleanLap := time.Millisecond * time.Duration(float32(penalty.totalCleanLapTime)/float32(penalty.totalCleanLaps))
+		numCleanLaps := len(penalty.cleanLaps)
+
+		averageCleanLap := time.Millisecond * time.Duration(float32(penalty.totalCleanLapTime)/float32(numCleanLaps))
 
 		if penalty.driveThrough {
 			// driver finished session with unserved penalty, apply to results
@@ -358,7 +361,7 @@ func (p *PenaltiesPlugin) OnEndSession(sessionFile string) error {
 
 					p.logger.Infof("adding %s penalty to car %d for unserved drive through penalty", result.CarID, result.PenaltyTime)
 
-					if penalty.totalCleanLaps != 0 {
+					if numCleanLaps != 0 {
 						if result.PenaltyTime > averageCleanLap {
 							result.LapPenalty = int(result.PenaltyTime / averageCleanLap)
 						}
@@ -376,7 +379,7 @@ func (p *PenaltiesPlugin) OnEndSession(sessionFile string) error {
 
 					p.logger.Infof("adding %s penalty to car %d for cutting the track, based on remaining laps of BoP at session end", result.CarID, result.PenaltyTime)
 
-					if penalty.totalCleanLaps != 0 {
+					if numCleanLaps != 0 {
 						if result.PenaltyTime > averageCleanLap {
 							result.LapPenalty = int(result.PenaltyTime / averageCleanLap)
 						}
@@ -393,7 +396,7 @@ func (p *PenaltiesPlugin) OnEndSession(sessionFile string) error {
 
 					p.logger.Infof("adding %s penalty to car %d for cutting the track", result.CarID, result.PenaltyTime)
 
-					if penalty.totalCleanLaps != 0 {
+					if numCleanLaps != 0 {
 						if result.PenaltyTime > averageCleanLap {
 							result.LapPenalty = int(result.PenaltyTime / averageCleanLap)
 						}
@@ -460,13 +463,34 @@ func (p *PenaltiesPlugin) OnLapCompleted(carID acserver.CarID, lap acserver.Lap)
 	penaltyInfo.totalLaps++
 
 	if lap.Cuts == 0 {
-		penaltyInfo.totalCleanLaps++
-		penaltyInfo.totalCleanLapTime += lap.LapTime.Milliseconds()
+		lapTime := lap.LapTime.Milliseconds()
+
+		if float32(lapTime) <= float32(penaltyInfo.bestLap)*1.07 || penaltyInfo.bestLap == 0 {
+			penaltyInfo.cleanLaps = append(penaltyInfo.cleanLaps, lapTime)
+
+			if lapTime < penaltyInfo.bestLap || penaltyInfo.bestLap == 0 {
+				penaltyInfo.bestLap = lapTime
+
+				// remove any exiting laps >107% slower than the new best
+				for i, lap := range penaltyInfo.cleanLaps {
+					if float32(lap) > float32(penaltyInfo.bestLap)*1.07 {
+						penaltyInfo.cleanLaps = append(penaltyInfo.cleanLaps[:i], penaltyInfo.cleanLaps[i+1:]...)
+					}
+				}
+			}
+		}
 	}
 
-	if penaltyInfo.totalCleanLaps != 0 {
-		// @TODO remove laps 107% (or so - figure it out) slower than the best from the average set
-		averageCleanLap = int64(float32(penaltyInfo.totalCleanLapTime) / float32(penaltyInfo.totalCleanLaps))
+	penaltyInfo.totalCleanLapTime = 0
+
+	for _, lap := range penaltyInfo.cleanLaps {
+		penaltyInfo.totalCleanLapTime += lap
+	}
+
+	numCleanLaps := len(penaltyInfo.cleanLaps)
+
+	if numCleanLaps != 0 {
+		averageCleanLap = int64(float32(penaltyInfo.totalCleanLapTime) / float32(numCleanLaps))
 	}
 
 	if p.eventConfig.CustomCutsIgnoreFirstLap && penaltyInfo.totalLaps == 1 {
@@ -519,7 +543,7 @@ func (p *PenaltiesPlugin) OnLapCompleted(carID acserver.CarID, lap acserver.Lap)
 	}
 
 	if p.eventConfig.CustomCutsEnabled {
-		if ((penaltyInfo.totalCleanLaps == 0 && !p.eventConfig.CustomCutsOnlyIfCleanSet) || averageCleanLap > lap.LapTime.Milliseconds()) && lap.Cuts > 0 {
+		if ((numCleanLaps == 0 && !p.eventConfig.CustomCutsOnlyIfCleanSet) || averageCleanLap > lap.LapTime.Milliseconds()) && lap.Cuts > 0 {
 			penaltyInfo.warnings++
 
 			if penaltyInfo.warnings > p.eventConfig.CustomCutsNumWarnings {
