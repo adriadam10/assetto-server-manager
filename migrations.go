@@ -94,6 +94,7 @@ var (
 		addDefaultPenaltyOptionsToCustomRaces,
 		migrateChampionshipPracticeWeatherToSessions,
 		fixCarDuplicationInRaceSetups,
+		addDRSAndCollisionsDefaultPenaltyOptionsToCustomRaces,
 	}
 )
 
@@ -1395,6 +1396,154 @@ func fixCarDuplicationInRaceSetups(s Store) error {
 	for _, raceWeekend := range raceWeekends {
 		for _, session := range raceWeekend.Sessions {
 			session.RaceConfig.Cars = fix(session.RaceConfig.Cars)
+		}
+
+		if err := s.UpsertRaceWeekend(raceWeekend); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func addDRSAndCollisionsDefaultPenaltyOptionsToCustomRaces(s Store) error {
+	logrus.Infof("Running migration: Add default penalty options to Custom Races")
+
+	customRaces, err := s.ListCustomRaces()
+
+	if err != nil {
+		return err
+	}
+
+	sort.Slice(customRaces, func(i, j int) bool {
+		return customRaces[i].Updated.Before(customRaces[j].Updated)
+	})
+
+	for _, customRace := range customRaces {
+		customRace.RaceConfig.DRSPenaltiesEnabled = false
+		customRace.RaceConfig.DRSPenaltiesWindow = 1
+		customRace.RaceConfig.DRSPenaltiesEnableOnLap = 3
+		customRace.RaceConfig.DRSPenaltiesNumWarnings = 2
+		customRace.RaceConfig.CustomCutsPenaltyType = acserver.PenaltyBallast
+		customRace.RaceConfig.DRSPenaltiesBoPAmount = 50
+		customRace.RaceConfig.DRSPenaltiesBoPNumLaps = 2
+		customRace.RaceConfig.DRSPenaltiesDriveThroughNumLaps = 2
+
+		customRace.RaceConfig.CollisionPenaltiesEnabled = false
+		customRace.RaceConfig.CollisionPenaltiesIgnoreFirstLap = true
+		customRace.RaceConfig.CollisionPenaltiesOnlyOverSpeed = 40
+		customRace.RaceConfig.CollisionPenaltiesNumWarnings = 4
+		customRace.RaceConfig.CollisionPenaltiesPenaltyType = acserver.PenaltyDriveThrough
+		customRace.RaceConfig.CollisionPenaltiesBoPAmount = 50
+		customRace.RaceConfig.CollisionPenaltiesBoPNumLaps = 2
+		customRace.RaceConfig.CollisionPenaltiesDriveThroughNumLaps = 2
+
+		err := s.UpsertCustomRace(customRace)
+
+		if err != nil {
+			return err
+		}
+	}
+
+	championships, err := s.ListChampionships()
+
+	if err != nil {
+		return err
+	}
+
+	sort.Slice(championships, func(i, j int) bool {
+		return championships[i].Updated.Before(championships[j].Updated)
+	})
+
+	for _, championship := range championships {
+		for _, event := range championship.Events {
+			if event.IsRaceWeekend() {
+				raceWeekend, err := s.LoadRaceWeekend(event.RaceWeekendID.String())
+
+				if err != nil {
+					return err
+				}
+
+				for _, event := range raceWeekend.Sessions {
+					event.RaceConfig.DRSPenaltiesEnabled = false
+					event.RaceConfig.DRSPenaltiesWindow = 1
+					event.RaceConfig.DRSPenaltiesEnableOnLap = 3
+					event.RaceConfig.DRSPenaltiesNumWarnings = 2
+					event.RaceConfig.CustomCutsPenaltyType = acserver.PenaltyBallast
+					event.RaceConfig.DRSPenaltiesBoPAmount = 50
+					event.RaceConfig.DRSPenaltiesBoPNumLaps = 2
+					event.RaceConfig.DRSPenaltiesDriveThroughNumLaps = 2
+
+					event.RaceConfig.CollisionPenaltiesEnabled = false
+					event.RaceConfig.CollisionPenaltiesIgnoreFirstLap = true
+					event.RaceConfig.CollisionPenaltiesOnlyOverSpeed = 40
+					event.RaceConfig.CollisionPenaltiesNumWarnings = 4
+					event.RaceConfig.CollisionPenaltiesPenaltyType = acserver.PenaltyDriveThrough
+					event.RaceConfig.CollisionPenaltiesBoPAmount = 50
+					event.RaceConfig.CollisionPenaltiesBoPNumLaps = 2
+					event.RaceConfig.CollisionPenaltiesDriveThroughNumLaps = 2
+				}
+
+				if err := s.UpsertRaceWeekend(raceWeekend); err != nil {
+					return err
+				}
+			}
+
+			event.RaceSetup.DRSPenaltiesEnabled = false
+			event.RaceSetup.DRSPenaltiesWindow = 1
+			event.RaceSetup.DRSPenaltiesEnableOnLap = 3
+			event.RaceSetup.DRSPenaltiesNumWarnings = 2
+			event.RaceSetup.CustomCutsPenaltyType = acserver.PenaltyBallast
+			event.RaceSetup.DRSPenaltiesBoPAmount = 50
+			event.RaceSetup.DRSPenaltiesBoPNumLaps = 2
+			event.RaceSetup.DRSPenaltiesDriveThroughNumLaps = 2
+
+			event.RaceSetup.CollisionPenaltiesEnabled = false
+			event.RaceSetup.CollisionPenaltiesIgnoreFirstLap = true
+			event.RaceSetup.CollisionPenaltiesOnlyOverSpeed = 40
+			event.RaceSetup.CollisionPenaltiesNumWarnings = 4
+			event.RaceSetup.CollisionPenaltiesPenaltyType = acserver.PenaltyDriveThrough
+			event.RaceSetup.CollisionPenaltiesBoPAmount = 50
+			event.RaceSetup.CollisionPenaltiesBoPNumLaps = 2
+			event.RaceSetup.CollisionPenaltiesDriveThroughNumLaps = 2
+		}
+
+		err := s.UpsertChampionship(championship)
+
+		if err != nil {
+			return err
+		}
+	}
+
+	raceWeekends, err := s.ListRaceWeekends()
+
+	if err != nil {
+		return err
+	}
+
+	sort.Slice(raceWeekends, func(i, j int) bool {
+		return raceWeekends[i].Updated.Before(raceWeekends[j].Updated)
+	})
+
+	for _, raceWeekend := range raceWeekends {
+		for _, event := range raceWeekend.Sessions {
+			event.RaceConfig.DRSPenaltiesEnabled = false
+			event.RaceConfig.DRSPenaltiesWindow = 1
+			event.RaceConfig.DRSPenaltiesEnableOnLap = 3
+			event.RaceConfig.DRSPenaltiesNumWarnings = 2
+			event.RaceConfig.CustomCutsPenaltyType = acserver.PenaltyBallast
+			event.RaceConfig.DRSPenaltiesBoPAmount = 50
+			event.RaceConfig.DRSPenaltiesBoPNumLaps = 2
+			event.RaceConfig.DRSPenaltiesDriveThroughNumLaps = 2
+
+			event.RaceConfig.CollisionPenaltiesEnabled = false
+			event.RaceConfig.CollisionPenaltiesIgnoreFirstLap = true
+			event.RaceConfig.CollisionPenaltiesOnlyOverSpeed = 40
+			event.RaceConfig.CollisionPenaltiesNumWarnings = 4
+			event.RaceConfig.CollisionPenaltiesPenaltyType = acserver.PenaltyDriveThrough
+			event.RaceConfig.CollisionPenaltiesBoPAmount = 50
+			event.RaceConfig.CollisionPenaltiesBoPNumLaps = 2
+			event.RaceConfig.CollisionPenaltiesDriveThroughNumLaps = 2
 		}
 
 		if err := s.UpsertRaceWeekend(raceWeekend); err != nil {
