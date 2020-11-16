@@ -3,15 +3,14 @@ v2.0.0
 
 Added:
 
-v2.0.0 of Server Manager now has its own version of the acServer embedded within it. Our server is completely compatible with
+v2.0.0 of Server Manager now has its own version of the acServer built into it. Our server is completely compatible with
 Kunos' acServer, and also provides the following advantages, exclusive to Server Manager owners:
 
 * Improved weather - You can now specify different weather setups for different sessions, or even multiple weathers for one session!
 * Solo Qualifying - turn on Solo Qualifying for any event, and each driver will be able to set their qualifying time without seeing any other cars on track!
 * Custom Plugin enforcement - use Server Manager's new checksum feature to require drivers to have plugins installed. If they don't have the plugins you need installed, they won't be allowed in the server!
 * Tighter integration into Server Manager. As our server and server manager share the same codebase, we have absolute control over the entire server.
-  - Live Timings and the Live Map have been rewritten to utilise a direct connection to the server - so they're faster and more responsive than ever!
-  - @TODO add a thing about race weekend session management in here.
+* Live Timings and the Live Map have been rewritten to utilise a direct connection to the server - so they're faster and more responsive than ever!
 * More platform support - run server manager on anything you like. We've been testing it on a Raspberry Pi!
 * Active development - expect fixes for any issues, and further feature development!
 * Force Opponent Headlights - you can now force opponent drivers to always have their headlights on.
@@ -20,6 +19,7 @@ Kunos' acServer, and also provides the following advantages, exclusive to Server
 * Drift detection/points system! In sessions you can now enable Drift Mode, currently this tracks drift points for each driver over a lap and announces the total via chat, with feedback we hope to expand this system for all the drifters out there!
 * New/improved chat commands! Commands that reference drivers can now use the car ID, name of the driver or GUID of the driver! Also added /pm command for direct messages and /next_weather command to manually cycle configured session weathers.
 * New Track Maps! When you upload a track, if possible, Server Manager will calculate its own track map, including the start finish line, pit lane, and DRS markings. You can also build track maps for all your tracks using the button on the Server Options page. This requires your tracks to be reuploaded, as it needs new track files to work!
+* The server will automatically truncate server names that are too long for the lobby to handle.
 
 We've also changed the following things in Server Manager itself:
 
@@ -31,6 +31,10 @@ We've also changed the following things in Server Manager itself:
 * DRS detection! Live Timings now displays an icon when a driver activates DRS.
 * Live Timings will now accurately show driver order even mid lap in Race Sessions. If one driver overtakes another, you should see their positions change in the Live Timings table!
 * Live Timings collision speed detection is now a lot more accurate.
+* Live Timings will now show the number of laps a driver has completed since their last pit stop.
+* If a new entrant signs up to a Championship whilst a practice session is in progress they are now added to the entry list live and will be able to join the server without a restart!
+* Driver Swaps: you can now separate names by ';', in the same order as the GUIDs, so e.g. Driver Name 1;Driver Name 2;Driver Name 3 would match GUID1;GUID2;GUID3, and drivers names will then show correctly in Live Timings and results files.
+* Spectator Password - you can now connect to the server using a Spectator Password, and access commands to help spectating events!
 
 Fixed:
 
@@ -38,6 +42,8 @@ Fixed:
 * Fixes an issue where Real Penalty config values for Jump Start would not be assigned correctly.
 * The Spectator Car will only be filtered out from Championship Points calculations if Spectator Car is enabled in the Championship settings.
 * Fixes an issue where cars could be duplicated in race setups
+* Fixes a crash that could occur when displaying information about a track.
+* Fixes an issue where multiservers could omit scanning new cars if they were added in groups, rather than one at once. If your server is missing cars in the car list, please "Rebuild Search Index" on the Server Options page!
 
 Removed:
 

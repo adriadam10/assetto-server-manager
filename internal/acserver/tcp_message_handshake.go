@@ -103,8 +103,13 @@ func (m HandshakeMessageHandler) OnMessage(conn net.Conn, p *Packet) error {
 	}
 
 	driverIsAdmin := m.state.serverConfig.AdminPassword != "" && password == m.state.serverConfig.AdminPassword
+	driverIsSpectator := m.state.serverConfig.SpectatorPassword != "" && password == m.state.serverConfig.SpectatorPassword
 
-	car, err := m.entryListManager.ConnectCar(conn, driver, carModel, driverIsAdmin)
+	if driverIsSpectator && m.state.serverConfig.SpectatorIsAdmin {
+		driverIsAdmin = true
+	}
+
+	car, err := m.entryListManager.ConnectCar(conn, driver, carModel, driverIsAdmin, driverIsSpectator)
 
 	if err == ErrNoAvailableSlots {
 		m.logger.WithError(err).Errorf("Could not connect driver (%s/%s) to car.", driver.Name, driver.GUID)

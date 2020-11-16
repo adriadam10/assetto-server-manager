@@ -50,7 +50,7 @@ func NewEntryListManager(state *ServerState, logger Logger) *EntryListManager {
 
 var ErrNoAvailableSlots = errors.New("acserver: no available slots")
 
-func (em *EntryListManager) ConnectCar(conn net.Conn, driver Driver, requestedModel string, isAdmin bool) (*Car, error) {
+func (em *EntryListManager) ConnectCar(conn net.Conn, driver Driver, requestedModel string, isAdmin, isSpectator bool) (*Car, error) {
 	em.mutex.Lock()
 	defer em.mutex.Unlock()
 
@@ -62,7 +62,7 @@ func (em *EntryListManager) ConnectCar(conn net.Conn, driver Driver, requestedMo
 			}
 
 			if car.HasGUID(driver.GUID) {
-				car.SwapDrivers(driver, NewConnection(conn), isAdmin)
+				car.SwapDrivers(driver, NewConnection(conn), isAdmin, isSpectator)
 
 				return car, nil
 			}
@@ -77,7 +77,7 @@ func (em *EntryListManager) ConnectCar(conn net.Conn, driver Driver, requestedMo
 			}
 
 			if car.HasGUID(driver.GUID) && car.Model == requestedModel {
-				car.SwapDrivers(driver, NewConnection(conn), isAdmin)
+				car.SwapDrivers(driver, NewConnection(conn), isAdmin, isSpectator)
 
 				return car, nil
 			}
@@ -90,7 +90,7 @@ func (em *EntryListManager) ConnectCar(conn net.Conn, driver Driver, requestedMo
 			}
 
 			if car.Model == requestedModel {
-				car.SwapDrivers(driver, NewConnection(conn), isAdmin)
+				car.SwapDrivers(driver, NewConnection(conn), isAdmin, isSpectator)
 				car.ClearSessionData() // reset laps if we've taken someone else's car.
 
 				return car, nil
@@ -102,6 +102,9 @@ func (em *EntryListManager) ConnectCar(conn net.Conn, driver Driver, requestedMo
 }
 
 func (em *EntryListManager) BookCar(driver Driver, model, skin string) (*Car, error) {
+	em.mutex.Lock()
+	defer em.mutex.Unlock()
+
 	car := &Car{
 		CarInfo: CarInfo{
 			Driver: driver,
@@ -129,6 +132,9 @@ func (em *EntryListManager) BookCar(driver Driver, model, skin string) (*Car, er
 }
 
 func (em *EntryListManager) UnBookCar(guid string) error {
+	em.mutex.Lock()
+	defer em.mutex.Unlock()
+
 	toRemove := -1
 
 	for index, car := range em.state.entryList {
@@ -145,4 +151,22 @@ func (em *EntryListManager) UnBookCar(guid string) error {
 	}
 
 	return nil
+}
+
+func (em *EntryListManager) AddDriverToEmptyCar(driver Driver, model string) error {
+	em.mutex.Lock()
+	defer em.mutex.Unlock()
+
+	for _, car := range em.state.entryList {
+		if car.IsConnected() {
+			continue
+		}
+
+		if car.Driver.GUID == "" && car.Model == model {
+			car.SwapDrivers(driver, Connection{}, false, false)
+			return nil
+		}
+	}
+
+	return ErrNoAvailableSlots
 }

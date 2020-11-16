@@ -114,8 +114,16 @@ func (l *Lobby) buildRegistrationRequest() (*http.Request, error) {
 		return nil, err
 	}
 
+	name := l.state.serverConfig.Name
+
+	if len(name) > 127 {
+		name = name[:127]
+
+		l.logger.Warnf("Server name is too long for lobby! It has been automatically shortened from %d characters to %d characters", len(l.state.serverConfig.Name), len(name))
+	}
+
 	q := r.URL.Query()
-	q.Add("name", l.state.serverConfig.Name)
+	q.Add("name", name)
 	q.Add("port", strconv.Itoa(int(l.state.serverConfig.UDPPort)))
 	q.Add("tcp_port", strconv.Itoa(int(l.state.serverConfig.TCPPort)))
 	q.Add("max_clients", strconv.Itoa(l.state.raceConfig.MaxClients))

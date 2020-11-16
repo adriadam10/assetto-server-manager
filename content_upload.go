@@ -183,12 +183,15 @@ func (cuh *ContentUploadHandler) handleUploadPayload(payload UploadPayload, cont
 			}
 
 			for _, layout := range t.Layouts {
+				layoutForWarn := layout
+
 				if layout == defaultLayoutName {
 					layout = ""
+					layoutForWarn = "default"
 				}
 
 				if err := cuh.trackManager.BuildTrackMap(track, layout); err != nil {
-					return err
+					logrus.WithError(err).Warnf("Track layout (%s, %s) was uploaded but AI spline files are missing or out of date, some advanced SM features will be unavailable for this layout!", track, layoutForWarn)
 				}
 			}
 		}

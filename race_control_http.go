@@ -293,7 +293,9 @@ func (rch *RaceControlHandler) websocket(w http.ResponseWriter, r *http.Request)
 
 	go client.writePump()
 
+	rch.raceControl.mutex.Lock()
 	message, err := encodeRaceControlMessage(rch.raceControl)
+	rch.raceControl.mutex.Unlock()
 
 	if err != nil {
 		logrus.WithError(err).Errorf("Could not encode initial race control message")
@@ -303,9 +305,7 @@ func (rch *RaceControlHandler) websocket(w http.ResponseWriter, r *http.Request)
 	// new client, send them an initial race control message.
 	client.receive <- message
 
-	rch.raceControl.mutex.RLock()
 	messages := rch.raceControl.ChatMessages
-	rch.raceControl.mutex.RUnlock()
 
 	// send stored chat messages to new client
 	for _, message := range messages {

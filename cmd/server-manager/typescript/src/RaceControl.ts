@@ -1,10 +1,11 @@
 import {
     RaceControl as RaceControlData,
-    RaceControlDriverMapRaceControlDriver as Driver,
-    RaceControlDriverMapRaceControlDriverSessionCarInfo as SessionCarInfo
+    RaceControlDriver as Driver,
+    RaceControlCarSplit as Split,
+    SessionCarInfo, Collision
 } from "./models/RaceControl";
 
-import {CarUpdate, CarUpdateVector3F} from "./models/UDP";
+import {CarUpdate, Vector3F} from "./models/UDP";
 import {randomColor} from "randomcolor/randomColor";
 import {msToTime, prettifyName} from "./utils";
 import moment from "moment";
@@ -38,10 +39,11 @@ const EventCollisionWithCar = 10,
     EventTyresChanged = 101
 ;
 
+const KPH_TO_MPH = 0.621371;
 const GolangZeroTime = "0001-01-01T00:00:00Z";
 
 interface SimpleCollision {
-    WorldPos: CarUpdateVector3F
+    WorldPos: Vector3F
 }
 
 interface WebsocketHandler {
@@ -229,7 +231,7 @@ export class RaceControl {
             } else if (this.status.SessionInfo.Laps > 0) {
                 let lapsCompleted = 0;
 
-                if (this.status.ConnectedDrivers && this.status.ConnectedDrivers.GUIDsInPositionalOrder.length > 0) {
+                if (this.status.ConnectedDrivers && this.status.ConnectedDrivers.GUIDsInPositionalOrder && this.status.ConnectedDrivers.GUIDsInPositionalOrder.length > 0) {
                     let driver = this.status.ConnectedDrivers.Drivers[this.status.ConnectedDrivers.GUIDsInPositionalOrder[0]];
 
                     if (driver.TotalNumLaps > 0) {
@@ -401,7 +403,7 @@ class LiveMap implements WebsocketHandler {
                     if (driver.LoadedTime.toString() !== GolangZeroTime && !this.dots.has(driver.CarInfo.DriverGUID)) {
                         // in the event that a user just loaded the race control page, place the
                         // already loaded dots onto the map
-                        let $driverDot = this.buildDriverDot(driver.CarInfo, driver.LastPos as CarUpdateVector3F).show();
+                        let $driverDot = this.buildDriverDot(driver.CarInfo, driver.LastPos as Vector3F).show();
                         this.dots.set(driver.CarInfo.DriverGUID, $driverDot);
                     }
                 }
@@ -476,7 +478,7 @@ class LiveMap implements WebsocketHandler {
                 let speedUnits = "Km/h";
 
                 if (useMPH) {
-                    speed = Math.floor(speed * 0.621371);
+                    speed = Math.floor(speed * KPH_TO_MPH);
                     speedUnits = "MPH";
                 }
 
@@ -544,8 +546,8 @@ class LiveMap implements WebsocketHandler {
         this.loadTrackMapImage();
     }
 
-    private translateToTrackCoordinate(vec: CarUpdateVector3F): CarUpdateVector3F {
-        const out = new CarUpdateVector3F();
+    private translateToTrackCoordinate(vec: Vector3F): Vector3F {
+        const out = new Vector3F();
 
         out.X = ((vec.X + this.trackXOffset + this.trackMargin) / this.trackScale) * this.mapScaleMultiplier;
         out.Z = ((vec.Z + this.trackZOffset + this.trackMargin) / this.trackScale) * this.mapScaleMultiplier;
@@ -553,7 +555,7 @@ class LiveMap implements WebsocketHandler {
         return out;
     }
 
-    private buildDriverDot(driverData: SessionCarInfo, lastPos?: CarUpdateVector3F): JQuery<HTMLElement> {
+    private buildDriverDot(driverData: SessionCarInfo, lastPos?: Vector3F): JQuery<HTMLElement> {
         if (this.dots.has(driverData.DriverGUID)) {
             return this.dots.get(driverData.DriverGUID)!;
         }
@@ -661,7 +663,7 @@ enum SessionType {
     Booking = 0,
 }
 
-enum Collision {
+enum CollisionType {
     WithCar = "with other car",
     WithEnvironment = "with environment",
 }
@@ -700,7 +702,7 @@ class LiveTimings implements WebsocketHandler {
             return;
         }
 
-        if (this.raceControl.status.SessionInfo.Type === SessionType.Race) {
+        if (this.raceControl.status.SessionInfo.Type === SessionType.Race && this.raceControl.status.ConnectedDrivers.GUIDsInPositionalOrder) {
             // sort drivers on the fly by their NormalisedSplinePos, if they're on the same lap.
             let oldGUIDOrder = this.raceControl.status.ConnectedDrivers.GUIDsInPositionalOrder;
 
@@ -843,7 +845,7 @@ class LiveTimings implements WebsocketHandler {
     }
 
     private populateConnectedDrivers(): void {
-        if (!this.raceControl.status || !this.raceControl.status.ConnectedDrivers) {
+        if (!this.raceControl.status || !this.raceControl.status.ConnectedDrivers || !this.raceControl.status.ConnectedDrivers.GUIDsInPositionalOrder) {
             return;
         }
 
@@ -883,7 +885,7 @@ class LiveTimings implements WebsocketHandler {
     }
 
     private populateDisconnectedDrivers(): void {
-        if (!this.raceControl.status || !this.raceControl.status.DisconnectedDrivers) {
+        if (!this.raceControl.status || !this.raceControl.status.DisconnectedDrivers || !this.raceControl.status.DisconnectedDrivers.GUIDsInPositionalOrder) {
             return;
         }
 
@@ -951,10 +953,7 @@ class LiveTimings implements WebsocketHandler {
                     dotClass += " dot-inactive";
                 }
 
-                $tdName.prepend($("<div/>").attr({"class": dotClass}).css("background", randomColor({
-                    luminosity: 'bright',
-                    seed: driver.CarInfo.DriverGUID,
-                })));
+                $tdName.prepend($("<div/>").attr({"class": dotClass}).css("background", randomColorForDriver(driver.CarInfo.DriverGUID)));
             }
 
             $tdName.on({
@@ -1029,37 +1028,7 @@ class LiveTimings implements WebsocketHandler {
                 $currentLap.append($tag);
             }
 
-            for (const splitIndex in carInfo.CurrentLapSplits) {
-                let split = carInfo.CurrentLapSplits[splitIndex];
-
-                let $tag = $("<span/>");
-
-                let badgeColour = "warning";
-
-                if (split.IsDriversBest !== undefined && split.IsDriversBest) {
-                    badgeColour = "success";
-                }
-
-                if (split.IsBest !== undefined && split.IsBest) {
-                    badgeColour = "info";
-                }
-
-                if (split.Cuts !== undefined && split.Cuts !== 0) {
-                    badgeColour = "danger";
-                }
-
-                $tag.attr({'id': `split-` + splitIndex, 'class': 'badge ml-2 mt-1 badge-' + badgeColour});
-
-                if (split.SplitIndex === undefined) {
-                    split.SplitIndex = 0
-                }
-
-                $tag.text(
-                    "S" + (split.SplitIndex+1) + ": " + msToTime(split.SplitTime / 1000000, true, 2)
-                );
-
-                $currentLap.append($tag);
-            }
+            this.buildSplits(carInfo.CurrentLapSplits, $currentLap);
         }
 
         if (addingDriverToConnectedTable) {
@@ -1068,21 +1037,32 @@ class LiveTimings implements WebsocketHandler {
         }
 
         // best lap
-        $tr.find(".best-lap").text(msToTime(carInfo.BestLap / 1000000) + (carInfo.TyreBestLap ? " (" + carInfo.TyreBestLap + ")" : ""));
+        let $bestLap = $tr.find(".best-lap");
+        $bestLap.text(msToTime(carInfo.BestLap / 1000000) + (carInfo.TyreBestLap ? " (" + carInfo.TyreBestLap + ")" : ""));
+
+        if (!addingDriverToConnectedTable && !!carInfo.BestLap) {
+            this.buildSplits(carInfo.BestLapSplits, $bestLap);
+        }
 
         if (addingDriverToConnectedTable) {
             // gap
             $tr.find(".gap").text(driver.Split);
         }
 
+        let pitStopText = ""
+
+        if (driver.LastPitStop > 0 && !isNaN(driver.LastPitStop)) {
+            pitStopText = " (" + (carInfo.NumLaps - driver.LastPitStop) + "/pit)"
+        }
+
         // lap number
-        $tr.find(".num-laps").text(carInfo.NumLaps ? carInfo.NumLaps : "0");
+        $tr.find(".num-laps").text(carInfo.NumLaps ? carInfo.NumLaps + pitStopText : "0");
 
         let topSpeed;
         let speedUnits;
 
         if (useMPH) {
-            topSpeed = carInfo.TopSpeedBestLap * 0.621371;
+            topSpeed = carInfo.TopSpeedBestLap * KPH_TO_MPH;
             speedUnits = "MPH";
         } else {
             topSpeed = carInfo.TopSpeedBestLap;
@@ -1094,8 +1074,8 @@ class LiveTimings implements WebsocketHandler {
         if (addingDriverToConnectedTable) {
             let $shownToasts = $('.damage-zone-toast:visible');
 
-            if ($shownToasts.length > 6) {
-                for (let i = 6; i < $shownToasts.length;  i++) {
+            if ($shownToasts.length > LiveTimings.MAX_VISIBLE_COLLISIONS) {
+                for (let i = LiveTimings.MAX_VISIBLE_COLLISIONS; i < $shownToasts.length; i++) {
                     $($shownToasts[i]).toast('hide');
                 }
             }
@@ -1103,113 +1083,7 @@ class LiveTimings implements WebsocketHandler {
             // events
             if (driver.Collisions) {
                 for (const collision of driver.Collisions) {
-                    const collisionID = driver.CarInfo.DriverGUID + "-collision-" + collision.ID;
-
-                    if (moment(collision.Time).utc().add("10", "seconds").isSameOrAfter(moment().utc()) && !$("#" + collisionID).length) {
-
-                        let crashSpeed;
-
-                        if (useMPH) {
-                            crashSpeed = collision.Speed * 0.621371;
-                        } else {
-                            crashSpeed = collision.Speed;
-                        }
-
-                        let $toast = $("<div/>");
-                        let $toastHeader = $("<div/>");
-                        let $toastDismiss = $("<button/>");
-                        let $toastDismissSpanRight = $("<span/>");
-                        let $toastDismissSpanLeft = $("<span/>");
-                        let $toastBody = $("<div/>");
-
-                        let toastHeaderBG = "";
-                        let toastHeaderBD = "";
-
-                        if (collision.Type === Collision.WithCar) {
-                            toastHeaderBG = "bg-danger";
-                            toastHeaderBD = "border-danger";
-
-                            $toastDismissSpanLeft.text(
-                                "Crash with " + collision.OtherDriverName
-                            );
-                        } else {
-                            toastHeaderBG = "bg-warning";
-                            toastHeaderBD = "border-warning";
-
-                            $toastDismissSpanLeft.text(
-                                "Crash " + collision.Type
-                            );
-                        }
-
-                        $toastDismissSpanRight.text(unescape('%u00D7'));
-
-                        $toast.attr({'id': collisionID, 'class': 'toast damage-zone-toast', 'role': 'alert', 'aria-live': 'assertive', 'aria-atomic': 'true'});
-                        $toastHeader.attr('class', 'toast-header damage-zone-toast-header ' + toastHeaderBG + ' ' + toastHeaderBD);
-                        $toastBody.attr('class', 'toast-body damage=zone-toast-body');
-                        $toastDismiss.attr({'type': "button", 'class': 'close', 'data-dismiss': 'toast', 'aria-label': 'Close', 'style': 'width: 19%'});
-                        $toastDismissSpanRight.attr({'aria-hidden': 'true', 'class': 'float-right'});
-                        $toastDismissSpanLeft.attr("style", "width: 81%");
-
-                        $toastDismiss.append($toastDismissSpanRight);
-                        $toastHeader.append($toastDismissSpanLeft, $toastDismiss);
-
-                        let $textContainer = $("<div/>");
-                        $textContainer.attr('style', 'height: 18px');
-
-                        let $driverName = $("<strong/>");
-                        $driverName.text(driver.CarInfo.DriverName + ' ');
-
-                        let $crashSpeed = $("<span/>");
-                        $crashSpeed.attr('class', 'text-secondary');
-                        $crashSpeed.text(crashSpeed.toFixed(2) + speedUnits);
-
-                        $textContainer.append($driverName);
-                        $textContainer.append($crashSpeed);
-
-                        $toastBody.append($textContainer);
-
-                        let $damageZones = $(DAMAGE_ZONES);
-
-                        let frontBumperHue = 70 - collision.DamageZones[0];
-                        let rearBumperHue = 70 - collision.DamageZones[1];
-                        let leftSkirtHue = 70 - collision.DamageZones[2];
-                        let rightSkirtHue = 70 - collision.DamageZones[3];
-
-                        if (frontBumperHue < 0) {
-                            frontBumperHue = 0
-                        }
-
-                        if (rearBumperHue < 0) {
-                            rearBumperHue = 0
-                        }
-
-                        if (leftSkirtHue < 0) {
-                            leftSkirtHue = 0
-                        }
-
-                        if (rightSkirtHue < 0) {
-                            rightSkirtHue = 0
-                        }
-
-                        $damageZones.find(".front-bumper").attr("style", "fill: hsl(" + frontBumperHue + ", 100%, 50%);fill-opacity:1;stroke:none");
-                        $damageZones.find(".rear-bumper").attr("style", "fill: hsl(" + rearBumperHue + ", 100%, 50%);fill-opacity:1;stroke:none");
-                        $damageZones.find(".left-skirt").attr("style", "fill: hsl(" + leftSkirtHue + ", 100%, 50%);fill-opacity:1;stroke:none");
-                        $damageZones.find(".right-skirt").attr("style", "fill: hsl(" + rightSkirtHue + ", 100%, 50%);fill-opacity:1;stroke:none");
-
-                        $toastBody.append($damageZones);
-
-                        $toast.append($toastHeader);
-                        $toast.append($toastBody);
-
-                        $toast.toast({animation: true, autohide: true, delay: 10000});
-                        $toast.toast('show');
-
-                        $("#toasts").append($toast);
-
-                        setTimeout(() => {
-                            $toast.remove();
-                        }, 12000);
-                    }
+                    this.buildCollisionToast(collision, driver, speedUnits);
                 }
             }
         }
@@ -1237,6 +1111,172 @@ class LiveTimings implements WebsocketHandler {
         if (!addingDriverToConnectedTable) {
             this.sortDisconnectedTable($table);
         }
+    }
+
+    private buildSplits(splits: { [key: number]: Split }, $currentLap: JQuery<HTMLElement>) {
+        let i = 0;
+
+        for (const splitIndex in splits) {
+            let split = splits[splitIndex];
+
+            let $tag = $("<span/>");
+
+            let badgeColour = "warning";
+
+            if (split.IsDriversBest !== undefined && split.IsDriversBest) {
+                badgeColour = "success";
+            }
+
+            let raceControlBestSplits = this.raceControl.status.BestSplits!;
+
+            if (split.IsBest !== undefined && split.IsBest && raceControlBestSplits.length > i && raceControlBestSplits[i].SplitTime == split.SplitTime) {
+                badgeColour = "info";
+            }
+
+            if (split.Cuts !== undefined && split.Cuts !== 0) {
+                badgeColour = "danger";
+            }
+
+            $tag.attr({'id': `split-` + splitIndex, 'class': 'badge ml-2 mt-1 badge-' + badgeColour});
+
+            if (split.SplitIndex === undefined) {
+                split.SplitIndex = 0
+            }
+
+            $tag.text(
+                "S" + (split.SplitIndex+1) + ": " + msToTime(split.SplitTime / 1000000, true, 2)
+            );
+
+            $currentLap.append($tag);
+            i++;
+        }
+    }
+
+    private static MAX_VISIBLE_COLLISIONS = 6;
+
+    private buildCollisionToast(collision: Collision, driver: Driver, speedUnits: string): void {
+        const collisionID = driver.CarInfo.DriverGUID + "-collision-" + collision.ID;
+
+        if (!(moment(collision.Time).utc().add("10", "seconds").isSameOrAfter(moment().utc()) && !$("#" + collisionID).length)) {
+            return;
+        }
+
+        let crashSpeed;
+
+        if (useMPH) {
+            crashSpeed = collision.Speed * KPH_TO_MPH;
+        } else {
+            crashSpeed = collision.Speed;
+        }
+
+        let $toast = $("<div/>");
+        let $toastHeader = $("<div/>");
+        let $toastDismiss = $("<button/>");
+        let $toastDismissSpanRight = $("<span/>");
+        let $toastDismissSpanLeft = $("<span/>");
+        let $toastBody = $("<div/>");
+
+        let toastHeaderBG = "";
+        let toastHeaderBD = "";
+
+        if (collision.Type === CollisionType.WithCar) {
+            toastHeaderBG = "bg-danger";
+            toastHeaderBD = "border-danger";
+
+            $toastDismissSpanLeft.text(
+                "Crash with " + collision.OtherDriverName
+            );
+        } else {
+            toastHeaderBG = "bg-warning";
+            toastHeaderBD = "border-warning";
+
+            $toastDismissSpanLeft.text(
+                "Crash " + collision.Type
+            );
+        }
+
+        $toastDismissSpanRight.text(unescape('%u00D7'));
+
+        $toast.attr({
+            'id': collisionID,
+            'class': 'toast damage-zone-toast',
+            'role': 'alert',
+            'aria-live': 'assertive',
+            'aria-atomic': 'true'
+        });
+        $toastHeader.attr('class', 'toast-header damage-zone-toast-header ' + toastHeaderBG + ' ' + toastHeaderBD);
+        $toastBody.attr('class', 'toast-body damage=zone-toast-body');
+        $toastDismiss.attr({
+            'type': "button",
+            'class': 'close',
+            'data-dismiss': 'toast',
+            'aria-label': 'Close',
+            'style': 'width: 19%'
+        });
+        $toastDismissSpanRight.attr({'aria-hidden': 'true', 'class': 'float-right'});
+        $toastDismissSpanLeft.attr("style", "width: 81%");
+
+        $toastDismiss.append($toastDismissSpanRight);
+        $toastHeader.append($toastDismissSpanLeft, $toastDismiss);
+
+        let $textContainer = $("<div/>");
+        $textContainer.attr('style', 'min-height: 18px');
+
+        let $driverName = $("<strong/>");
+        $driverName.text(driver.CarInfo.DriverName + ' ');
+
+        let $crashSpeed = $("<span/>");
+        $crashSpeed.attr('class', 'text-secondary');
+        $crashSpeed.text(crashSpeed.toFixed(2) + speedUnits);
+
+        $textContainer.append($driverName);
+        $textContainer.append($crashSpeed);
+
+        $toastBody.append($textContainer);
+
+        if (this.raceControl.status.DamageMultiplier > 0) {
+            let $damageZones = $(DAMAGE_ZONES);
+
+            let frontBumperHue = 70 - collision.DamageZones[0];
+            let rearBumperHue = 70 - collision.DamageZones[1];
+            let leftSkirtHue = 70 - collision.DamageZones[2];
+            let rightSkirtHue = 70 - collision.DamageZones[3];
+
+            if (frontBumperHue < 0) {
+                frontBumperHue = 0;
+            }
+
+            if (rearBumperHue < 0) {
+                rearBumperHue = 0;
+            }
+
+            if (leftSkirtHue < 0) {
+                leftSkirtHue = 0;
+            }
+
+            if (rightSkirtHue < 0) {
+                rightSkirtHue = 0;
+            }
+
+            $damageZones.find(".front-bumper").attr("style", "fill: hsl(" + frontBumperHue + ", 100%, 50%);fill-opacity:1;stroke:none");
+            $damageZones.find(".rear-bumper").attr("style", "fill: hsl(" + rearBumperHue + ", 100%, 50%);fill-opacity:1;stroke:none");
+            $damageZones.find(".left-skirt").attr("style", "fill: hsl(" + leftSkirtHue + ", 100%, 50%);fill-opacity:1;stroke:none");
+            $damageZones.find(".right-skirt").attr("style", "fill: hsl(" + rightSkirtHue + ", 100%, 50%);fill-opacity:1;stroke:none");
+
+            $toastBody.append($damageZones);
+        }
+
+        $toast.append($toastHeader);
+        $toast.append($toastBody);
+
+        $toast.toast({animation: true, autohide: true, delay: 10000});
+        $toast.toast('show');
+
+        $("#toasts").append($toast);
+
+        setTimeout(() => {
+            $toast.remove();
+        }, 12000);
     }
 
     private sortDisconnectedTable($table: JQuery<HTMLTableElement>) {
@@ -1283,10 +1323,7 @@ class LiveTimings implements WebsocketHandler {
             return;
         }
 
-        let r = randomColor({
-            luminosity: 'bright',
-            seed: driverGUID,
-        }) as string;
+        let r = randomColorForDriver(driverGUID) as string;
 
         $driverDot.children(".name").attr("style", "background-color: " + r + " !important");
     }
@@ -1341,7 +1378,7 @@ class LiveTimings implements WebsocketHandler {
             return
         }
 
-        if (!this.raceControl.status || !this.raceControl.status.ConnectedDrivers) {
+        if (!this.raceControl.status || !this.raceControl.status.ConnectedDrivers || !this.raceControl.status.ConnectedDrivers.GUIDsInPositionalOrder) {
             return;
         }
 
@@ -1355,7 +1392,7 @@ class LiveTimings implements WebsocketHandler {
             this.addDriverToAdminSelects(driver.CarInfo);
         }
 
-        this.initialisedAdmin = true
+        this.initialisedAdmin = true;
     }
 
     private addDriverToAdminSelects(carInfo: SessionCarInfo) {
@@ -1389,7 +1426,19 @@ class LiveTimings implements WebsocketHandler {
     }
 }
 
+const driverGUIDOverrides = {
+    "76561198020046073": "#0a84ff",
+    "76561198022717360": "#c91448",
+    "76561198256908075": "#ee9a17",
+}
+
 function randomColorForDriver(driverGUID: string): string {
+    let override = driverGUIDOverrides[driverGUID];
+
+    if (!!override) {
+        return override;
+    }
+
     return randomColor({
         seed: driverGUID,
     })

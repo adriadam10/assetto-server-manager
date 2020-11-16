@@ -126,7 +126,7 @@ func (a *AdminCommandManager) Command(entrant *Car, command string) error {
 			return a.state.SendChat(ServerCarID, entrant.CarID, "Only admins can use the /next_session command! Use /admin to get permission", false)
 		}
 
-		a.sessionManager.NextSession(true)
+		a.sessionManager.NextSession(true, false)
 		a.state.BroadcastChat(ServerCarID, fmt.Sprintf("%s instructed the server to change to the next session", entrant.Driver.Name), false)
 	case "/restart_session":
 		if !entrant.IsAdmin {
@@ -261,14 +261,21 @@ func (a *AdminCommandManager) Command(entrant *Car, command string) error {
 		} else {
 			if entrant.IsAdmin {
 				return errorGroup(
-					a.state.SendChat(ServerCarID, entrant.CarID, "Command list: /kick /ban /next_session /restart_session /client_list /ballast /restrictor /next_weather /help /admin /pm", false),
+					a.state.SendChat(ServerCarID, entrant.CarID, "Command list: /kick /ban /next_session /restart_session /client_list /ballast /restrictor /next_weather /help /admin /pm /spectate", false),
 					a.state.SendChat(ServerCarID, entrant.CarID, "For each command type /help then the command name (e.g. /help kick) for detailed help", false),
 					a.state.SendChat(ServerCarID, entrant.CarID, "You have admin permissions on this server", false),
 				)
 			}
 
+			if entrant.IsSpectator() {
+				return errorGroup(
+					a.state.SendChat(ServerCarID, entrant.CarID, "Command list: /help /admin /pm /spectate", false),
+					a.state.SendChat(ServerCarID, entrant.CarID, "For each command type the command name by itself for detailed help", false),
+				)
+			}
+
 			return errorGroup(
-				a.state.SendChat(ServerCarID, entrant.CarID, "Command list: /help /admin /pm", false),
+				a.state.SendChat(ServerCarID, entrant.CarID, "Command list: /help /admin /pm /spectator", false),
 				a.state.SendChat(ServerCarID, entrant.CarID, "For each command type the command name by itself for detailed help", false),
 				a.state.SendChat(ServerCarID, entrant.CarID, "You do not have admin permissions on this server", false),
 			)
@@ -290,6 +297,34 @@ func (a *AdminCommandManager) Command(entrant *Car, command string) error {
 		} else {
 			return a.state.SendChat(ServerCarID, entrant.CarID, "The admin command will give you access to admin commands! (e.g. /admin password)", false)
 		}
+	case "/spectator":
+		if len(commandSplit) >= 2 {
+			if !entrant.IsSpectator() {
+				entrant.SetIsSpectator(false)
+				return a.state.SendChat(ServerCarID, entrant.CarID, "You are no longer in spectator mode", false)
+			} else if a.state.serverConfig.SpectatorPassword == strings.Join(commandSplit[1:], " ") {
+				entrant.SetIsSpectator(true)
+				return a.state.SendChat(ServerCarID, entrant.CarID, "You are now in spectator mode", false)
+			}
+
+			return a.state.SendChat(ServerCarID, entrant.CarID, "Spectator password is incorrect", false)
+		}
+
+		return a.state.SendChat(ServerCarID, entrant.CarID, "The spectator command will give you access to spectator mode! (e.g. /spectator password)", false)
+	case "/spectate":
+		if len(commandSplit) >= 2 {
+			if !entrant.IsSpectator() {
+				return a.state.SendChat(ServerCarID, entrant.CarID, "Only spectators can use the /spectate command!", false)
+			}
+
+			carID, _ := strconv.Atoi(commandSplit[1])
+
+			entrant.SetSpectatingCarID(CarID(carID))
+
+			return a.state.SendChat(ServerCarID, entrant.CarID, fmt.Sprintf("You are now spectating CarID: %d", carID), false)
+		}
+
+		return a.state.SendChat(ServerCarID, entrant.CarID, "The spectate command enables updates from a selected car, e.g. /spectate 2", false)
 	case "/direct", "/pm":
 		if len(commandSplit) >= 2 {
 			var detailsSplit []string

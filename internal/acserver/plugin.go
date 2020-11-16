@@ -36,6 +36,9 @@ type ServerPlugin interface {
 	GetSessionInfo() SessionInfo
 	GetEventConfig() EventConfig
 
+	// AddDriver adds a driver to an existing entrant on the entry list, so long as there is an available slot
+	AddDriver(name, team, guid, model string) error
+
 	// SendChat sends a chat message to a car on the server.
 	// Note that setting rateLimit to true will block until sending completes.
 	SendChat(message string, from, to CarID, rateLimit bool) error

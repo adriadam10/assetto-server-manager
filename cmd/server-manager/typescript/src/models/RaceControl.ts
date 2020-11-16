@@ -53,9 +53,9 @@ function ToObject(o: any, typeOrCfg: any = {}, child = false): any {
 	return d;
 }
 
-// classes
-// struct2ts:justapengu.in/acsm/pkg/udp.RaceControlSessionInfo
-class RaceControlSessionInfo {
+// structs
+// struct2ts:justapengu.in/acsm/pkg/udp.SessionInfo
+class SessionInfo {
     Version: number;
     SessionIndex: number;
     CurrentSessionIndex: number;
@@ -115,8 +115,8 @@ class RaceControlSessionInfo {
     }
 }
 
-// struct2ts:justapengu.in/acsm.RaceControlTrackMapData
-class RaceControlTrackMapData {
+// struct2ts:justapengu.in/acsm/pkg/ai.TrackMapData
+class TrackMapData {
     width: number;
     height: number;
     margin: number;
@@ -149,17 +149,17 @@ class RaceControlTrackMapData {
     }
 }
 
-// struct2ts:justapengu.in/acsm.RaceControlTrackInfo
-class RaceControlTrackInfo {
+// struct2ts:justapengu.in/acsm.TrackInfo
+class TrackInfo {
     name: string;
     city: string;
     country: string;
     description: string;
-    geotags: string[];
+    geotags: string[] | null;
     length: string;
     pitboxes: string;
     run: string;
-    tags: string[];
+    tags: string[] | null;
     width: string;
 
     constructor(data?: any) {
@@ -168,11 +168,11 @@ class RaceControlTrackInfo {
         this.city = ('city' in d) ? d.city as string : '';
         this.country = ('country' in d) ? d.country as string : '';
         this.description = ('description' in d) ? d.description as string : '';
-        this.geotags = ('geotags' in d) ? d.geotags as string[] : [];
+        this.geotags = ('geotags' in d) ? d.geotags as string[] : null;
         this.length = ('length' in d) ? d.length as string : '';
         this.pitboxes = ('pitboxes' in d) ? d.pitboxes as string : '';
         this.run = ('run' in d) ? d.run as string : '';
-        this.tags = ('tags' in d) ? d.tags as string[] : [];
+        this.tags = ('tags' in d) ? d.tags as string[] : null;
         this.width = ('width' in d) ? d.width as string : '';
     }
 
@@ -182,8 +182,8 @@ class RaceControlTrackInfo {
     }
 }
 
-// struct2ts:justapengu.in/acsm/pkg/udp.RaceControlDriverMapRaceControlDriverSessionCarInfo
-class RaceControlDriverMapRaceControlDriverSessionCarInfo {
+// struct2ts:justapengu.in/acsm/pkg/udp.SessionCarInfo
+class SessionCarInfo {
     CarID: number;
     DriverName: string;
     DriverGUID: string;
@@ -215,8 +215,8 @@ class RaceControlDriverMapRaceControlDriverSessionCarInfo {
     }
 }
 
-// struct2ts:justapengu.in/acsm/internal/acserver.RaceControlDriverMapRaceControlDriverVector3F
-class RaceControlDriverMapRaceControlDriverVector3F {
+// struct2ts:justapengu.in/acsm/internal/acserver.Vector3F
+class Vector3F {
     X: number;
     Y: number;
     Z: number;
@@ -237,8 +237,8 @@ class RaceControlDriverMapRaceControlDriverVector3F {
     }
 }
 
-// struct2ts:justapengu.in/acsm.RaceControlDriverMapRaceControlDriverCollision
-class RaceControlDriverMapRaceControlDriverCollision {
+// struct2ts:justapengu.in/acsm.Collision
+class Collision {
     ID: string;
     Type: string;
     Time: Date;
@@ -268,8 +268,8 @@ class RaceControlDriverMapRaceControlDriverCollision {
     }
 }
 
-// struct2ts:justapengu.in/acsm.RaceControlDriverMapRaceControlDriverRaceControlCarLapInfoRaceControlCarSplit
-class RaceControlDriverMapRaceControlDriverRaceControlCarLapInfoRaceControlCarSplit {
+// struct2ts:justapengu.in/acsm.RaceControlCarSplit
+class RaceControlCarSplit {
     SplitIndex: number;
     SplitTime: number;
     Cuts: number;
@@ -294,8 +294,8 @@ class RaceControlDriverMapRaceControlDriverRaceControlCarLapInfoRaceControlCarSp
     }
 }
 
-// struct2ts:justapengu.in/acsm.RaceControlDriverMapRaceControlDriverRaceControlCarLapInfo
-class RaceControlDriverMapRaceControlDriverRaceControlCarLapInfo {
+// struct2ts:justapengu.in/acsm.RaceControlCarLapInfo
+class RaceControlCarLapInfo {
     TopSpeedThisLap: number;
     TopSpeedBestLap: number;
     TyreBestLap: string;
@@ -305,8 +305,9 @@ class RaceControlDriverMapRaceControlDriverRaceControlCarLapInfo {
     LastLapCompletedTime: Date;
     TotalLapTime: number;
     CarName: string;
-    CurrentLapSplits: { [key: number]: RaceControlDriverMapRaceControlDriverRaceControlCarLapInfoRaceControlCarSplit };
-    BestLapSplits: { [key: number]: RaceControlDriverMapRaceControlDriverRaceControlCarLapInfoRaceControlCarSplit };
+    CurrentLapSplits: { [key: number]: RaceControlCarSplit };
+    BestSplits: { [key: number]: RaceControlCarSplit };
+    BestLapSplits: { [key: number]: RaceControlCarSplit };
 
     constructor(data?: any) {
         const d: any = (data && typeof data === 'object') ? ToObject(data) : {};
@@ -319,8 +320,9 @@ class RaceControlDriverMapRaceControlDriverRaceControlCarLapInfo {
         this.LastLapCompletedTime = ('LastLapCompletedTime' in d) ? ParseDate(d.LastLapCompletedTime) : new Date();
         this.TotalLapTime = ('TotalLapTime' in d) ? d.TotalLapTime as number : 0;
         this.CarName = ('CarName' in d) ? d.CarName as string : '';
-        this.CurrentLapSplits = ('CurrentLapSplits' in d) ? d.CurrentLapSplits as { [key: number]: RaceControlDriverMapRaceControlDriverRaceControlCarLapInfoRaceControlCarSplit } : {};
-        this.BestLapSplits = ('BestLapSplits' in d) ? d.BestLapSplits as { [key: number]: RaceControlDriverMapRaceControlDriverRaceControlCarLapInfoRaceControlCarSplit } : {};
+        this.CurrentLapSplits = ('CurrentLapSplits' in d) ? d.CurrentLapSplits as { [key: number]: RaceControlCarSplit } : {};
+        this.BestSplits = ('BestSplits' in d) ? d.BestSplits as { [key: number]: RaceControlCarSplit } : {};
+        this.BestLapSplits = ('BestLapSplits' in d) ? d.BestLapSplits as { [key: number]: RaceControlCarSplit } : {};
     }
 
     toObject(): any {
@@ -336,43 +338,45 @@ class RaceControlDriverMapRaceControlDriverRaceControlCarLapInfo {
     }
 }
 
-// struct2ts:justapengu.in/acsm.RaceControlDriverMapRaceControlDriver
-class RaceControlDriverMapRaceControlDriver {
-    CarInfo: RaceControlDriverMapRaceControlDriverSessionCarInfo;
+// struct2ts:justapengu.in/acsm.RaceControlDriver
+class RaceControlDriver {
+    CarInfo: SessionCarInfo;
     TotalNumLaps: number;
     ConnectedTime: Date;
     LoadedTime: Date;
     Position: number;
     Split: string;
     LastSeen: Date;
-    LastPos: RaceControlDriverMapRaceControlDriverVector3F;
+    LastPos: Vector3F;
     IsInPits: boolean;
+    LastPitStop: number;
     DRSActive: boolean;
     NormalisedSplinePos: number;
     SteerAngle: number;
     StatusBytes: number;
     BlueFlag: boolean;
-    Collisions: RaceControlDriverMapRaceControlDriverCollision[];
-    Cars: { [key: string]: RaceControlDriverMapRaceControlDriverRaceControlCarLapInfo };
+    Collisions: Collision[] | null;
+    Cars: { [key: string]: RaceControlCarLapInfo };
 
     constructor(data?: any) {
         const d: any = (data && typeof data === 'object') ? ToObject(data) : {};
-        this.CarInfo = new RaceControlDriverMapRaceControlDriverSessionCarInfo(d.CarInfo);
+        this.CarInfo = new SessionCarInfo(d.CarInfo);
         this.TotalNumLaps = ('TotalNumLaps' in d) ? d.TotalNumLaps as number : 0;
         this.ConnectedTime = ('ConnectedTime' in d) ? ParseDate(d.ConnectedTime) : new Date();
         this.LoadedTime = ('LoadedTime' in d) ? ParseDate(d.LoadedTime) : new Date();
         this.Position = ('Position' in d) ? d.Position as number : 0;
         this.Split = ('Split' in d) ? d.Split as string : '';
         this.LastSeen = ('LastSeen' in d) ? ParseDate(d.LastSeen) : new Date();
-        this.LastPos = new RaceControlDriverMapRaceControlDriverVector3F(d.LastPos);
+        this.LastPos = new Vector3F(d.LastPos);
         this.IsInPits = ('IsInPits' in d) ? d.IsInPits as boolean : false;
+        this.LastPitStop = ('LastPitStop' in d) ? d.LastPitStop as number : 0;
         this.DRSActive = ('DRSActive' in d) ? d.DRSActive as boolean : false;
         this.NormalisedSplinePos = ('NormalisedSplinePos' in d) ? d.NormalisedSplinePos as number : 0;
         this.SteerAngle = ('SteerAngle' in d) ? d.SteerAngle as number : 0;
         this.StatusBytes = ('StatusBytes' in d) ? d.StatusBytes as number : 0;
-        this.BlueFlag = ('BlueFlag' in d) ? d.BlueFlag as boolean: false;
-        this.Collisions = Array.isArray(d.Collisions) ? d.Collisions.map((v: any) => new RaceControlDriverMapRaceControlDriverCollision(v)) : [];
-        this.Cars = ('Cars' in d) ? d.Cars as { [key: string]: RaceControlDriverMapRaceControlDriverRaceControlCarLapInfo } : {};
+        this.BlueFlag = ('BlueFlag' in d) ? d.BlueFlag as boolean : false;
+        this.Collisions = Array.isArray(d.Collisions) ? d.Collisions.map((v: any) => new Collision(v)) : null;
+        this.Cars = ('Cars' in d) ? d.Cars as { [key: string]: RaceControlCarLapInfo } : {};
     }
 
     toObject(): any {
@@ -382,6 +386,7 @@ class RaceControlDriverMapRaceControlDriver {
         cfg.LoadedTime = 'string';
         cfg.Position = 'number';
         cfg.LastSeen = 'string';
+        cfg.LastPitStop = 'number';
         cfg.NormalisedSplinePos = 'number';
         cfg.SteerAngle = 'number';
         cfg.StatusBytes = 'number';
@@ -389,15 +394,15 @@ class RaceControlDriverMapRaceControlDriver {
     }
 }
 
-// struct2ts:justapengu.in/acsm.RaceControlDriverMap
-class RaceControlDriverMap {
-    Drivers: { [key: string]: RaceControlDriverMapRaceControlDriver };
-    GUIDsInPositionalOrder: string[];
+// struct2ts:justapengu.in/acsm.DriverMap
+class DriverMap {
+    Drivers: { [key: string]: RaceControlDriver };
+    GUIDsInPositionalOrder: string[] | null;
 
     constructor(data?: any) {
         const d: any = (data && typeof data === 'object') ? ToObject(data) : {};
-        this.Drivers = ('Drivers' in d) ? d.Drivers as { [key: string]: RaceControlDriverMapRaceControlDriver } : {};
-        this.GUIDsInPositionalOrder = ('GUIDsInPositionalOrder' in d) ? d.GUIDsInPositionalOrder as string[] : [];
+        this.Drivers = ('Drivers' in d) ? d.Drivers as { [key: string]: RaceControlDriver } : {};
+        this.GUIDsInPositionalOrder = ('GUIDsInPositionalOrder' in d) ? d.GUIDsInPositionalOrder as string[] : null;
     }
 
     toObject(): any {
@@ -406,9 +411,10 @@ class RaceControlDriverMap {
     }
 }
 
-// struct2ts:justapengu.in/acsm/pkg/udp.RaceControlChat
-class RaceControlChat {
+// struct2ts:justapengu.in/acsm/pkg/udp.Chat
+class Chat {
     CarID: number;
+    RecipientCarID: number;
     Message: string;
     DriverGUID: string;
     DriverName: string;
@@ -417,6 +423,7 @@ class RaceControlChat {
     constructor(data?: any) {
         const d: any = (data && typeof data === 'object') ? ToObject(data) : {};
         this.CarID = ('CarID' in d) ? d.CarID as number : 0;
+        this.RecipientCarID = ('RecipientCarID' in d) ? d.RecipientCarID as number : 0;
         this.Message = ('Message' in d) ? d.Message as string : '';
         this.DriverGUID = ('DriverGUID' in d) ? d.DriverGUID as string : '';
         this.DriverName = ('DriverName' in d) ? d.DriverName as string : '';
@@ -426,6 +433,7 @@ class RaceControlChat {
     toObject(): any {
         const cfg: any = {};
         cfg.CarID = 'number';
+        cfg.RecipientCarID = 'number';
         cfg.Time = 'string';
         return ToObject(this, cfg);
     }
@@ -434,49 +442,54 @@ class RaceControlChat {
 // struct2ts:justapengu.in/acsm.RaceControl
 class RaceControl {
     CurrentRealtimePosInterval: number;
-    SessionInfo: RaceControlSessionInfo;
-    TrackMapData: RaceControlTrackMapData;
-    TrackInfo: RaceControlTrackInfo;
+    SessionInfo: SessionInfo;
+    TrackMapData: TrackMapData;
+    TrackInfo: TrackInfo;
     SessionStartTime: Date;
-    ConnectedDrivers: RaceControlDriverMap | null;
-    DisconnectedDrivers: RaceControlDriverMap | null;
-    ChatMessages: RaceControlChat[];
+    ConnectedDrivers: DriverMap | null;
+    DisconnectedDrivers: DriverMap | null;
+    ChatMessages: Chat[] | null;
     CarIDToGUID: { [key: number]: string };
+    BestSplits: RaceControlCarSplit[] | null;
+    DamageMultiplier: number;
 
     constructor(data?: any) {
         const d: any = (data && typeof data === 'object') ? ToObject(data) : {};
         this.CurrentRealtimePosInterval = ('CurrentRealtimePosInterval' in d) ? d.CurrentRealtimePosInterval as number : 0;
-        this.SessionInfo = new RaceControlSessionInfo(d.SessionInfo);
-        this.TrackMapData = new RaceControlTrackMapData(d.TrackMapData);
-        this.TrackInfo = new RaceControlTrackInfo(d.TrackInfo);
+        this.SessionInfo = new SessionInfo(d.SessionInfo);
+        this.TrackMapData = new TrackMapData(d.TrackMapData);
+        this.TrackInfo = new TrackInfo(d.TrackInfo);
         this.SessionStartTime = ('SessionStartTime' in d) ? ParseDate(d.SessionStartTime) : new Date();
-        this.ConnectedDrivers = ('ConnectedDrivers' in d) ? new RaceControlDriverMap(d.ConnectedDrivers) : null;
-        this.DisconnectedDrivers = ('DisconnectedDrivers' in d) ? new RaceControlDriverMap(d.DisconnectedDrivers) : null;
-        this.ChatMessages = Array.isArray(d.ChatMessages) ? d.ChatMessages.map((v: any) => new RaceControlChat(v)) : [];
+        this.ConnectedDrivers = ('ConnectedDrivers' in d) ? new DriverMap(d.ConnectedDrivers) : null;
+        this.DisconnectedDrivers = ('DisconnectedDrivers' in d) ? new DriverMap(d.DisconnectedDrivers) : null;
+        this.ChatMessages = Array.isArray(d.ChatMessages) ? d.ChatMessages.map((v: any) => new Chat(v)) : null;
         this.CarIDToGUID = ('CarIDToGUID' in d) ? d.CarIDToGUID as { [key: number]: string } : {};
+        this.BestSplits = Array.isArray(d.BestSplits) ? d.BestSplits.map((v: any) => new RaceControlCarSplit(v)) : null;
+        this.DamageMultiplier = ('DamageMultiplier' in d) ? d.DamageMultiplier as number : 0;
     }
 
     toObject(): any {
         const cfg: any = {};
         cfg.CurrentRealtimePosInterval = 'number';
         cfg.SessionStartTime = 'string';
+        cfg.DamageMultiplier = 'number';
         return ToObject(this, cfg);
     }
 }
 
 // exports
 export {
-    RaceControlSessionInfo,
-    RaceControlTrackMapData,
-    RaceControlTrackInfo,
-    RaceControlDriverMapRaceControlDriverSessionCarInfo,
-    RaceControlDriverMapRaceControlDriverVector3F,
-    RaceControlDriverMapRaceControlDriverCollision,
-    RaceControlDriverMapRaceControlDriverRaceControlCarLapInfoRaceControlCarSplit,
-    RaceControlDriverMapRaceControlDriverRaceControlCarLapInfo,
-    RaceControlDriverMapRaceControlDriver,
-    RaceControlDriverMap,
-    RaceControlChat,
+    SessionInfo,
+    TrackMapData,
+    TrackInfo,
+    SessionCarInfo,
+    Vector3F,
+    Collision,
+    RaceControlCarSplit,
+    RaceControlCarLapInfo,
+    RaceControlDriver,
+    DriverMap,
+    Chat,
     RaceControl,
     ParseDate,
     ParseNumber,

@@ -195,7 +195,9 @@ type GlobalServerConfig struct {
 
 	Name                      string               `ini:"NAME" help:"Server Name"`
 	Password                  string               `ini:"PASSWORD" type:"password" help:"Server password"`
-	AdminPassword             string               `ini:"ADMIN_PASSWORD" type:"password" help:"The password needed to be recognized as server administrator: you can join the server using it to be recognized automatically. Type /help in the game's chat to see the command list. Warning: Leaving this blank will allow any driver to connect as Admin!"`
+	AdminPassword             string               `ini:"ADMIN_PASSWORD" type:"password" help:"The password needed to be recognized as server administrator: you can join the server using it to be recognized automatically. Type /help in the game's chat to see the command list."`
+	SpectatorPassword         string               `ini:"SPECTATOR_PASSWORD" type:"password" help:"The password needed to be recognized as a spectator: you can join the server using it to be recognized automatically. Spectator cars can use commands to view other cars in Solo Qualifying, and will always be shown in the pits. Type /help in the game's chat to see the command list."`
+	SpectatorIsAdmin          bool                 `help:"Spectators will also be treated as administrators if this option is enabled."`
 	UDPPort                   int                  `ini:"UDP_PORT" show:"open" min:"0" max:"65535" help:"UDP port number: open this port on your server's firewall"`
 	TCPPort                   int                  `ini:"TCP_PORT" show:"open" min:"0" max:"65535" help:"TCP port number: open this port on your server's firewall"`
 	HTTPPort                  int                  `ini:"HTTP_PORT" show:"open" min:"0" max:"65535" help:"Lobby port number: open these ports (both UDP and TCP) on your server's firewall"`
@@ -279,6 +281,8 @@ func (gsc GlobalServerConfig) ToACServerConfig() *acserver.ServerConfig {
 		Name:                      gsc.Name,
 		Password:                  gsc.Password,
 		AdminPassword:             gsc.AdminPassword,
+		SpectatorPassword:         gsc.SpectatorPassword,
+		SpectatorIsAdmin:          gsc.SpectatorIsAdmin,
 		UDPPort:                   uint16(gsc.UDPPort),
 		TCPPort:                   uint16(gsc.TCPPort),
 		HTTPPort:                  uint16(gsc.HTTPPort),

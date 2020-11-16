@@ -10,13 +10,14 @@ import (
 	"sync"
 	"time"
 
+	_ "github.com/OneOfOne/struct2ts" // Race Control typescript requires this for generation.
 	"github.com/google/uuid"
 	"github.com/mitchellh/go-wordwrap"
 	"github.com/sirupsen/logrus"
 	lua "github.com/yuin/gopher-lua"
-	"justapengu.in/acsm/pkg/ai"
 
 	"justapengu.in/acsm/internal/acserver"
+	"justapengu.in/acsm/pkg/ai"
 	"justapengu.in/acsm/pkg/udp"
 )
 
@@ -34,6 +35,8 @@ type RaceControlBroadcastData struct {
 	DisconnectedDrivers        *DriverMap                   `json:"DisconnectedDrivers"`
 	ChatMessages               []udp.Chat                   `json:"ChatMessages"`
 	CarIDToGUID                map[udp.CarID]udp.DriverGUID `json:"CarIDToGUID"`
+	BestSplits                 []RaceControlCarSplit        `json:"BestSplits"`
+	DamageMultiplier           int                          `json:"DamageMultiplier"`
 }
 
 type RaceControl struct {
@@ -59,13 +62,9 @@ type RaceControl struct {
 	driverSwapTimers         map[int]*time.Timer
 	driverSwapPenaltiesMutex sync.Mutex
 	driverSwapPenalties      map[udp.DriverGUID]*driverSwapPenalty
-
-	bestSplits []RaceControlCarSplit
 }
 
 func (rc *RaceControl) MarshalJSON() ([]byte, error) {
-	rc.mutex.RLock()
-	defer rc.mutex.RUnlock()
 	return json.Marshal(rc.RaceControlBroadcastData)
 }
 
@@ -112,6 +111,9 @@ func NewRaceControl(broadcaster Broadcaster, trackDataGateway TrackDataGateway, 
 }
 
 func (rc *RaceControl) UDPCallback(message udp.Message) {
+	rc.mutex.Lock()
+	defer rc.mutex.Unlock()
+
 	var err error
 
 	sendUpdatedRaceControlStatus := false
@@ -207,8 +209,6 @@ func (rc *RaceControl) OnVersion(version udp.Version) error {
 	go panicCapture(rc.requestSessionInfo)
 
 	// clear chat messages on new server start
-	rc.mutex.Lock()
-	defer rc.mutex.Unlock()
 	rc.ChatMessages = []udp.Chat{}
 
 	_, err := rc.broadcaster.Send(version)
@@ -255,6 +255,10 @@ func (rc *RaceControl) OnCarUpdate(update udp.CarUpdate) (bool, error) {
 	driver.mutex.Unlock()
 
 	sendUpdatedRaceControlStatus := false
+
+	if driver.IsInPits && speed < 2 {
+		driver.LastPitStop = driver.TotalNumLaps
+	}
 
 	if driver.IsInPits != wasInPits || driver.DRSActive != drsWasActive {
 		sendUpdatedRaceControlStatus = true
@@ -330,6 +334,7 @@ func (rc *RaceControl) OnNewSession(sessionInfo udp.SessionInfo) error {
 	oldSessionInfo := rc.SessionInfo
 	rc.SessionInfo = sessionInfo
 	rc.SessionStartTime = time.Now()
+	rc.DamageMultiplier = rc.process.Event().GetRaceConfig().DamageMultiplier
 
 	emptyCarInfo := true
 
@@ -337,7 +342,7 @@ func (rc *RaceControl) OnNewSession(sessionInfo udp.SessionInfo) error {
 	rc.driverSwapPenalties = make(map[udp.DriverGUID]*driverSwapPenalty)
 	rc.driverSwapPenaltiesMutex.Unlock()
 
-	rc.bestSplits = []RaceControlCarSplit{}
+	rc.BestSplits = []RaceControlCarSplit{}
 
 	if (rc.ConnectedDrivers.Len() > 0 || rc.DisconnectedDrivers.Len() > 0) && sessionInfo.Type == acserver.SessionTypePractice {
 		if oldSessionInfo.Type == sessionInfo.Type && oldSessionInfo.Track == sessionInfo.Track && oldSessionInfo.TrackConfig == sessionInfo.TrackConfig && oldSessionInfo.Name == sessionInfo.Name {
@@ -406,7 +411,7 @@ func (rc *RaceControl) OnNewSession(sessionInfo udp.SessionInfo) error {
 				}
 			}
 
-			rc.bestSplits = persistedInfo.BestSplits
+			rc.BestSplits = persistedInfo.BestSplits
 
 			logrus.Infof("Loaded previous Live Timings data for %s (%s), num drivers: %d", persistedInfo.Track, persistedInfo.TrackLayout, len(persistedInfo.Drivers))
 		}
@@ -423,9 +428,7 @@ func (rc *RaceControl) OnNewSession(sessionInfo udp.SessionInfo) error {
 func (rc *RaceControl) clearAllDrivers() {
 	rc.ConnectedDrivers = NewDriverMap(ConnectedDrivers, rc.SortDrivers)
 	rc.DisconnectedDrivers = NewDriverMap(DisconnectedDrivers, rc.SortDrivers)
-	rc.mutex.Lock()
 	rc.CarIDToGUID = make(map[udp.CarID]udp.DriverGUID)
-	rc.mutex.Unlock()
 }
 
 var sessionInfoRequestInterval = time.Second * 30
@@ -485,8 +488,6 @@ func (rc *RaceControl) disconnectDriver(driver *RaceControlDriver) error {
 
 // OnSessionUpdate is called every sessionRequestInterval.
 func (rc *RaceControl) OnSessionUpdate(sessionInfo udp.SessionInfo) (bool, error) {
-	rc.mutex.Lock()
-	defer rc.mutex.Unlock()
 	oldSessionInfo := rc.SessionInfo
 
 	// we can't just copy over the session information, we must copy individual
@@ -634,9 +635,7 @@ func (rc *RaceControl) addFileToTimeAttackEvent(file string) error {
 // OnClientConnect stores CarID -> DriverGUID mappings. if a driver is known to have previously been in this event,
 // they will be moved from DisconnectedDrivers to ConnectedDrivers.
 func (rc *RaceControl) OnClientConnect(client udp.SessionCarInfo) error {
-	rc.mutex.Lock()
 	rc.CarIDToGUID[client.CarID] = client.DriverGUID
-	rc.mutex.Unlock()
 
 	client.DriverInitials = driverInitials(client.DriverName)
 	client.DriverName = driverName(client.DriverName)
@@ -961,9 +960,7 @@ func (rc *RaceControl) positionHasChanged(initialPosition, currentPosition udp.V
 // findConnectedDriverByCarID looks for a driver in ConnectedDrivers by their CarID. This is the only place CarID
 // is used for a look-up, and it uses the CarIDToGUID map to perform the lookup.
 func (rc *RaceControl) findConnectedDriverByCarID(carID udp.CarID) (*RaceControlDriver, error) {
-	rc.mutex.RLock()
 	driverGUID, ok := rc.CarIDToGUID[carID]
-	rc.mutex.RUnlock()
 
 	if !ok {
 		return nil, fmt.Errorf("racecontrol: could not find DriverGUID for CarID: %d", carID)
@@ -1139,6 +1136,11 @@ func (rc *RaceControl) OnLapCompleted(lap udp.LapCompleted) error {
 		currentCar.BestLap = lapDuration
 		currentCar.TopSpeedBestLap = currentCar.TopSpeedThisLap
 		currentCar.TyresBestLap = lap.Tyres
+		currentCar.BestLapSplits = make(map[uint8]RaceControlCarSplit)
+
+		for splitIndex, split := range currentCar.CurrentLapSplits {
+			currentCar.BestLapSplits[splitIndex] = split
+		}
 	}
 
 	currentCar.TopSpeedThisLap = 0
@@ -1250,20 +1252,20 @@ func (rc *RaceControl) OnSplitComplete(split udp.SplitCompleted) error {
 
 	hasSplit := false
 
-	for index, bestSplit := range rc.bestSplits {
+	for index, bestSplit := range rc.BestSplits {
 		if newSplit.SplitIndex == bestSplit.SplitIndex {
 			hasSplit = true
 
 			if newSplit.Cuts == 0 && splitDuration < bestSplit.SplitTime {
 				newSplit.IsBest = true
-				rc.bestSplits[index] = newSplit
+				rc.BestSplits[index] = newSplit
 			}
 		}
 	}
 
 	if !hasSplit && newSplit.Cuts == 0 {
 		newSplit.IsBest = true
-		rc.bestSplits = append(rc.bestSplits, newSplit)
+		rc.BestSplits = append(rc.BestSplits, newSplit)
 	}
 
 	currentCar.CurrentLapSplits[newSplit.SplitIndex] = newSplit
@@ -1295,8 +1297,6 @@ func (rc *RaceControl) OnChatMessage(chat udp.Chat) error {
 		return err
 	}
 
-	rc.mutex.Lock()
-	defer rc.mutex.Unlock()
 	rc.ChatMessages = append(rc.ChatMessages, chat)
 
 	if len(rc.ChatMessages) > chatMessageLimit {
@@ -1455,7 +1455,7 @@ func (rc *RaceControl) persistTimingData() {
 		Track:       rc.SessionInfo.Track,
 		TrackLayout: rc.SessionInfo.TrackConfig,
 		SessionName: rc.SessionInfo.Name,
-		BestSplits:  rc.bestSplits,
+		BestSplits:  rc.BestSplits,
 
 		Drivers: rc.AllLapTimes(),
 	}

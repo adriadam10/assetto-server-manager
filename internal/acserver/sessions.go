@@ -1,12 +1,15 @@
 package acserver
 
 import (
-	"context"
 	"fmt"
 	"sync"
 	"time"
 
 	"github.com/sirupsen/logrus"
+)
+
+const (
+	soloQualifyingIntroMessage = "This session is a Solo Qualifying session. You will not see any other cars on track for the duration of this session."
 )
 
 type SessionConfig struct {
@@ -106,17 +109,19 @@ func (s *CurrentSession) IsZero() bool {
 }
 
 type SessionManager struct {
-	state          *ServerState
-	lobby          *Lobby
-	plugin         Plugin
-	logger         Logger
-	weatherManager *WeatherManager
-	dynamicTrack   *DynamicTrack
-	serverStopFn   func(bool) error
+	state                     *ServerState
+	lobby                     *Lobby
+	plugin                    Plugin
+	logger                    Logger
+	weatherManager            *WeatherManager
+	dynamicTrack              *DynamicTrack
+	serverStopFn              func(bool) error
+	leaderboardAtSessionStart []*LeaderboardLine
 
 	mutex               sync.RWMutex
 	currentSessionIndex uint8
 	currentSession      CurrentSession
+	lastLobbyUpdate     time.Time
 
 	baseDirectory string
 }
@@ -142,15 +147,15 @@ func (sm *SessionManager) SaveResultsAndBuildLeaderboard(forceAdvance bool) (pre
 		return
 	}
 
+	sm.logger.Infof("Leaderboard at the end of the session '%s' is:", sm.currentSession.Config.Name)
+
+	previousSessionLeaderboard = sm.state.Leaderboard(sm.currentSession.Config.SessionType)
+
+	for pos, leaderboardLine := range previousSessionLeaderboard {
+		sm.logger.Printf("%d. %s - %s", pos, leaderboardLine.Car.Driver.Name, leaderboardLine)
+	}
+
 	if sm.currentSession.numCompletedLaps > 0 {
-		sm.logger.Infof("Leaderboard at the end of the session '%s' is:", sm.currentSession.Config.Name)
-
-		previousSessionLeaderboard = sm.state.Leaderboard(sm.currentSession.Config.SessionType)
-
-		for pos, leaderboardLine := range previousSessionLeaderboard {
-			sm.logger.Printf("%d. %s - %s", pos, leaderboardLine.Car.Driver.Name, leaderboardLine)
-		}
-
 		results := sm.state.GenerateResults(sm.currentSession.Config)
 
 		if err := saveResults(sm.baseDirectory, results); err != nil {
@@ -201,10 +206,10 @@ func (sm *SessionManager) SaveResultsAndBuildLeaderboard(forceAdvance bool) (pre
 	return previousSessionLeaderboard, resultsFileName
 }
 
-func (sm *SessionManager) NextSession(force bool) {
+func (sm *SessionManager) NextSession(force, wasRestart bool) {
 	previousSessionLeaderboard, resultsFileName := sm.SaveResultsAndBuildLeaderboard(force)
 
-	if resultsFileName != "" {
+	if resultsFileName != "" && !wasRestart {
 		if err := sm.plugin.OnEndSession(resultsFileName); err != nil {
 			sm.logger.WithError(err).Error("OnEndSession plugin errored")
 		}
@@ -230,9 +235,15 @@ func (sm *SessionManager) NextSession(force bool) {
 	sm.currentSession.moveToNextSessionAt = 0
 	sm.currentSession.sessionOverBroadcast = false
 	currentSessionIndex := sm.currentSessionIndex
-	sm.mutex.Unlock()
 
-	sm.logger.Infof("Advanced to next session: %s", sm.currentSession.String())
+	if !wasRestart {
+		sm.logger.Infof("Advanced to next session: %s", sm.currentSession.String())
+		sm.leaderboardAtSessionStart = previousSessionLeaderboard
+	} else {
+		sm.logger.Infof("Restarted current session: %s", sm.currentSession.String())
+		previousSessionLeaderboard = sm.leaderboardAtSessionStart
+	}
+	sm.mutex.Unlock()
 
 	for _, entrant := range sm.state.entryList {
 		if entrant.IsConnected() {
@@ -248,6 +259,10 @@ func (sm *SessionManager) NextSession(force bool) {
 
 	sm.weatherManager.OnNewSession(currentSessionConfig)
 	sm.dynamicTrack.OnNewSession(currentSessionConfig.SessionType)
+
+	if currentSessionConfig.IsSoloQualifying() {
+		sm.state.BroadcastChat(ServerCarID, soloQualifyingIntroMessage, false)
+	}
 
 	sm.UpdateLobby()
 
@@ -275,72 +290,59 @@ func (sm *SessionManager) NextSession(force bool) {
 	}
 }
 
-func (sm *SessionManager) loop(ctx context.Context) {
-	tick := time.NewTicker(time.Second)
-	defer tick.Stop()
+func (sm *SessionManager) Step(currentTime int64) {
+	if sm.state.serverConfig.RegisterToLobby && time.Since(sm.lastLobbyUpdate) > time.Minute {
+		sm.UpdateLobby()
+		sm.lastLobbyUpdate = time.Now()
+	}
 
-	lastLobbyUpdate := time.Now()
+	if sm.CanBroadcastEndSession() {
+		carsAreConnecting := false
 
-	for {
-		select {
-		case <-ctx.Done():
-			sm.logger.Debugf("Stopping SessionManager Loop")
-			return
-		case <-tick.C:
-			if sm.state.serverConfig.RegisterToLobby && time.Since(lastLobbyUpdate) > time.Minute {
-				sm.UpdateLobby()
-				lastLobbyUpdate = time.Now()
-			}
-
-			if sm.CanBroadcastEndSession() {
-				carsAreConnecting := false
-
-				for _, car := range sm.state.entryList {
-					if car.IsConnected() && !car.HasSentFirstUpdate() {
-						carsAreConnecting = true
-						break
-					}
-				}
-
-				if carsAreConnecting {
-					// don't advance sessions while cars are connecting.
-					sm.logger.Debugf("Stalling session until all connecting cars are connected")
-					continue
-				}
-
-				sm.BroadcastSessionCompleted()
-
-				sm.mutex.Lock()
-				switch sm.currentSession.Config.SessionType {
-				case SessionTypeBooking:
-					sm.currentSession.moveToNextSessionAt = sm.state.CurrentTimeMillisecond()
-				default:
-					sm.currentSession.moveToNextSessionAt = sm.state.CurrentTimeMillisecond() + int64(sm.state.raceConfig.ResultScreenTime*1000)
-				}
-				sm.currentSession.sessionOverBroadcast = true
-				sm.mutex.Unlock()
-			}
-
-			if sm.CanMoveToNextSession() {
-				carsAreConnecting := false
-
-				for _, car := range sm.state.entryList {
-					if car.IsConnected() && !car.HasSentFirstUpdate() {
-						carsAreConnecting = true
-						break
-					}
-				}
-
-				if carsAreConnecting {
-					// don't advance sessions while cars are connecting.
-					sm.logger.Debugf("Stalling session until all connecting cars are connected")
-					continue
-				}
-
-				// move to the next session when the race over packet has been sent and the results screen time has elapsed.
-				sm.NextSession(false)
+		for _, car := range sm.state.entryList {
+			if car.IsConnected() && !car.HasSentFirstUpdate() {
+				carsAreConnecting = true
+				break
 			}
 		}
+
+		if carsAreConnecting {
+			// don't advance sessions while cars are connecting.
+			sm.logger.Debugf("Stalling session until all connecting cars are connected")
+			return
+		}
+
+		sm.BroadcastSessionCompleted()
+
+		sm.mutex.Lock()
+		switch sm.currentSession.Config.SessionType {
+		case SessionTypeBooking:
+			sm.currentSession.moveToNextSessionAt = currentTime
+		default:
+			sm.currentSession.moveToNextSessionAt = currentTime + int64(sm.state.raceConfig.ResultScreenTime*1000)
+		}
+		sm.currentSession.sessionOverBroadcast = true
+		sm.mutex.Unlock()
+	}
+
+	if sm.CanMoveToNextSession() {
+		carsAreConnecting := false
+
+		for _, car := range sm.state.entryList {
+			if car.IsConnected() && !car.HasSentFirstUpdate() {
+				carsAreConnecting = true
+				break
+			}
+		}
+
+		if carsAreConnecting {
+			// don't advance sessions while cars are connecting.
+			sm.logger.Debugf("Stalling session until all connecting cars are connected")
+			return
+		}
+
+		// move to the next session when the race over packet has been sent and the results screen time has elapsed.
+		sm.NextSession(false, false)
 	}
 }
 
@@ -363,7 +365,7 @@ func (sm *SessionManager) RestartSession() {
 	sm.mutex.Lock()
 	sm.currentSessionIndex--
 	sm.mutex.Unlock()
-	sm.NextSession(true)
+	sm.NextSession(true, true)
 }
 
 func (sm *SessionManager) CurrentSessionHasFinished() bool {
@@ -663,12 +665,6 @@ func (sm *SessionManager) CompleteLap(carID CarID, lap *LapCompleted, target *Ca
 	l := car.AddLap(lap)
 
 	if carID != ServerCarID {
-		err := sm.plugin.OnLapCompleted(car.CarID, *l)
-
-		if err != nil {
-			sm.logger.WithError(err).Error("On lap completed plugin returned an error")
-		}
-
 		// last sector only
 		var cutsInSectorsSoFar uint8
 
@@ -688,6 +684,12 @@ func (sm *SessionManager) CompleteLap(carID CarID, lap *LapCompleted, target *Ca
 
 		if err != nil {
 			sm.logger.WithError(err).Error("On sector completed plugin returned an error")
+		}
+
+		err := sm.plugin.OnLapCompleted(car.CarID, *l)
+
+		if err != nil {
+			sm.logger.WithError(err).Error("On lap completed plugin returned an error")
 		}
 	}
 

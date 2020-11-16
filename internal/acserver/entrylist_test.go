@@ -173,7 +173,7 @@ func TestEntryListManager_ConnectCar(t *testing.T) {
 			em := NewEntryListManager(state, logrus.New())
 
 			for _, driver := range test.driversToConnect {
-				car, err := em.ConnectCar(&net.TCPConn{}, driver.Driver, driver.requestModel, false)
+				car, err := em.ConnectCar(&net.TCPConn{}, driver.Driver, driver.requestModel, false, false)
 
 				if driver.succeed {
 					if err != nil || car == nil {
@@ -251,7 +251,7 @@ func TestEntryListManager_ConnectCar(t *testing.T) {
 		}
 
 		em := NewEntryListManager(state, logrus.New())
-		car, err := em.ConnectCar(&net.TCPConn{}, Driver{Name: "Driver Connect", GUID: "C"}, "ks_ferrari_f2004", false)
+		car, err := em.ConnectCar(&net.TCPConn{}, Driver{Name: "Driver Connect", GUID: "C"}, "ks_ferrari_f2004", false, false)
 
 		if err != nil {
 			t.Error(err)
@@ -261,7 +261,7 @@ func TestEntryListManager_ConnectCar(t *testing.T) {
 		// disconnect
 		car.Connection = Connection{}
 
-		car2, err := em.ConnectCar(&net.TCPConn{}, Driver{Name: "Driver Connect", GUID: "C"}, "ks_ferrari_f2004", false)
+		car2, err := em.ConnectCar(&net.TCPConn{}, Driver{Name: "Driver Connect", GUID: "C"}, "ks_ferrari_f2004", false, false)
 
 		if err != nil {
 			t.Error(err)
@@ -319,7 +319,7 @@ func TestEntryListManager_ConnectCar(t *testing.T) {
 		}
 
 		em := NewEntryListManager(state, logrus.New())
-		car, err := em.ConnectCar(&net.TCPConn{}, Driver{Name: "Driver Connect", GUID: "C"}, "ks_ferrari_f2004", false)
+		car, err := em.ConnectCar(&net.TCPConn{}, Driver{Name: "Driver Connect", GUID: "C"}, "ks_ferrari_f2004", false, false)
 
 		if err != nil {
 			t.Error(err)
@@ -329,7 +329,7 @@ func TestEntryListManager_ConnectCar(t *testing.T) {
 		// disconnect
 		car.Connection = Connection{}
 
-		car2, err := em.ConnectCar(&net.TCPConn{}, Driver{Name: "Driver Connect", GUID: "D"}, "ks_ferrari_f2004", false)
+		car2, err := em.ConnectCar(&net.TCPConn{}, Driver{Name: "Driver Connect", GUID: "D"}, "ks_ferrari_f2004", false, false)
 
 		if err != nil {
 			t.Error(err)

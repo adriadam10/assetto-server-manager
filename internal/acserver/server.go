@@ -131,8 +131,6 @@ func (s *Server) Start() error {
 		}
 	}
 
-	go s.sessionManager.loop(s.ctx)
-
 	return nil
 }
 
@@ -187,7 +185,7 @@ func (s *Server) loop() {
 		s.state.serverConfig.SleepTime = 1
 	}
 
-	s.sessionManager.NextSession(false)
+	s.sessionManager.NextSession(false, false)
 
 	activeSleepTime := time.Millisecond * time.Duration(s.state.serverConfig.SleepTime)
 	sleepTime := activeSleepTime
@@ -240,9 +238,8 @@ func (s *Server) loop() {
 				}
 			}
 
-			if sleepTime != idleSleepTime {
-				s.weatherManager.Step(currentTime, s.sessionManager.GetCurrentSession())
-			}
+			s.sessionManager.Step(currentTime)
+			s.weatherManager.Step(currentTime, s.sessionManager.GetCurrentSession())
 
 			if s.state.entryList.NumConnected() == 0 {
 				if sleepTime != idleSleepTime {
@@ -302,6 +299,19 @@ func (s *Server) GetSessionInfo() SessionInfo {
 	}
 }
 
+func (s *Server) AddDriver(name, team, guid, model string) error {
+	driver := Driver{
+		Name:     name,
+		Team:     team,
+		GUID:     guid,
+		JoinTime: 0,
+		LoadTime: time.Time{},
+		Nation:   "",
+	}
+
+	return s.entryListManager.AddDriverToEmptyCar(driver, model)
+}
+
 func (s *Server) GetEventConfig() EventConfig {
 	return *s.state.raceConfig
 }
@@ -334,7 +344,7 @@ func (s *Server) KickUser(carIDToKick CarID, reason KickReason) error {
 }
 
 func (s *Server) NextSession() {
-	s.sessionManager.NextSession(true)
+	s.sessionManager.NextSession(true, false)
 }
 
 func (s *Server) RestartSession() {

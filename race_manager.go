@@ -127,21 +127,6 @@ func (rm *RaceManager) applyConfigAndStart(event RaceEvent) error {
 		raceConfig.MaxBallastKilograms = greatestBallast
 	}
 
-	// if this is a championship practice and some practice weathers exist replace weather in config with them
-	if event.IsChampionship() && event.IsPractice() {
-		for _, weather := range raceConfig.Weather {
-			for i, session := range weather.Sessions {
-				if session == SessionTypeChampionshipPractice {
-					// convert to normal practice for server
-					weather.Sessions[i] = SessionTypePractice
-				} else {
-					// make sure other weathers aren't eligible
-					weather.Sessions[i] = SessionTypeChampionshipPractice
-				}
-			}
-		}
-	}
-
 	config := ServerConfig{
 		CurrentRaceConfig:  raceConfig,
 		GlobalServerConfig: *serverOpts,
@@ -505,10 +490,12 @@ func (rm *RaceManager) BuildEntryList(r *http.Request, start, length int) (Entry
 			}
 		}
 
-		e.Name = r.Form["EntryList.Name"][i]
+		guid, name := NormaliseEntrantGUIDsNames(r.Form["EntryList.GUID"][i], r.Form["EntryList.Name"][i])
+
+		e.Name = name
 		e.Team = r.Form["EntryList.Team"][i]
 
-		e.GUID = NormaliseEntrantGUID(r.Form["EntryList.GUID"][i])
+		e.GUID = guid
 		e.Model = model
 		e.Skin = skin
 		// Despite having the option for SpectatorMode, the server does not support it, and panics if set to 1

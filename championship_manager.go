@@ -750,6 +750,31 @@ func (cm *ChampionshipManager) StartEvent(championshipID string, eventID string,
 		raceSetup.PickupModeEnabled = 1
 	}
 
+	filteredWeather := make(map[string]*WeatherConfig)
+
+	i := 0
+	weatherKey := 0
+
+	for {
+		weather, ok := raceSetup.Weather[fmt.Sprintf("WEATHER_%d", weatherKey)]
+
+		if !ok {
+			break
+		}
+
+		for _, session := range weather.Sessions {
+			if session == SessionTypeChampionshipPractice {
+				weather.Sessions = []SessionType{SessionTypePractice}
+				filteredWeather[fmt.Sprintf("WEATHER_%d", i)] = weather
+
+				i++
+			}
+		}
+
+		weatherKey++
+	}
+
+	raceSetup.Weather = filteredWeather
 	raceSetup.ResultScreenTime = 30
 
 	return cm.RaceManager.applyConfigAndStart(&ActiveChampionship{
@@ -1521,6 +1546,16 @@ func (cm *ChampionshipManager) AddEntrantFromSessionData(championship *Champions
 		if err != nil {
 			logrus.Errorf("Couldn't add entrant (GUID: %s, Name: %s) to autofill list", newEntrant.GUID, newEntrant.Name)
 		}
+
+		if event, ok := cm.process.Event().(*ActiveChampionship); ok && event.IsPracticeSession && event.ChampionshipID == championship.ID {
+			err = cm.raceControl.server.AddDriver(newEntrant.Name, newEntrant.Team, newEntrant.GUID, entrant.Model)
+
+			if err != nil {
+				logrus.WithError(err).Warnf("Driver (%s) was added to the entry list, but could not be added to the active practice event! Please restart the event to add the new driver.", newEntrant.Name)
+			} else {
+				logrus.Infof("Successfully added new driver (%s) to the active practice event entry list.", newEntrant.Name)
+			}
+		}
 	}
 
 	return foundFreeEntrantSlot, entrantClass, nil
@@ -1666,10 +1701,12 @@ func (cm *ChampionshipManager) HandleChampionshipSignUp(r *http.Request) (respon
 		return nil, false, err
 	}
 
+	guid, name := NormaliseEntrantGUIDsNames(r.FormValue("GUID"), r.FormValue("Name"))
+
 	signUpResponse := &ChampionshipSignUpResponse{
 		Created: time.Now(),
-		Name:    r.FormValue("Name"),
-		GUID:    NormaliseEntrantGUID(r.FormValue("GUID")),
+		Name:    name,
+		GUID:    guid,
 		Team:    r.FormValue("Team"),
 		Email:   r.FormValue("Email"),
 
