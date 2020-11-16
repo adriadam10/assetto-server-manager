@@ -207,6 +207,8 @@ func (sah *ServerAdministrationHandler) options(w http.ResponseWriter, r *http.R
 
 		if err != nil {
 			logrus.WithError(err).Errorf("couldn't submit form")
+			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+			return
 		}
 
 		UseShortenedDriverNames = serverOpts.UseShortenedDriverNames == 1
