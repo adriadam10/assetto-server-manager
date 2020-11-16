@@ -240,9 +240,7 @@ func (s *Server) loop() {
 				}
 			}
 
-			if sleepTime != idleSleepTime {
-				s.weatherManager.Step(currentTime, s.sessionManager.GetCurrentSession())
-			}
+			s.weatherManager.Step(currentTime, s.sessionManager.GetCurrentSession())
 
 			if s.state.entryList.NumConnected() == 0 {
 				if sleepTime != idleSleepTime {
