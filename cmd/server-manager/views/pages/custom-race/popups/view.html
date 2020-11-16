@@ -165,7 +165,7 @@
                                             {{ weatherName $weather.Graphics }}<br>
                                             <small>
                                                 {{ if $.EventConfig.IsSol }}
-                                                    Date: {{ localFormat ($weather.UnixToTime $weather.CMWFXDate) }}<br>
+                                                    Date: {{ solTimeFormat ($weather.UnixToTime $weather.CMWFXDateUnModified) }}<br>
                                                     Multiplier: {{ $weather.CMWFXTimeMulti }}x<br>
                                                 {{ end }}
 

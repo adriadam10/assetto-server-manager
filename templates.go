@@ -249,6 +249,7 @@ func (tr *Renderer) init() error {
 	funcs["Config"] = func() *Configuration { return config }
 	funcs["Version"] = func() string { return BuildVersion }
 	funcs["fullTimeFormat"] = fullTimeFormat
+	funcs["solTimeFormat"] = solTimeFormat
 	funcs["localFormat"] = localFormatHelper
 	funcs["driverName"] = driverName
 	funcs["driverInitials"] = driverInitials
@@ -356,6 +357,10 @@ func timeZone(t time.Time) string {
 
 func fullTimeFormat(t time.Time) string {
 	return t.Format("Monday, January 2, 2006 3:04 PM (MST)")
+}
+
+func solTimeFormat(t time.Time) string {
+	return t.Format("Monday, January 2, 2006 3:04 PM")
 }
 
 func isBefore(t time.Time) bool {
