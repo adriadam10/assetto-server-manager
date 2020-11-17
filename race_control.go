@@ -273,6 +273,8 @@ func (rc *RaceControl) OnCarUpdate(update udp.CarUpdate) (bool, error) {
 	// calculate blue flags
 	if rc.SessionInfo.Type == acserver.SessionTypeRace {
 		driver.mutex.Lock()
+		blueFlagToFound := false
+
 		_ = rc.ConnectedDrivers.Each(func(guid1 udp.DriverGUID, driverB *RaceControlDriver) error {
 			if guid1 == driver.CarInfo.DriverGUID {
 				// don't compare a driver to themselves (also avoid deadlock)
@@ -282,35 +284,51 @@ func (rc *RaceControl) OnCarUpdate(update udp.CarUpdate) (bool, error) {
 			driverB.mutex.Lock()
 			defer driverB.mutex.Unlock()
 
-			if driverB.Position > driver.Position {
-				// can't have blue flag to driver behind
-				return nil
-			}
+			if driver.BlueFlag && driver.BlueFlagTo == driverB.CarInfo.CarID {
+				blueFlagToFound = true
 
-			if driver.TotalNumLaps < driverB.TotalNumLaps {
-				if driver.BlueFlag {
-					// driver 1 has gone past
-					if driverB.NormalisedSplinePos-driver.NormalisedSplinePos > 0 && driverB.NormalisedSplinePos-driver.NormalisedSplinePos <= 0.1 {
+				if driver.TotalNumLaps < driverB.TotalNumLaps {
+					// driver B has gone past
+					if driverB.NormalisedSplinePos-driver.NormalisedSplinePos > 0 && driverB.NormalisedSplinePos-driver.NormalisedSplinePos <= 0.2 {
+						logrus.Debugf("blue flag for %s cleared: %s overtook them", driver.CarInfo.DriverName, driverB.CarInfo.DriverName)
+
 						driver.BlueFlag = false
 						sendUpdatedRaceControlStatus = true
 					}
 
-					// driver 1 has fallen back
+					// driver B has fallen back
 					if driver.NormalisedSplinePos-driverB.NormalisedSplinePos >= 0 && driver.LastPos.DistanceTo(driverB.LastPos) > 74 {
+						logrus.Debugf("blue flag for %s cleared: %s fell back", driver.CarInfo.DriverName, driverB.CarInfo.DriverName)
+
 						driver.BlueFlag = false
 						sendUpdatedRaceControlStatus = true
 					}
 
 					// driver is in pits
 					if driver.IsInPits {
+						logrus.Debugf("blue flag for %s cleared: they entered the pits", driver.CarInfo.DriverName)
+
 						driver.BlueFlag = false
 						sendUpdatedRaceControlStatus = true
 					}
-				} else {
+				}
+			}
+
+			if driverB.Position > driver.Position {
+				// can't have blue flag to driver behind
+				return nil
+			}
+
+			if driver.TotalNumLaps < driverB.TotalNumLaps {
+				if !driver.BlueFlag {
 					if driver.NormalisedSplinePos-driverB.NormalisedSplinePos >= 0 {
 						// driver is ahead, use pos to find distance between
-						if driver.LastPos.DistanceTo(driverB.LastPos) <= 70 && !driver.IsInPits {
+						if driver.LastPos.DistanceTo(driverB.LastPos) <= 120 && !driver.IsInPits {
+							logrus.Debugf("blue flag for %s initialised: let %s through", driver.CarInfo.DriverName, driverB.CarInfo.DriverName)
+
 							driver.BlueFlag = true
+							driver.BlueFlagTo = driverB.CarInfo.CarID
+							blueFlagToFound = true
 							sendUpdatedRaceControlStatus = true
 						}
 					}
@@ -319,6 +337,12 @@ func (rc *RaceControl) OnCarUpdate(update udp.CarUpdate) (bool, error) {
 
 			return nil
 		})
+
+		if driver.BlueFlag && !blueFlagToFound {
+			logrus.Debugf("blue flag for %s cleared: the other driver (car ID: %d) was not found", driver.CarInfo.DriverName, driver.BlueFlagTo)
+
+			driver.BlueFlag = false
+		}
 
 		driver.mutex.Unlock()
 	}
