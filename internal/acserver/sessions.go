@@ -210,9 +210,11 @@ func (sm *SessionManager) NextSession(force, wasRestart bool) {
 	previousSessionLeaderboard, resultsFileName := sm.SaveResultsAndBuildLeaderboard(force)
 
 	if resultsFileName != "" && !wasRestart {
-		if err := sm.plugin.OnEndSession(resultsFileName); err != nil {
-			sm.logger.WithError(err).Error("OnEndSession plugin errored")
-		}
+		go func() {
+			if err := sm.plugin.OnEndSession(resultsFileName); err != nil {
+				sm.logger.WithError(err).Error("OnEndSession plugin errored")
+			}
+		}()
 	}
 
 	if int(sm.currentSessionIndex) >= len(sm.state.raceConfig.Sessions) {
@@ -266,28 +268,30 @@ func (sm *SessionManager) NextSession(force, wasRestart bool) {
 
 	sm.UpdateLobby()
 
-	err := sm.plugin.OnNewSession(SessionInfo{
-		Version:         uint8(CurrentProtocolVersion),
-		SessionIndex:    currentSessionIndex,
-		SessionCount:    uint8(len(sm.state.raceConfig.Sessions)),
-		ServerName:      sm.state.serverConfig.Name,
-		Track:           sm.state.raceConfig.Track,
-		TrackConfig:     sm.state.raceConfig.TrackLayout,
-		Name:            currentSessionConfig.Name,
-		NumMinutes:      currentSessionConfig.Time,
-		NumLaps:         currentSessionConfig.Laps,
-		WaitTime:        currentSessionConfig.WaitTime,
-		AmbientTemp:     sm.weatherManager.currentWeather.Ambient,
-		RoadTemp:        sm.weatherManager.currentWeather.Road,
-		WeatherGraphics: sm.weatherManager.currentWeather.GraphicsName,
-		ElapsedTime:     sm.ElapsedSessionTime(),
-		SessionType:     currentSessionConfig.SessionType,
-		IsSolo:          currentSessionConfig.Solo,
-	})
+	go func() {
+		err := sm.plugin.OnNewSession(SessionInfo{
+			Version:         uint8(CurrentProtocolVersion),
+			SessionIndex:    currentSessionIndex,
+			SessionCount:    uint8(len(sm.state.raceConfig.Sessions)),
+			ServerName:      sm.state.serverConfig.Name,
+			Track:           sm.state.raceConfig.Track,
+			TrackConfig:     sm.state.raceConfig.TrackLayout,
+			Name:            currentSessionConfig.Name,
+			NumMinutes:      currentSessionConfig.Time,
+			NumLaps:         currentSessionConfig.Laps,
+			WaitTime:        currentSessionConfig.WaitTime,
+			AmbientTemp:     sm.weatherManager.currentWeather.Ambient,
+			RoadTemp:        sm.weatherManager.currentWeather.Road,
+			WeatherGraphics: sm.weatherManager.currentWeather.GraphicsName,
+			ElapsedTime:     sm.ElapsedSessionTime(),
+			SessionType:     currentSessionConfig.SessionType,
+			IsSolo:          currentSessionConfig.Solo,
+		})
 
-	if err != nil {
-		sm.logger.WithError(err).Error("On new session plugin returned an error")
-	}
+		if err != nil {
+			sm.logger.WithError(err).Error("On new session plugin returned an error")
+		}
+	}()
 }
 
 func (sm *SessionManager) loop(ctx context.Context) {
@@ -693,17 +697,19 @@ func (sm *SessionManager) CompleteLap(carID CarID, lap *LapCompleted, target *Ca
 			Cuts:  cutsInFinalSector,
 		}
 
-		err = sm.plugin.OnSectorCompleted(car.Copy(), split)
+		go func() {
+			err = sm.plugin.OnSectorCompleted(car.Copy(), split)
 
-		if err != nil {
-			sm.logger.WithError(err).Error("On sector completed plugin returned an error")
-		}
+			if err != nil {
+				sm.logger.WithError(err).Error("On sector completed plugin returned an error")
+			}
 
-		err := sm.plugin.OnLapCompleted(car.CarID, *l)
+			err := sm.plugin.OnLapCompleted(car.CarID, *l)
 
-		if err != nil {
-			sm.logger.WithError(err).Error("On lap completed plugin returned an error")
-		}
+			if err != nil {
+				sm.logger.WithError(err).Error("On lap completed plugin returned an error")
+			}
+		}()
 	}
 
 	sm.mutex.RLock()
