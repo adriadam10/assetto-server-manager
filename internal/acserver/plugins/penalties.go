@@ -459,7 +459,7 @@ func (p *PenaltiesPlugin) OnLapCompleted(carID acserver.CarID, lap acserver.Lap)
 
 	penaltyInfo.totalLaps++
 
-	if int(penaltyInfo.totalLaps) == p.eventConfig.DRSPenaltiesEnableOnLap {
+	if p.eventConfig.DRSPenaltiesEnabled && int(penaltyInfo.totalLaps) == p.eventConfig.DRSPenaltiesEnableOnLap {
 		err = p.server.SendChat("DRS Enabled", acserver.ServerCarID, entrant.CarID, true)
 
 		if err != nil {
