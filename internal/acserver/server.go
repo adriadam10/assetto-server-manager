@@ -131,6 +131,8 @@ func (s *Server) Start() error {
 		}
 	}
 
+	go s.sessionManager.loop(s.ctx)
+
 	return nil
 }
 
@@ -238,7 +240,6 @@ func (s *Server) loop() {
 				}
 			}
 
-			s.sessionManager.Step(currentTime)
 			s.weatherManager.Step(currentTime, s.sessionManager.GetCurrentSession())
 
 			if s.state.entryList.NumConnected() == 0 {

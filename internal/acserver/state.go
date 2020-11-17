@@ -816,12 +816,6 @@ func (ss *ServerState) Leaderboard(sessionType SessionType) []*LeaderboardLine {
 				carJLaps := carJ.Car.GetLaps()
 
 				if len(carILaps) == len(carJLaps) {
-					if carI.Car.IsConnected() && !carJ.Car.IsConnected() {
-						return true
-					} else if !carI.Car.IsConnected() && carJ.Car.IsConnected() {
-						return false
-					}
-
 					return carI.Car.CarID < carJ.Car.CarID
 				}
 
