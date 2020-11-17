@@ -147,15 +147,15 @@ func (sm *SessionManager) SaveResultsAndBuildLeaderboard(forceAdvance bool) (pre
 		return
 	}
 
+	sm.logger.Infof("Leaderboard at the end of the session '%s' is:", sm.currentSession.Config.Name)
+
+	previousSessionLeaderboard = sm.state.Leaderboard(sm.currentSession.Config.SessionType)
+
+	for pos, leaderboardLine := range previousSessionLeaderboard {
+		sm.logger.Printf("%d. %s - %s", pos, leaderboardLine.Car.Driver.Name, leaderboardLine)
+	}
+
 	if sm.currentSession.numCompletedLaps > 0 {
-		sm.logger.Infof("Leaderboard at the end of the session '%s' is:", sm.currentSession.Config.Name)
-
-		previousSessionLeaderboard = sm.state.Leaderboard(sm.currentSession.Config.SessionType)
-
-		for pos, leaderboardLine := range previousSessionLeaderboard {
-			sm.logger.Printf("%d. %s - %s", pos, leaderboardLine.Car.Driver.Name, leaderboardLine)
-		}
-
 		results := sm.state.GenerateResults(sm.currentSession.Config)
 
 		if err := saveResults(sm.baseDirectory, results); err != nil {
