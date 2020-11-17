@@ -1430,6 +1430,7 @@ const driverGUIDOverrides = {
     "76561198020046073": "#0a84ff",
     "76561198022717360": "#c91448",
     "76561198256908075": "#ee9a17",
+    "76561198055388877": "#76d44c",
 }
 
 function randomColorForDriver(driverGUID: string): string {

@@ -1,6 +1,7 @@
 package acserver
 
 import (
+	"context"
 	"fmt"
 	"sync"
 	"time"
@@ -121,7 +122,6 @@ type SessionManager struct {
 	mutex               sync.RWMutex
 	currentSessionIndex uint8
 	currentSession      CurrentSession
-	lastLobbyUpdate     time.Time
 
 	baseDirectory string
 }
@@ -290,59 +290,72 @@ func (sm *SessionManager) NextSession(force, wasRestart bool) {
 	}
 }
 
-func (sm *SessionManager) Step(currentTime int64) {
-	if sm.state.serverConfig.RegisterToLobby && time.Since(sm.lastLobbyUpdate) > time.Minute {
-		sm.UpdateLobby()
-		sm.lastLobbyUpdate = time.Now()
-	}
+func (sm *SessionManager) loop(ctx context.Context) {
+	tick := time.NewTicker(time.Second)
+	defer tick.Stop()
 
-	if sm.CanBroadcastEndSession() {
-		carsAreConnecting := false
+	lastLobbyUpdate := time.Now()
 
-		for _, car := range sm.state.entryList {
-			if car.IsConnected() && !car.HasSentFirstUpdate() {
-				carsAreConnecting = true
-				break
+	for {
+		select {
+		case <-ctx.Done():
+			sm.logger.Debugf("Stopping SessionManager Loop")
+			return
+		case <-tick.C:
+			if sm.state.serverConfig.RegisterToLobby && time.Since(lastLobbyUpdate) > time.Minute {
+				sm.UpdateLobby()
+				lastLobbyUpdate = time.Now()
+			}
+
+			if sm.CanBroadcastEndSession() {
+				carsAreConnecting := false
+
+				for _, car := range sm.state.entryList {
+					if car.IsConnected() && !car.HasSentFirstUpdate() {
+						carsAreConnecting = true
+						break
+					}
+				}
+
+				if carsAreConnecting {
+					// don't advance sessions while cars are connecting.
+					sm.logger.Debugf("Stalling session until all connecting cars are connected")
+					continue
+				}
+
+				sm.BroadcastSessionCompleted()
+
+				sm.mutex.Lock()
+				switch sm.currentSession.Config.SessionType {
+				case SessionTypeBooking:
+					sm.currentSession.moveToNextSessionAt = sm.state.CurrentTimeMillisecond()
+				default:
+					sm.currentSession.moveToNextSessionAt = sm.state.CurrentTimeMillisecond() + int64(sm.state.raceConfig.ResultScreenTime*1000)
+				}
+				sm.currentSession.sessionOverBroadcast = true
+				sm.mutex.Unlock()
+			}
+
+			if sm.CanMoveToNextSession() {
+				carsAreConnecting := false
+
+				for _, car := range sm.state.entryList {
+					if car.IsConnected() && !car.HasSentFirstUpdate() {
+						carsAreConnecting = true
+						break
+					}
+				}
+
+				if carsAreConnecting {
+					// don't advance sessions while cars are connecting.
+					sm.logger.Debugf("Stalling session until all connecting cars are connected")
+					continue
+				}
+
+				// move to the next session when the race over packet has been sent and the results screen time has elapsed.
+				sm.NextSession(false, false)
 			}
 		}
-
-		if carsAreConnecting {
-			// don't advance sessions while cars are connecting.
-			sm.logger.Debugf("Stalling session until all connecting cars are connected")
-			return
-		}
-
-		sm.BroadcastSessionCompleted()
-
-		sm.mutex.Lock()
-		switch sm.currentSession.Config.SessionType {
-		case SessionTypeBooking:
-			sm.currentSession.moveToNextSessionAt = currentTime
-		default:
-			sm.currentSession.moveToNextSessionAt = currentTime + int64(sm.state.raceConfig.ResultScreenTime*1000)
-		}
-		sm.currentSession.sessionOverBroadcast = true
-		sm.mutex.Unlock()
-	}
-
-	if sm.CanMoveToNextSession() {
-		carsAreConnecting := false
-
-		for _, car := range sm.state.entryList {
-			if car.IsConnected() && !car.HasSentFirstUpdate() {
-				carsAreConnecting = true
-				break
-			}
-		}
-
-		if carsAreConnecting {
-			// don't advance sessions while cars are connecting.
-			sm.logger.Debugf("Stalling session until all connecting cars are connected")
-			return
-		}
-
-		// move to the next session when the race over packet has been sent and the results screen time has elapsed.
-		sm.NextSession(false, false)
 	}
 }
 
