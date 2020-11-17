@@ -50,6 +50,7 @@ type RaceControlDriverData struct {
 	SteerAngle          uint8     `json:"SteerAngle"`
 	StatusBytes         uint32    `json:"StatusBytes"`
 	BlueFlag            bool      `json:"BlueFlag"`
+	BlueFlagTo          udp.CarID `json:"-"`
 
 	Collisions []Collision `json:"Collisions"`
 
