@@ -116,11 +116,13 @@ func (d ClientEventMessageHandler) OnMessage(conn net.Conn, p *Packet) error {
 
 		entrant.AddEvent(clientEvent)
 
-		err := d.plugin.OnClientEvent(*clientEvent)
+		go func() {
+			err := d.plugin.OnClientEvent(*clientEvent)
 
-		if err != nil {
-			d.logger.WithError(err).Error("On client event plugin returned an error")
-		}
+			if err != nil {
+				d.logger.WithError(err).Error("On client event plugin returned an error")
+			}
+		}()
 	}
 
 	return nil

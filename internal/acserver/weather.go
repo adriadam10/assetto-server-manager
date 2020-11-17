@@ -126,11 +126,13 @@ func (wm *WeatherManager) ChangeWeather(weatherConfig *WeatherConfig, weatherUpd
 		}
 	}
 
-	err := wm.plugin.OnWeatherChange(wm.GetCurrentWeather())
+	go func() {
+		err := wm.plugin.OnWeatherChange(wm.GetCurrentWeather())
 
-	if err != nil {
-		wm.logger.WithError(err).Error("On weather change plugin returned an error")
-	}
+		if err != nil {
+			wm.logger.WithError(err).Error("On weather change plugin returned an error")
+		}
+	}()
 }
 
 func (wm *WeatherManager) calculateTemperatures(weatherConfig *WeatherConfig) (ambient, road uint8) {

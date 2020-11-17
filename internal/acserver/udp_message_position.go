@@ -96,11 +96,13 @@ func (pm *PositionMessageHandler) OnMessage(_ net.PacketConn, addr net.Addr, p *
 			return err
 		}
 
-		err := pm.plugin.OnClientLoaded(car.Copy())
+		go func() {
+			err := pm.plugin.OnClientLoaded(car.Copy())
 
-		if err != nil {
-			pm.logger.WithError(err).Error("On client loaded plugin returned an error")
-		}
+			if err != nil {
+				pm.logger.WithError(err).Error("On client loaded plugin returned an error")
+			}
+		}()
 	}
 
 	return nil

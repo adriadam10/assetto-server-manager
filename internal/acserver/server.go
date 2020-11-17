@@ -199,9 +199,26 @@ func (s *Server) loop() {
 			return
 		default:
 			currentTime := s.state.CurrentTimeMillisecond()
+			isServerTick := currentTime-lastSendTime >= serverTickRate
 
 			for _, car := range s.state.entryList {
-				if car.IsConnected() && car.HasSentFirstUpdate() {
+				if !car.IsConnected() || !car.HasSentFirstUpdate() {
+					continue
+				}
+
+				if car.HasUpdateToBroadcast() {
+					s.state.BroadcastCarUpdate(car)
+
+					car.SetHasUpdateToBroadcast(false)
+				}
+
+				car.UpdatePriorities(s.state.entryList)
+
+				if isServerTick {
+					if err := s.state.SendStatus(car, currentTime); err != nil {
+						s.logger.WithError(err).Error("Could not send car status")
+					}
+
 					if time.Since(car.GetLastUpdateReceivedTime()) > connectionTimeout {
 						s.logger.Warnf("Car: '%s' has not been seen in %s. Disconnecting...", car.String(), connectionTimeout)
 
@@ -210,20 +227,6 @@ func (s *Server) loop() {
 						}
 
 						continue
-					}
-
-					if car.HasUpdateToBroadcast() {
-						s.state.BroadcastCarUpdate(car)
-
-						car.SetHasUpdateToBroadcast(false)
-					}
-
-					car.UpdatePriorities(s.state.entryList)
-
-					if currentTime-lastSendTime >= serverTickRate {
-						if err := s.state.SendStatus(car, currentTime); err != nil {
-							s.logger.WithError(err).Error("Could not send car status")
-						}
 					}
 
 					if time.Since(car.Connection.LastPingTime) > time.Second {
@@ -240,7 +243,10 @@ func (s *Server) loop() {
 				}
 			}
 
-			s.weatherManager.Step(currentTime, s.sessionManager.GetCurrentSession())
+			if isServerTick {
+				s.weatherManager.Step(currentTime, s.sessionManager.GetCurrentSession())
+				lastSendTime = currentTime
+			}
 
 			if s.state.entryList.NumConnected() == 0 {
 				if sleepTime != idleSleepTime {
@@ -255,7 +261,6 @@ func (s *Server) loop() {
 			}
 
 			totalTimeForUpdate := s.state.CurrentTimeMillisecond() - currentTime
-			lastSendTime = currentTime
 
 			if sleepTime != idleSleepTime && totalTimeForUpdate > serverTickRate {
 				s.logger.Errorf("CPU overload detected! Previous update took %dms", totalTimeForUpdate)

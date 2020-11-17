@@ -416,16 +416,18 @@ func (ss *ServerState) BroadcastChat(carID CarID, message string, rateLimit bool
 	p.WriteUTF32String(message)
 
 	if carID != ServerCarID {
-		err := ss.plugin.OnChat(Chat{
-			FromCar: carID,
-			ToCar:   ServerCarID,
-			Message: message,
-			Time:    time.Now(),
-		})
+		go func() {
+			err := ss.plugin.OnChat(Chat{
+				FromCar: carID,
+				ToCar:   ServerCarID,
+				Message: message,
+				Time:    time.Now(),
+			})
 
-		if err != nil {
-			ss.logger.WithError(err).Error("On chat plugin returned an error")
-		}
+			if err != nil {
+				ss.logger.WithError(err).Error("On chat plugin returned an error")
+			}
+		}()
 	}
 
 	if rateLimit {
@@ -457,16 +459,18 @@ func (ss *ServerState) SendChat(fromCarID CarID, toCarID CarID, message string, 
 	}
 
 	if fromCarID != ServerCarID {
-		err := ss.plugin.OnChat(Chat{
-			FromCar: fromCarID,
-			ToCar:   toCarID,
-			Message: message,
-			Time:    time.Now(),
-		})
+		go func() {
+			err := ss.plugin.OnChat(Chat{
+				FromCar: fromCarID,
+				ToCar:   toCarID,
+				Message: message,
+				Time:    time.Now(),
+			})
 
-		if err != nil {
-			ss.logger.WithError(err).Error("On chat plugin returned an error")
-		}
+			if err != nil {
+				ss.logger.WithError(err).Error("On chat plugin returned an error")
+			}
+		}()
 	}
 
 	return p.WriteTCP(car.Connection.tcpConn)
@@ -485,11 +489,13 @@ func (ss *ServerState) ChangeTyre(car *Car, tyre string) error {
 
 	ss.BroadcastOthersTCP(p, car.CarID)
 
-	err := ss.plugin.OnTyreChange(car.Copy(), tyre)
+	go func() {
+		err := ss.plugin.OnTyreChange(car.Copy(), tyre)
 
-	if err != nil {
-		ss.logger.WithError(err).Error("On tyre change plugin returned an error")
-	}
+		if err != nil {
+			ss.logger.WithError(err).Error("On tyre change plugin returned an error")
+		}
+	}()
 
 	return nil
 }
@@ -732,9 +738,11 @@ func (ss *ServerState) closeTCPConnection(conn net.Conn) {
 	if car != nil {
 		car.CloseConnection()
 
-		if err := ss.plugin.OnConnectionClosed(car.Copy()); err != nil {
-			ss.logger.WithError(err).Error("On connection closed plugin returned an error")
-		}
+		go func() {
+			if err := ss.plugin.OnConnectionClosed(car.Copy()); err != nil {
+				ss.logger.WithError(err).Error("On connection closed plugin returned an error")
+			}
+		}()
 	} else {
 		ss.logger.Debugf("Closed TCP connection: %s without finding an associated car", conn.RemoteAddr().String())
 	}

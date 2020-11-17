@@ -205,11 +205,13 @@ func (m HandshakeMessageHandler) OnMessage(conn net.Conn, p *Packet) error {
 
 	car.SetHasSentFirstUpdate(false)
 
-	err = m.plugin.OnNewConnection(car.Copy())
+	go func() {
+		err = m.plugin.OnNewConnection(car.Copy())
 
-	if err != nil {
-		m.logger.WithError(err).Error("On new connection plugin returned an error")
-	}
+		if err != nil {
+			m.logger.WithError(err).Error("On new connection plugin returned an error")
+		}
+	}()
 
 	return nil
 }
