@@ -226,7 +226,6 @@ func (wm *WeatherManager) OnNewSession(session SessionConfig) {
 	wm.currentWeatherIndex = 0
 	wm.weatherProgression = false
 	wm.nextWeatherUpdate = 0
-	wm.sunAngle = wm.state.raceConfig.SunAngle
 	wm.mutex.Unlock()
 
 	sessionWeatherIndex := -1
@@ -291,7 +290,10 @@ func (wm *WeatherManager) OnNewSession(session SessionConfig) {
 		}, int64(session.WaitTime))
 	}
 
+	wm.mutex.Lock()
+	wm.sunAngle = wm.state.raceConfig.SunAngle
 	wm.SendSunAngle(wm.state.CurrentTimeMillisecond())
+	wm.mutex.Unlock()
 }
 
 const (
@@ -308,14 +310,14 @@ func (wm *WeatherManager) Step(currentTime int64, currentSession SessionConfig) 
 		wm.sunAngle = maxSunAngle
 	}
 
+	if wm.ShouldProgressToNextWeather(currentTime) {
+		wm.NextWeather(currentSession)
+	}
+
 	// @TODO (improvement) at 1x this loses between 0.5 and 1s evey 60s
 	if currentTime-wm.lastSunUpdate > wm.sunAngleUpdateInterval || wm.lastSunUpdate == 0 {
 		// @TODO with CSP exceeding -80 and 80 works fine, and you can loop!
 		wm.SendSunAngle(currentTime)
-	}
-
-	if wm.ShouldProgressToNextWeather(currentTime) {
-		wm.NextWeather(currentSession)
 	}
 }
 
