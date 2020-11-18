@@ -323,21 +323,11 @@ func (sm *SessionManager) loop(ctx context.Context) {
 
 				if carsAreConnecting {
 					// don't advance sessions while cars are connecting.
-					sm.logger.Debugf("Stalling session until all connecting cars are connected")
+					sm.logger.Debugf("Stalling end session until all connecting cars are connected")
 					continue
 				}
 
 				sm.BroadcastSessionCompleted()
-
-				sm.mutex.Lock()
-				switch sm.currentSession.Config.SessionType {
-				case SessionTypeBooking:
-					sm.currentSession.moveToNextSessionAt = sm.state.CurrentTimeMillisecond()
-				default:
-					sm.currentSession.moveToNextSessionAt = sm.state.CurrentTimeMillisecond() + int64(sm.state.raceConfig.ResultScreenTime*1000)
-				}
-				sm.currentSession.sessionOverBroadcast = true
-				sm.mutex.Unlock()
 			}
 
 			if sm.CanMoveToNextSession() {
@@ -352,7 +342,7 @@ func (sm *SessionManager) loop(ctx context.Context) {
 
 				if carsAreConnecting {
 					// don't advance sessions while cars are connecting.
-					sm.logger.Debugf("Stalling session until all connecting cars are connected")
+					sm.logger.Debugf("Stalling next session until all connecting cars are connected")
 					continue
 				}
 
@@ -448,6 +438,11 @@ func (sm *SessionManager) CurrentSessionHasFinished() bool {
 			return true
 		}
 
+		if currentSessionConfig.SessionType == SessionTypePractice && sm.AllRemainingCarsAreGoingSlow() {
+			sm.logger.Infof("All cars in session: %s have completed final laps or are going slow. Ending session now.", currentSessionConfig.Name)
+			return true
+		}
+
 		waitTime := time.Duration(float64(bestLapTime.Milliseconds())*float64(sm.state.raceConfig.QualifyMaxWaitPercentage)/100) * time.Millisecond
 
 		return remainingTime < -waitTime
@@ -506,6 +501,24 @@ func (sm *SessionManager) AllCarsHaveFinishedSession() bool {
 	}
 
 	return finished
+}
+
+func (sm *SessionManager) AllRemainingCarsAreGoingSlow() bool {
+	if sm.state.entryList.NumConnected() == 0 {
+		return true
+	}
+
+	allGoingSlow := true
+
+	for _, entrant := range sm.state.entryList {
+		if !entrant.IsConnected() || entrant.HasCompletedSession() {
+			continue
+		}
+
+		allGoingSlow = allGoingSlow && entrant.PluginStatus.Velocity.Magnitude() < 5
+	}
+
+	return allGoingSlow
 }
 
 func (sm *SessionManager) BestLapTimeInSession() time.Duration {
@@ -773,6 +786,15 @@ func (sm *SessionManager) CompleteLap(carID CarID, lap *LapCompleted, target *Ca
 func (sm *SessionManager) BroadcastSessionCompleted() {
 	sm.mutex.Lock()
 	defer sm.mutex.Unlock()
+
+	switch sm.currentSession.Config.SessionType {
+	case SessionTypeBooking:
+		sm.currentSession.moveToNextSessionAt = sm.state.CurrentTimeMillisecond()
+	default:
+		sm.currentSession.moveToNextSessionAt = sm.state.CurrentTimeMillisecond() + int64(sm.state.raceConfig.ResultScreenTime*1000)
+	}
+
+	sm.currentSession.sessionOverBroadcast = true
 
 	sm.logger.Infof("Broadcasting session completed packet for session: %s", sm.currentSession.Config.SessionType)
 	p := NewPacket(nil)
