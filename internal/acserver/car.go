@@ -547,7 +547,10 @@ func (c *Car) CloseConnection() {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
-	c.Connection.chatLimiter.Stop()
+	if c.Connection.chatLimiter != nil {
+		c.Connection.chatLimiter.Stop()
+	}
+
 	c.Connection.tcpConn = nil
 	c.Connection.udpAddr = nil
 	c.Connection = Connection{}
