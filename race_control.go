@@ -252,6 +252,12 @@ func (rc *RaceControl) OnCarUpdate(update udp.CarUpdate) (bool, error) {
 
 	driver.IsInPits = pitLane.IsInPits(update)
 	driver.DRSActive = driver.StatusBytes&acserver.DRSByte == acserver.DRSByte
+
+	if rc.SessionInfo.Type == acserver.SessionTypeRace {
+		miniSectorIndex := int(update.NormalisedSplinePos*numMiniSectors) % numMiniSectors
+		driver.MiniSectors[miniSectorIndex] = time.Now().UnixNano()
+	}
+
 	driver.mutex.Unlock()
 
 	sendUpdatedRaceControlStatus := false
@@ -275,6 +281,10 @@ func (rc *RaceControl) OnCarUpdate(update udp.CarUpdate) (bool, error) {
 		driver.mutex.Lock()
 		blueFlagToFound := false
 
+		if driver.Position == 1 {
+			driver.Split = formatDuration(0, true)
+		}
+
 		_ = rc.ConnectedDrivers.Each(func(guid1 udp.DriverGUID, driverB *RaceControlDriver) error {
 			if guid1 == driver.CarInfo.DriverGUID {
 				// don't compare a driver to themselves (also avoid deadlock)
@@ -283,6 +293,42 @@ func (rc *RaceControl) OnCarUpdate(update udp.CarUpdate) (bool, error) {
 
 			driverB.mutex.Lock()
 			defer driverB.mutex.Unlock()
+
+			lapDiff := driver.TotalNumLaps - driverB.TotalNumLaps
+
+			if driverB.Position == driver.Position+1 && time.Since(driverB.LastGapUpdate) > sectorUpdateInterval {
+				if lapDiff <= 1 {
+					driverBMostRecentMiniSectorIndex := 0
+					driverBMostRecentMiniSectorTime := int64(0)
+
+					for i, sector := range driverB.MiniSectors {
+						if sector > driverBMostRecentMiniSectorTime && driver.MiniSectors[i] != 0 {
+							driverBMostRecentMiniSectorIndex = i
+							driverBMostRecentMiniSectorTime = sector
+						}
+					}
+
+					driverBSectorTime := driverB.MiniSectors[driverBMostRecentMiniSectorIndex]
+					driverSectorTime := driver.MiniSectors[driverBMostRecentMiniSectorIndex]
+
+					split := (time.Duration(driverBSectorTime-driverSectorTime) * time.Nanosecond).Round(time.Millisecond)
+
+					if split > sectorLapInterval && lapDiff == 1 {
+						driverB.Split = "1 lap"
+					} else {
+						if split > time.Hour || split < 0 {
+							// ignore invalid sector times from e.g. first updates or d/c'd cars
+							driverB.Split = ""
+						} else {
+							driverB.Split = formatDuration(split, true)
+						}
+					}
+				} else {
+					driverB.Split = fmt.Sprintf("%d laps", lapDiff)
+				}
+
+				driverB.LastGapUpdate = time.Now()
+			}
 
 			if driver.BlueFlag && driver.BlueFlagTo == driverB.CarInfo.CarID {
 				blueFlagToFound = true
@@ -346,6 +392,8 @@ func (rc *RaceControl) OnCarUpdate(update udp.CarUpdate) (bool, error) {
 
 		driver.mutex.Unlock()
 	}
+
+	update.Gap = driver.Split
 
 	_, err = rc.broadcaster.Send(update)
 
@@ -1172,42 +1220,7 @@ func (rc *RaceControl) OnLapCompleted(lap udp.LapCompleted) error {
 
 	rc.ConnectedDrivers.sort()
 
-	if rc.SessionInfo.Type == acserver.SessionTypeRace {
-		// calculate split
-		if driver.Position == 1 {
-			driver.mutex.Lock()
-			driver.Split = time.Duration(0).String()
-			driver.mutex.Unlock()
-		} else {
-			_ = rc.ConnectedDrivers.Each(func(otherDriverGUID udp.DriverGUID, otherDriver *RaceControlDriver) error {
-				if driver == otherDriver {
-					return nil
-				}
-
-				otherDriver.mutex.Lock()
-				defer otherDriver.mutex.Unlock()
-
-				if otherDriver.Position == driver.Position-1 {
-					driver.mutex.Lock()
-					defer driver.mutex.Unlock()
-					driverCar := driver.CurrentCar()
-					otherDriverCar := otherDriver.CurrentCar()
-
-					lapDifference := otherDriverCar.NumLaps - driverCar.NumLaps
-
-					if lapDifference <= 0 {
-						driver.Split = (driverCar.TotalLapTime - otherDriverCar.TotalLapTime).Round(time.Millisecond).String()
-					} else if lapDifference == 1 {
-						driver.Split = "1 lap"
-					} else {
-						driver.Split = fmt.Sprintf("%d laps", lapDifference)
-					}
-				}
-
-				return nil
-			})
-		}
-	} else {
+	if rc.SessionInfo.Type != acserver.SessionTypeRace {
 		var previousCar *RaceControlCarLapInfo
 
 		// gaps are calculated vs best lap
@@ -1216,12 +1229,12 @@ func (rc *RaceControl) OnLapCompleted(lap udp.LapCompleted) error {
 			defer driver.mutex.Unlock()
 
 			if previousCar == nil {
-				driver.Split = "0s"
+				driver.Split = formatDuration(0, true)
 			} else {
 				car := driver.CurrentCar()
 
 				if car.BestLap >= previousCar.BestLap && car.BestLap != 0 {
-					driver.Split = (car.BestLap - previousCar.BestLap).String()
+					driver.Split = formatDuration(car.BestLap-previousCar.BestLap, true)
 				} else {
 					driver.Split = ""
 				}
@@ -1370,6 +1383,14 @@ func (rc *RaceControl) SortDrivers(driverGroup RaceControlDriverGroup, driverA, 
 	if rc.SessionInfo.Type == acserver.SessionTypeRace {
 		if driverGroup == ConnectedDrivers {
 			if driverACar.NumLaps == driverBCar.NumLaps {
+				if time.Since(driverACar.LastLapCompletedTime) < time.Second {
+					return false
+				}
+
+				if time.Since(driverBCar.LastLapCompletedTime) < time.Second {
+					return true
+				}
+
 				return driverA.NormalisedSplinePos > driverB.NormalisedSplinePos
 			}
 

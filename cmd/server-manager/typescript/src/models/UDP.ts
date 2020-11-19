@@ -147,6 +147,7 @@ class CarUpdate {
     NormalisedSplinePos: number;
     SteerAngle: number;
     StatusBytes: number;
+    Gap: string;
 
     constructor(data?: any) {
         const d: any = (data && typeof data === 'object') ? ToObject(data) : {};
@@ -158,6 +159,7 @@ class CarUpdate {
         this.NormalisedSplinePos = ('NormalisedSplinePos' in d) ? d.NormalisedSplinePos as number : 0;
         this.SteerAngle = ('SteerAngle' in d) ? d.SteerAngle as number : 0;
         this.StatusBytes = ('StatusBytes' in d) ? d.StatusBytes as number : 0;
+        this.Gap = ('Gap' in d) ? d.Gap as string : '';
     }
 
     toObject(): any {

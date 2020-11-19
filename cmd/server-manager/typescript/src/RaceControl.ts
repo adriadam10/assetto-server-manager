@@ -1,8 +1,9 @@
 import {
+    Collision,
     RaceControl as RaceControlData,
-    RaceControlDriver as Driver,
     RaceControlCarSplit as Split,
-    SessionCarInfo, Collision
+    RaceControlDriver as Driver,
+    SessionCarInfo
 } from "./models/RaceControl";
 
 import {CarUpdate, Vector3F} from "./models/UDP";
@@ -10,9 +11,9 @@ import {randomColor} from "randomcolor/randomColor";
 import {msToTime, prettifyName} from "./utils";
 import moment from "moment";
 import ReconnectingWebSocket from "reconnecting-websocket";
+import {DAMAGE_ZONES} from "./models/DamageZones";
 import ClickEvent = JQuery.ClickEvent;
 import ChangeEvent = JQuery.ChangeEvent;
-import {DAMAGE_ZONES} from "./models/DamageZones";
 import MouseEnterEvent = JQuery.MouseEnterEvent;
 
 interface WSMessage {
@@ -145,13 +146,13 @@ export class RaceControl {
                 let hoursString = "";
 
                 if (minutes < 10) {
-                    minutesString = "0"+minutes;
+                    minutesString = "0" + minutes;
                 } else {
                     minutesString = minutes.toLocaleString();
                 }
 
                 if (hours < 10) {
-                    hoursString = "0"+hours;
+                    hoursString = "0" + hours;
                 } else {
                     hoursString = hours.toLocaleString();
                 }
@@ -215,14 +216,14 @@ export class RaceControl {
             if (this.status.SessionInfo.Time > 0) {
                 let timeInMS = (this.status.SessionInfo.Time * 60 * 1000) + (this.status.SessionInfo.WaitTime * 1000) - moment.duration(moment().utc().diff(moment(this.status.SessionStartTime).utc())).asMilliseconds();
 
-                let days = Math.floor(timeInMS/8.64e+7);
+                let days = Math.floor(timeInMS / 8.64e+7);
 
                 timeRemaining = msToTime(timeInMS, false, 0);
 
                 if (days > 0) {
                     let dayText = " day + ";
 
-                    if ( days > 1) {
+                    if (days > 1) {
                         dayText = " days + ";
                     }
 
@@ -800,7 +801,7 @@ class LiveTimings implements WebsocketHandler {
             url: form.attr("action"),
             type: 'post',
             data: form.serialize(),
-            success:function(){
+            success: function () {
 
             }
         });
@@ -811,32 +812,65 @@ class LiveTimings implements WebsocketHandler {
     }
 
     public handleWebsocketMessage(message: WSMessage): void {
-        if (message.EventType === EventRaceControl) {
-            this.populateConnectedDrivers();
-            this.initialiseAdminSelects();
-            this.populateDisconnectedDrivers();
-        } else if (message.EventType === EventConnectionClosed) {
-            const closedConnection = message.Message as SessionCarInfo;
+        switch (message.EventType) {
+            case EventRaceControl:
+                this.populateConnectedDrivers();
+                this.initialiseAdminSelects();
+                this.populateDisconnectedDrivers();
 
-            this.removeDriverFromAdminSelects(closedConnection);
+                break;
 
-            if (this.raceControl.status.ConnectedDrivers) {
-                const driver = this.raceControl.status.ConnectedDrivers.Drivers[closedConnection.DriverGUID];
+            case EventConnectionClosed:
+                const closedConnection = message.Message as SessionCarInfo;
 
-                if (driver && (driver.LoadedTime.toString() === GolangZeroTime || !driver.TotalNumLaps)) {
-                    // a driver joined but never loaded, or hasn't completed any laps. remove them from the connected drivers table.
-                    this.$connectedDriversTable.find("tr[data-guid='" + closedConnection.DriverGUID + "']").remove();
-                    this.removeDriverFromAdminSelects(driver.CarInfo)
+                this.removeDriverFromAdminSelects(closedConnection);
+
+                if (this.raceControl.status.ConnectedDrivers) {
+                    const driver = this.raceControl.status.ConnectedDrivers.Drivers[closedConnection.DriverGUID];
+
+                    if (driver && (driver.LoadedTime.toString() === GolangZeroTime || !driver.TotalNumLaps)) {
+                        // a driver joined but never loaded, or hasn't completed any laps. remove them from the connected drivers table.
+                        this.$connectedDriversTable.find("tr[data-guid='" + closedConnection.DriverGUID + "']").remove();
+                        this.removeDriverFromAdminSelects(driver.CarInfo)
+                    }
                 }
-            }
-        } else if (message.EventType === EventNewConnection) {
-            const connectedDriver = new SessionCarInfo(message.Message);
 
-            this.addDriverToAdminSelects(connectedDriver);
-        } else if (message.EventType === EventTyresChanged) {
-            const driver = new SessionCarInfo(message.Message);
+                break;
 
-            this.onTyreChange(driver);
+            case EventNewConnection:
+                const connectedDriver = new SessionCarInfo(message.Message);
+
+                this.addDriverToAdminSelects(connectedDriver);
+
+                break;
+
+            case EventTyresChanged:
+                const driver = new SessionCarInfo(message.Message);
+
+                this.onTyreChange(driver);
+
+                break;
+
+            case EventCarUpdate:
+                const update = new CarUpdate(message.Message);
+
+                if (this.raceControl.status.SessionInfo.Type === SessionType.Race) {
+
+                    if (!this.raceControl.status!.CarIDToGUID.hasOwnProperty(update.CarID)) {
+                        return;
+                    }
+
+                    if (this.raceControl.status.ConnectedDrivers) {
+                        // find the guid for this car ID:
+                        const driverGUID = this.raceControl.status.CarIDToGUID[update.CarID];
+
+                        let driver = this.raceControl.status.ConnectedDrivers.Drivers[driverGUID];
+
+                        driver.Split = update.Gap;
+                    }
+                }
+
+                break;
         }
     }
 
@@ -976,7 +1010,7 @@ class LiveTimings implements WebsocketHandler {
             return;
         }
 
-        let $tr = $table.find("[data-guid='" + driver.CarInfo.DriverGUID + "'][data-car-model='"+ driver.CarInfo.CarModel + "']");
+        let $tr = $table.find("[data-guid='" + driver.CarInfo.DriverGUID + "'][data-car-model='" + driver.CarInfo.CarModel + "']");
 
         let addTrToTable = false;
 
@@ -1144,7 +1178,7 @@ class LiveTimings implements WebsocketHandler {
             }
 
             $tag.text(
-                "S" + (split.SplitIndex+1) + ": " + msToTime(split.SplitTime / 1000000, true, 2)
+                "S" + (split.SplitIndex + 1) + ": " + msToTime(split.SplitTime / 1000000, true, 2)
             );
 
             $currentLap.append($tag);
@@ -1354,7 +1388,7 @@ class LiveTimings implements WebsocketHandler {
     }
 
     private onTyreChange(driver: SessionCarInfo): void {
-        let $tr = this.$connectedDriversTable.find("[data-guid='" + driver.DriverGUID + "'][data-car-model='"+ driver.CarModel + "']");
+        let $tr = this.$connectedDriversTable.find("[data-guid='" + driver.DriverGUID + "'][data-car-model='" + driver.CarModel + "']");
 
         if (!$tr.length) {
             return;

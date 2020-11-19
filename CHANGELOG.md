@@ -30,6 +30,7 @@ We've also changed the following things in Server Manager itself:
 * Blue Flag detection! Live Timings now displays a blue flag indicator for cars that are being approached by drivers who have completed more laps in a race session.
 * DRS detection! Live Timings now displays an icon when a driver activates DRS.
 * Live Timings will now accurately show driver order even mid lap in Race Sessions. If one driver overtakes another, you should see their positions change in the Live Timings table!
+* Live Timings now shows live gaps between cars in race sessions.
 * Live Timings collision speed detection is now a lot more accurate.
 * Live Timings will now show the number of laps a driver has completed since their last pit stop.
 * If a new entrant signs up to a Championship whilst a practice session is in progress they are now added to the entry list live and will be able to join the server without a restart!
