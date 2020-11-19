@@ -1048,10 +1048,6 @@ func TestRaceControl_OnLapCompleted(t *testing.T) {
 		if rcDriver.Position != driver.ExpectedPos {
 			t.Errorf("Expected driver %d's position to be %d, was actually: %d", driver.Driver, driver.ExpectedPos, rcDriver.Position)
 		}
-
-		if rcDriver.Split != driver.ExpectedSplit {
-			t.Errorf("Expected driver %d's split to be %s, was actually: %s", driver.Driver, driver.ExpectedSplit, rcDriver.Split)
-		}
 	}
 
 	t.Run("Driver not found", func(t *testing.T) {
