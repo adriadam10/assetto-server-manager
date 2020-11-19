@@ -32,6 +32,12 @@ func NewRaceControlCarLapInfo(carModel string) *RaceControlCarLapInfo {
 	}
 }
 
+const (
+	numMiniSectors       = 500
+	sectorUpdateInterval = time.Second
+	sectorLapInterval    = time.Second * 20
+)
+
 type RaceControlDriverData struct {
 	CarInfo      udp.SessionCarInfo `json:"CarInfo"`
 	TotalNumLaps int                `json:"TotalNumLaps"`
@@ -39,18 +45,20 @@ type RaceControlDriverData struct {
 	ConnectedTime time.Time `json:"ConnectedTime" ts:"date"`
 	LoadedTime    time.Time `json:"LoadedTime" ts:"date"`
 
-	Position            int       `json:"Position"`
-	Split               string    `json:"Split"`
-	LastSeen            time.Time `json:"LastSeen" ts:"date"`
-	LastPos             udp.Vec   `json:"LastPos"`
-	IsInPits            bool      `json:"IsInPits"`
-	LastPitStop         int       `json:"LastPitStop"`
-	DRSActive           bool      `json:"DRSActive"`
-	NormalisedSplinePos float32   `json:"NormalisedSplinePos"`
-	SteerAngle          uint8     `json:"SteerAngle"`
-	StatusBytes         uint32    `json:"StatusBytes"`
-	BlueFlag            bool      `json:"BlueFlag"`
-	BlueFlagTo          udp.CarID `json:"-"`
+	Position            int                   `json:"Position"`
+	Split               string                `json:"Split"`
+	LastSeen            time.Time             `json:"LastSeen" ts:"date"`
+	LastPos             udp.Vec               `json:"LastPos"`
+	IsInPits            bool                  `json:"IsInPits"`
+	LastPitStop         int                   `json:"LastPitStop"`
+	DRSActive           bool                  `json:"DRSActive"`
+	NormalisedSplinePos float32               `json:"NormalisedSplinePos"`
+	SteerAngle          uint8                 `json:"SteerAngle"`
+	StatusBytes         uint32                `json:"StatusBytes"`
+	BlueFlag            bool                  `json:"BlueFlag"`
+	BlueFlagTo          udp.CarID             `json:"-"`
+	MiniSectors         [numMiniSectors]int64 `json:"MiniSectors"`
+	LastGapUpdate       time.Time             `json:"-"`
 
 	Collisions []Collision `json:"Collisions"`
 
