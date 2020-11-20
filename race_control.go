@@ -255,7 +255,16 @@ func (rc *RaceControl) OnCarUpdate(update udp.CarUpdate) (bool, error) {
 
 	if rc.SessionInfo.Type == acserver.SessionTypeRace {
 		miniSectorIndex := int(update.NormalisedSplinePos*numMiniSectors) % numMiniSectors
-		driver.MiniSectors[miniSectorIndex] = time.Now().UnixNano()
+
+		if miniSectorIndex < driver.lastMiniSector {
+			driver.lastMiniSector = 0
+		}
+
+		for i := driver.lastMiniSector; i <= miniSectorIndex; i++ {
+			driver.miniSectors[i] = time.Now().UnixNano()
+		}
+
+		driver.lastMiniSector = miniSectorIndex
 	}
 
 	driver.mutex.Unlock()
@@ -301,15 +310,15 @@ func (rc *RaceControl) OnCarUpdate(update udp.CarUpdate) (bool, error) {
 					driverBMostRecentMiniSectorIndex := 0
 					driverBMostRecentMiniSectorTime := int64(0)
 
-					for i, sector := range driverB.MiniSectors {
-						if sector > driverBMostRecentMiniSectorTime && driver.MiniSectors[i] != 0 {
+					for i, sector := range driverB.miniSectors {
+						if sector > driverBMostRecentMiniSectorTime && driver.miniSectors[i] != 0 {
 							driverBMostRecentMiniSectorIndex = i
 							driverBMostRecentMiniSectorTime = sector
 						}
 					}
 
-					driverBSectorTime := driverB.MiniSectors[driverBMostRecentMiniSectorIndex]
-					driverSectorTime := driver.MiniSectors[driverBMostRecentMiniSectorIndex]
+					driverBSectorTime := driverB.miniSectors[driverBMostRecentMiniSectorIndex]
+					driverSectorTime := driver.miniSectors[driverBMostRecentMiniSectorIndex]
 
 					split := (time.Duration(driverBSectorTime-driverSectorTime) * time.Nanosecond).Round(time.Millisecond)
 
