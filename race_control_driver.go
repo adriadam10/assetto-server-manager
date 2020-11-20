@@ -64,8 +64,13 @@ type RaceControlDriverData struct {
 	// Cars is a map of CarModel to the information for that car.
 	Cars map[string]*RaceControlCarLapInfo `json:"Cars"`
 
-	miniSectors    [numMiniSectors]int64
+	miniSectors    [numMiniSectors]*miniSector
 	lastMiniSector int
+}
+
+type miniSector struct {
+	time int64
+	lap  int
 }
 
 type RaceControlDriver struct {
@@ -84,6 +89,39 @@ func (rcd *RaceControlDriver) CurrentCar() *RaceControlCarLapInfo {
 
 	logrus.Warnf("Could not find current car for driver: %s (current car: %s)", rcd.CarInfo.DriverGUID, rcd.CarInfo.CarModel)
 	return &RaceControlCarLapInfo{}
+}
+
+func (rcd *RaceControlDriver) UpdateMiniSector(update udp.CarUpdate) {
+	miniSectorIndex := int(update.NormalisedSplinePos*numMiniSectors) % numMiniSectors
+
+	if miniSectorIndex < rcd.lastMiniSector {
+		rcd.lastMiniSector = 0
+	}
+
+	miniSector := &miniSector{
+		time: time.Now().UnixNano(),
+		lap:  rcd.TotalNumLaps,
+	}
+
+	for i := rcd.lastMiniSector; i <= miniSectorIndex; i++ {
+		s := rcd.miniSectors[i]
+		if s == nil || s.lap != rcd.TotalNumLaps || s.time == 0 {
+			rcd.miniSectors[i] = miniSector
+		}
+	}
+
+	rcd.lastMiniSector = miniSectorIndex
+}
+
+func (rcd *RaceControlDriverData) IntervalToDriver(other *RaceControlDriver) time.Duration {
+	if other.miniSectors[other.lastMiniSector] == nil || rcd.miniSectors[other.lastMiniSector] == nil || rcd.miniSectors[rcd.lastMiniSector] == nil {
+		return -1
+	}
+
+	otherDriverSectorTime := other.miniSectors[other.lastMiniSector].time
+	driverSectorTime := rcd.miniSectors[other.lastMiniSector].time + (time.Now().UnixNano() - rcd.miniSectors[rcd.lastMiniSector].time)
+
+	return (time.Duration(otherDriverSectorTime-driverSectorTime) * time.Nanosecond).Round(time.Millisecond)
 }
 
 func (rcd *RaceControlDriver) ClearSessionInfo() {
