@@ -4,10 +4,8 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"github.com/cj123/ini"
 	"io"
 	"io/ioutil"
-	"justapengu.in/acsm/pkg/acd"
 	"net"
 	"os"
 	"path/filepath"
@@ -15,6 +13,10 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/cj123/ini"
+
+	"justapengu.in/acsm/pkg/acd"
 )
 
 type CarID uint8

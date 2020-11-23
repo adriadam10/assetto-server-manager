@@ -45,8 +45,6 @@ type CarUpdate struct {
 	NormalisedSplinePos float32
 }
 
-var sent bool
-
 func (pm *PositionMessageHandler) OnMessage(_ net.PacketConn, addr net.Addr, p *Packet) error {
 	var carUpdate CarUpdate
 
@@ -106,14 +104,6 @@ func (pm *PositionMessageHandler) OnMessage(_ net.PacketConn, addr net.Addr, p *
 			}
 		}()
 	}
-
-	/*if car.Status.GearIndex == 4 && !sent {
-		if err := pm.state.SendSetup(car); err != nil {
-			return err
-		}
-
-		sent = true
-	}*/
 
 	return nil
 }

@@ -95,6 +95,7 @@ var (
 		migrateChampionshipPracticeWeatherToSessions,
 		fixCarDuplicationInRaceSetups,
 		addDRSAndCollisionsDefaultPenaltyOptionsToCustomRaces,
+		addTyresDefaultPenaltyOptionsToCustomRaces,
 	}
 )
 
@@ -1540,6 +1541,118 @@ func addDRSAndCollisionsDefaultPenaltyOptionsToCustomRaces(s Store) error {
 			event.RaceConfig.CollisionPenaltiesBoPAmount = 50
 			event.RaceConfig.CollisionPenaltiesBoPNumLaps = 2
 			event.RaceConfig.CollisionPenaltiesDriveThroughNumLaps = 2
+		}
+
+		if err := s.UpsertRaceWeekend(raceWeekend); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func addTyresDefaultPenaltyOptionsToCustomRaces(s Store) error {
+	logrus.Infof("Running migration: Add default penalty options to Custom Races")
+
+	customRaces, err := s.ListCustomRaces()
+
+	if err != nil {
+		return err
+	}
+
+	sort.Slice(customRaces, func(i, j int) bool {
+		return customRaces[i].Updated.Before(customRaces[j].Updated)
+	})
+
+	for _, customRace := range customRaces {
+		customRace.RaceConfig.TyrePenaltiesEnabled = false
+		customRace.RaceConfig.TyrePenaltiesMinimumCompounds = 2
+		customRace.RaceConfig.TyrePenaltiesMinimumCompoundsPenalty = 0
+		customRace.RaceConfig.TyrePenaltiesMustStartOnBestQualifying = false
+		customRace.RaceConfig.TyrePenaltiesPenaltyType = acserver.PenaltyDriveThrough
+		customRace.RaceConfig.TyrePenaltiesBoPAmount = 50
+		customRace.RaceConfig.TyrePenaltiesBoPNumLaps = 2
+		customRace.RaceConfig.TyrePenaltiesDriveThroughNumLaps = 2
+
+		err := s.UpsertCustomRace(customRace)
+
+		if err != nil {
+			return err
+		}
+	}
+
+	championships, err := s.ListChampionships()
+
+	if err != nil {
+		return err
+	}
+
+	sort.Slice(championships, func(i, j int) bool {
+		return championships[i].Updated.Before(championships[j].Updated)
+	})
+
+	for _, championship := range championships {
+		for _, event := range championship.Events {
+			if event.IsRaceWeekend() {
+				raceWeekend, err := s.LoadRaceWeekend(event.RaceWeekendID.String())
+
+				if err != nil {
+					return err
+				}
+
+				for _, event := range raceWeekend.Sessions {
+					event.RaceConfig.TyrePenaltiesEnabled = false
+					event.RaceConfig.TyrePenaltiesMinimumCompounds = 2
+					event.RaceConfig.TyrePenaltiesMinimumCompoundsPenalty = 0
+					event.RaceConfig.TyrePenaltiesMustStartOnBestQualifying = false
+					event.RaceConfig.TyrePenaltiesPenaltyType = acserver.PenaltyDriveThrough
+					event.RaceConfig.TyrePenaltiesBoPAmount = 50
+					event.RaceConfig.TyrePenaltiesBoPNumLaps = 2
+					event.RaceConfig.TyrePenaltiesDriveThroughNumLaps = 2
+				}
+
+				if err := s.UpsertRaceWeekend(raceWeekend); err != nil {
+					return err
+				}
+			}
+
+			event.RaceSetup.TyrePenaltiesEnabled = false
+			event.RaceSetup.TyrePenaltiesMinimumCompounds = 2
+			event.RaceSetup.TyrePenaltiesMinimumCompoundsPenalty = 0
+			event.RaceSetup.TyrePenaltiesMustStartOnBestQualifying = false
+			event.RaceSetup.TyrePenaltiesPenaltyType = acserver.PenaltyDriveThrough
+			event.RaceSetup.TyrePenaltiesBoPAmount = 50
+			event.RaceSetup.TyrePenaltiesBoPNumLaps = 2
+			event.RaceSetup.TyrePenaltiesDriveThroughNumLaps = 2
+		}
+
+		err := s.UpsertChampionship(championship)
+
+		if err != nil {
+			return err
+		}
+	}
+
+	raceWeekends, err := s.ListRaceWeekends()
+
+	if err != nil {
+		return err
+	}
+
+	sort.Slice(raceWeekends, func(i, j int) bool {
+		return raceWeekends[i].Updated.Before(raceWeekends[j].Updated)
+	})
+
+	for _, raceWeekend := range raceWeekends {
+		for _, event := range raceWeekend.Sessions {
+			event.RaceConfig.TyrePenaltiesEnabled = false
+			event.RaceConfig.TyrePenaltiesMinimumCompounds = 2
+			event.RaceConfig.TyrePenaltiesMinimumCompoundsPenalty = 0
+			event.RaceConfig.TyrePenaltiesMustStartOnBestQualifying = false
+			event.RaceConfig.TyrePenaltiesPenaltyType = acserver.PenaltyDriveThrough
+			event.RaceConfig.TyrePenaltiesBoPAmount = 50
+			event.RaceConfig.TyrePenaltiesBoPNumLaps = 2
+			event.RaceConfig.TyrePenaltiesDriveThroughNumLaps = 2
 		}
 
 		if err := s.UpsertRaceWeekend(raceWeekend); err != nil {
