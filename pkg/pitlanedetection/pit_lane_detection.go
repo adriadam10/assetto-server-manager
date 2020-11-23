@@ -122,7 +122,7 @@ func NewSharedPitLane(serverInstallPath, track, layout string, distance, maxDist
 		PitLanePoints:      pitLanePoints,
 		TrackPoints:        trackPoints,
 		PitLaneCapable:     true,
-		AveragePitLaneTime: time.Second * time.Duration(pitLaneTime*0.8),
+		AveragePitLaneTime: time.Second * time.Duration(pitLaneTime*0.5),
 		pitLaneMinX:        pitLaneMinX,
 		pitLaneMaxX:        pitLaneMaxX,
 		pitLaneMinZ:        pitLaneMinZ,

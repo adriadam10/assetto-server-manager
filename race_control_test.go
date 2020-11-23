@@ -243,6 +243,10 @@ func (d dummyServer) GetLeaderboard() []*acserver.LeaderboardLine {
 	return nil
 }
 
+func (d dummyServer) SendSetup(overrideValues map[string]float32, carID acserver.CarID) error {
+	return nil
+}
+
 func newRaceControl() *RaceControl {
 	rc := NewRaceControl(NilBroadcaster{}, nilTrackData{}, dummyServerProcess{}, testStore, NewPenaltiesManager(testStore))
 

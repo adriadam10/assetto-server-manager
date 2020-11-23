@@ -643,6 +643,15 @@ func (rm *RaceManager) BuildCustomRaceFromForm(r *http.Request) (*CurrentRaceCon
 		CollisionPenaltiesBoPNumLaps:          formValueAsInt(r.FormValue("CollisionPenaltiesBoPNumLaps")),
 		CollisionPenaltiesDriveThroughNumLaps: formValueAsInt(r.FormValue("CollisionPenaltiesDriveThroughNumLaps")),
 
+		TyrePenaltiesEnabled:                   formValueAsInt(r.FormValue("TyrePenaltiesEnabled")) == 1,
+		TyrePenaltiesMustStartOnBestQualifying: formValueAsInt(r.FormValue("TyrePenaltiesMustStartOnBestQualifying")) == 1,
+		TyrePenaltiesMinimumCompounds:          formValueAsInt(r.FormValue("TyrePenaltiesMinimumCompounds")),
+		TyrePenaltiesMinimumCompoundsPenalty:   formValueAsInt(r.FormValue("TyrePenaltiesMinimumCompoundsPenalty")),
+		TyrePenaltiesPenaltyType:               acserver.PenaltyType(formValueAsInt(r.FormValue("TyrePenaltiesPenaltyType"))),
+		TyrePenaltiesBoPAmount:                 float32(formValueAsFloat(r.FormValue("TyrePenaltiesBoPAmount"))),
+		TyrePenaltiesBoPNumLaps:                formValueAsInt(r.FormValue("TyrePenaltiesBoPNumLaps")),
+		TyrePenaltiesDriveThroughNumLaps:       formValueAsInt(r.FormValue("TyrePenaltiesDriveThroughNumLaps")),
+
 		DriftModeEnabled: formValueAsInt(r.FormValue("DriftModeEnabled")) == 1,
 	}
 
@@ -965,7 +974,7 @@ type RaceTemplateVars struct {
 	RaceWeekendSession              *RaceWeekendSession
 	RaceWeekendHasAtLeastOneSession bool
 
-	CutPenaltyOptions map[acserver.PenaltyType]string
+	PenaltyOptions map[acserver.PenaltyType]string
 
 	ShowOverridePasswordCard bool
 }
@@ -1088,7 +1097,7 @@ func (rm *RaceManager) BuildRaceOpts(r *http.Request) (*RaceTemplateVars, error)
 		ForceStopTime:            forceStopTime,
 		ForceStopWithDrivers:     forceStopWithDrivers,
 		ForcedApps:               forcedApps,
-		CutPenaltyOptions:        acserver.CutPenaltyOptions,
+		PenaltyOptions:           acserver.CutPenaltyOptions,
 	}
 
 	err = rm.applyCurrentRaceSetupToOptions(opts, race.CurrentRaceConfig)

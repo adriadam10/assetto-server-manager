@@ -439,6 +439,15 @@ type CurrentRaceConfig struct {
 	CollisionPenaltiesBoPNumLaps          int                  `ini:"-"`
 	CollisionPenaltiesDriveThroughNumLaps int                  `ini:"-"`
 
+	TyrePenaltiesEnabled                   bool                 `ini:"-"`
+	TyrePenaltiesMustStartOnBestQualifying bool                 `ini:"-"`
+	TyrePenaltiesPenaltyType               acserver.PenaltyType `ini:"-"`
+	TyrePenaltiesMinimumCompounds          int                  `ini:"-"`
+	TyrePenaltiesMinimumCompoundsPenalty   int                  `ini:"-"`
+	TyrePenaltiesBoPAmount                 float32              `ini:"-"`
+	TyrePenaltiesBoPNumLaps                int                  `ini:"-"`
+	TyrePenaltiesDriveThroughNumLaps       int                  `ini:"-"`
+
 	DriftModeEnabled bool `ini:"-"`
 }
 
@@ -482,31 +491,39 @@ func (c CurrentRaceConfig) ToACConfig() *acserver.EventConfig {
 			SessionTransfer: c.DynamicTrack.SessionTransfer,
 			LapGain:         c.DynamicTrack.LapGain,
 		},
-		CustomCutsEnabled:                     c.CustomCutsEnabled,
-		CustomCutsOnlyIfCleanSet:              c.CustomCutsOnlyIfCleanSet,
-		CustomCutsIgnoreFirstLap:              c.CustomCutsIgnoreFirstLap,
-		CustomCutsNumWarnings:                 c.CustomCutsNumWarnings,
-		CustomCutsPenaltyType:                 c.CustomCutsPenaltyType,
-		CustomCutsBoPAmount:                   c.CustomCutsBoPAmount,
-		CustomCutsBoPNumLaps:                  c.CustomCutsBoPNumLaps,
-		CustomCutsDriveThroughNumLaps:         c.CustomCutsDriveThroughNumLaps,
-		DRSPenaltiesEnabled:                   c.DRSPenaltiesEnabled,
-		DRSPenaltiesWindow:                    c.DRSPenaltiesWindow,
-		DRSPenaltiesEnableOnLap:               c.DRSPenaltiesEnableOnLap,
-		DRSPenaltiesNumWarnings:               c.DRSPenaltiesNumWarnings,
-		DRSPenaltiesPenaltyType:               c.DRSPenaltiesPenaltyType,
-		DRSPenaltiesBoPAmount:                 c.DRSPenaltiesBoPAmount,
-		DRSPenaltiesBoPNumLaps:                c.DRSPenaltiesBoPNumLaps,
-		DRSPenaltiesDriveThroughNumLaps:       c.DRSPenaltiesDriveThroughNumLaps,
-		CollisionPenaltiesEnabled:             c.CollisionPenaltiesEnabled,
-		CollisionPenaltiesIgnoreFirstLap:      c.CollisionPenaltiesIgnoreFirstLap,
-		CollisionPenaltiesOnlyOverSpeed:       c.CollisionPenaltiesOnlyOverSpeed,
-		CollisionPenaltiesNumWarnings:         c.CollisionPenaltiesNumWarnings,
-		CollisionPenaltiesPenaltyType:         c.CollisionPenaltiesPenaltyType,
-		CollisionPenaltiesBoPAmount:           c.CollisionPenaltiesBoPAmount,
-		CollisionPenaltiesBoPNumLaps:          c.CollisionPenaltiesBoPNumLaps,
-		CollisionPenaltiesDriveThroughNumLaps: c.CollisionPenaltiesDriveThroughNumLaps,
-		DriftModeEnabled:                      c.DriftModeEnabled,
+		CustomCutsEnabled:                      c.CustomCutsEnabled,
+		CustomCutsOnlyIfCleanSet:               c.CustomCutsOnlyIfCleanSet,
+		CustomCutsIgnoreFirstLap:               c.CustomCutsIgnoreFirstLap,
+		CustomCutsNumWarnings:                  c.CustomCutsNumWarnings,
+		CustomCutsPenaltyType:                  c.CustomCutsPenaltyType,
+		CustomCutsBoPAmount:                    c.CustomCutsBoPAmount,
+		CustomCutsBoPNumLaps:                   c.CustomCutsBoPNumLaps,
+		CustomCutsDriveThroughNumLaps:          c.CustomCutsDriveThroughNumLaps,
+		DRSPenaltiesEnabled:                    c.DRSPenaltiesEnabled,
+		DRSPenaltiesWindow:                     c.DRSPenaltiesWindow,
+		DRSPenaltiesEnableOnLap:                c.DRSPenaltiesEnableOnLap,
+		DRSPenaltiesNumWarnings:                c.DRSPenaltiesNumWarnings,
+		DRSPenaltiesPenaltyType:                c.DRSPenaltiesPenaltyType,
+		DRSPenaltiesBoPAmount:                  c.DRSPenaltiesBoPAmount,
+		DRSPenaltiesBoPNumLaps:                 c.DRSPenaltiesBoPNumLaps,
+		DRSPenaltiesDriveThroughNumLaps:        c.DRSPenaltiesDriveThroughNumLaps,
+		CollisionPenaltiesEnabled:              c.CollisionPenaltiesEnabled,
+		CollisionPenaltiesIgnoreFirstLap:       c.CollisionPenaltiesIgnoreFirstLap,
+		CollisionPenaltiesOnlyOverSpeed:        c.CollisionPenaltiesOnlyOverSpeed,
+		CollisionPenaltiesNumWarnings:          c.CollisionPenaltiesNumWarnings,
+		CollisionPenaltiesPenaltyType:          c.CollisionPenaltiesPenaltyType,
+		CollisionPenaltiesBoPAmount:            c.CollisionPenaltiesBoPAmount,
+		CollisionPenaltiesBoPNumLaps:           c.CollisionPenaltiesBoPNumLaps,
+		CollisionPenaltiesDriveThroughNumLaps:  c.CollisionPenaltiesDriveThroughNumLaps,
+		TyrePenaltiesEnabled:                   c.TyrePenaltiesEnabled,
+		TyrePenaltiesMustStartOnBestQualifying: c.TyrePenaltiesMustStartOnBestQualifying,
+		TyrePenaltiesPenaltyType:               c.TyrePenaltiesPenaltyType,
+		TyrePenaltiesMinimumCompounds:          c.TyrePenaltiesMinimumCompounds,
+		TyrePenaltiesMinimumCompoundsPenalty:   c.TyrePenaltiesMinimumCompoundsPenalty,
+		TyrePenaltiesBoPAmount:                 c.TyrePenaltiesBoPAmount,
+		TyrePenaltiesBoPNumLaps:                c.TyrePenaltiesBoPNumLaps,
+		TyrePenaltiesDriveThroughNumLaps:       c.TyrePenaltiesDriveThroughNumLaps,
+		DriftModeEnabled:                       c.DriftModeEnabled,
 	}
 
 	i := 0

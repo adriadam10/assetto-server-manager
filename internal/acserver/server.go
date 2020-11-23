@@ -2,6 +2,7 @@ package acserver
 
 import (
 	"context"
+	"fmt"
 	"runtime"
 	"sync"
 	"time"
@@ -385,6 +386,37 @@ func (s *Server) GetLeaderboard() []*LeaderboardLine {
 	currentSession := s.sessionManager.GetCurrentSession()
 
 	return s.state.Leaderboard(currentSession.SessionType)
+}
+
+func (s *Server) SendSetup(overrideValues map[string]float32, carID CarID) error {
+	car, err := s.state.GetCarByID(carID)
+
+	if err != nil {
+		return err
+	}
+
+	if car.FixedSetup != "" {
+		// modify existing setup
+		if _, ok := s.state.setups[car.FixedSetup]; !ok {
+			s.logger.Infof("Fixed setup %s was selected for %s, but was not found on event start! Setup not applied!", car.FixedSetup, car.Driver.Name)
+			return nil
+		}
+
+		for key, val := range overrideValues {
+			s.state.setups[car.FixedSetup].values[key] = val
+		}
+	} else {
+		// create a new setup
+		car.FixedSetup = fmt.Sprintf("override-car-%d", car.CarID)
+
+		s.state.setups[car.FixedSetup] = Setup{
+			carName: car.Model,
+			isFixed: 1,
+			values:  overrideValues,
+		}
+	}
+
+	return s.state.SendSetup(car)
 }
 
 func (s *Server) SetUpdateInterval(interval time.Duration) {

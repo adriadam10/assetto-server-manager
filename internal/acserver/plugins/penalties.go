@@ -25,6 +25,7 @@ type PenaltiesPlugin struct {
 	drsZones         []acserver.DRSZone
 	installPath      string
 	drsZonesFilename string
+	currentSession   acserver.SessionType
 }
 
 type penaltyInfo struct {
@@ -58,6 +59,8 @@ type penaltyInfo struct {
 	isAllowedDRS              bool
 	drsIsOpen                 bool
 	drsOpenedAt               time.Time
+
+	bestQualifyingTyre string
 
 	collisionRateLimiter time.Time
 }
@@ -108,7 +111,7 @@ func (p *PenaltiesPlugin) OnConnectionClosed(car acserver.CarInfo) error {
 }
 
 func (p *PenaltiesPlugin) OnCarUpdate(car acserver.CarInfo) error {
-	if !p.pitLane.PitLaneCapable {
+	if p.currentSession != acserver.SessionTypeRace {
 		return nil
 	}
 
@@ -233,6 +236,10 @@ func (p *PenaltiesPlugin) OnCarUpdate(car acserver.CarInfo) error {
 		}
 	}
 
+	if !p.pitLane.PitLaneCapable {
+		return nil
+	}
+
 	if penaltyInfo.driveThrough {
 		for _, pitLaneCar := range p.pitLane.Cars {
 			if acserver.CarID(pitLaneCar.ID) == penaltyInfo.carID {
@@ -259,6 +266,7 @@ func (p *PenaltiesPlugin) OnCarUpdate(car acserver.CarInfo) error {
 }
 
 func (p *PenaltiesPlugin) OnNewSession(newSession acserver.SessionInfo) error {
+	p.currentSession = p.server.GetSessionInfo().SessionType
 	p.eventConfig = p.server.GetEventConfig()
 
 	for _, penalty := range p.penalties {
@@ -276,12 +284,29 @@ func (p *PenaltiesPlugin) OnNewSession(newSession acserver.SessionInfo) error {
 			}
 		}
 
+		// don't clear bestQualifyingTyre unless this is a new qualifying session
+		if newSession.SessionType == acserver.SessionTypeQualifying {
+			penalty.bestQualifyingTyre = ""
+		}
+
+		if newSession.SessionType == acserver.SessionTypeRace && penalty.bestQualifyingTyre != "" && p.eventConfig.TyrePenaltiesMustStartOnBestQualifying && p.eventConfig.TyrePenaltiesEnabled {
+			err := p.buildLockedTyreSetup(penalty)
+
+			if err != nil {
+				p.logger.WithError(err).Errorf("Couldn't build locked tyre setup for car ID %d, skipping forced start tyre", penalty.carID)
+			}
+		}
+
 		penalty.driveThrough = false
 		penalty.clearPenaltyIn = 0
 		penalty.warnings = 0
 		penalty.totalLaps = 0
 		penalty.cleanLaps = nil
 		penalty.totalCleanLapTime = 0
+	}
+
+	if p.currentSession != acserver.SessionTypeRace {
+		return nil
 	}
 
 	if !p.pitLane.PitLaneCapable && p.eventConfig.CustomCutsPenaltyType == acserver.PenaltyDriveThrough {
@@ -311,6 +336,25 @@ func (p *PenaltiesPlugin) OnNewSession(newSession acserver.SessionInfo) error {
 	return nil
 }
 
+func (p *PenaltiesPlugin) buildLockedTyreSetup(penalty *penaltyInfo) error {
+	car, err := p.server.GetCarInfo(penalty.carID)
+
+	if err != nil {
+		return err
+	}
+
+	tyreIndex, err := acserver.FindTyreIndex(car.Model, penalty.bestQualifyingTyre, p.installPath, p.eventConfig.Tyres())
+
+	if err != nil {
+		return err
+	}
+
+	setupOverride := make(map[string]float32)
+	setupOverride["TYRES"] = float32(tyreIndex)
+
+	return p.server.SendSetup(setupOverride, penalty.carID)
+}
+
 func (p *PenaltiesPlugin) OnEndSession(sessionFile string) error {
 	resultsNeedModifying := false
 
@@ -320,7 +364,8 @@ func (p *PenaltiesPlugin) OnEndSession(sessionFile string) error {
 		}
 	}
 
-	if !resultsNeedModifying {
+	if !((p.currentSession == acserver.SessionTypeQualifying && p.eventConfig.TyrePenaltiesEnabled && p.eventConfig.TyrePenaltiesMustStartOnBestQualifying) ||
+		(p.currentSession == acserver.SessionTypeRace && p.eventConfig.TyrePenaltiesEnabled && p.eventConfig.TyrePenaltiesMinimumCompounds > 1)) {
 		return nil
 	}
 
@@ -340,6 +385,89 @@ func (p *PenaltiesPlugin) OnEndSession(sessionFile string) error {
 		return err
 	}
 
+	if p.eventConfig.TyrePenaltiesEnabled {
+		switch p.currentSession {
+		case acserver.SessionTypeQualifying:
+			if !p.eventConfig.TyrePenaltiesMustStartOnBestQualifying {
+				break
+			}
+
+		results:
+			for _, result := range results.Result {
+				for _, lap := range results.Laps {
+					if lap.LapTime == result.BestLap {
+						for _, penalty := range p.penalties {
+							if penalty.carID == result.CarID {
+								penalty.bestQualifyingTyre = lap.Tyre
+								continue results
+							}
+						}
+					}
+				}
+			}
+
+		case acserver.SessionTypeRace:
+			for _, result := range results.Result {
+				var penaltyInfo *penaltyInfo
+
+				for _, penalty := range p.penalties {
+					if penalty.carID == result.CarID {
+						penaltyInfo = penalty
+					}
+				}
+
+				if penaltyInfo == nil {
+					continue
+				}
+
+				var usedTyres []string
+
+				for _, lap := range results.Laps {
+					var lapTyreFound bool
+
+					for _, usedTyre := range usedTyres {
+						if usedTyre == lap.Tyre {
+							lapTyreFound = true
+							break
+						}
+					}
+
+					if !lapTyreFound {
+						usedTyres = append(usedTyres, lap.Tyre)
+					}
+				}
+
+				if len(usedTyres) < p.eventConfig.TyrePenaltiesMinimumCompounds {
+
+					if p.eventConfig.TyrePenaltiesMinimumCompoundsPenalty == 0 {
+						p.logger.Infof("Driver (%s) was disqualified for not meeting the minimum number of compounds in the race (min: %d, used: %d)", result.DriverName, p.eventConfig.TyrePenaltiesMinimumCompounds, len(usedTyres))
+
+						result.Disqualified = true
+					} else {
+						p.logger.Infof("adding %s penalty to %s for not meeting the minimum number of compounds in the race (min: %d, used: %d)", result.PenaltyTime.String(), result.DriverName, p.eventConfig.TyrePenaltiesMinimumCompounds, len(usedTyres))
+
+						numCleanLaps := len(penaltyInfo.cleanLaps)
+						averageCleanLap := time.Millisecond * time.Duration(float32(penaltyInfo.totalCleanLapTime)/float32(numCleanLaps))
+						result.PenaltyTime += time.Second * time.Duration(p.eventConfig.TyrePenaltiesMinimumCompoundsPenalty)
+
+						if numCleanLaps != 0 {
+							if result.PenaltyTime > averageCleanLap {
+								result.LapPenalty = int(result.PenaltyTime / averageCleanLap)
+							}
+						}
+					}
+
+					result.HasPenalty = true
+					resultsNeedModifying = true
+				}
+			}
+		}
+	}
+
+	if !resultsNeedModifying {
+		return nil
+	}
+
 	for _, penalty := range p.penalties {
 		if !penalty.driveThrough && penalty.clearPenaltyIn <= 0 && len(penalty.timePenalties) == 0 {
 			continue
@@ -356,7 +484,7 @@ func (p *PenaltiesPlugin) OnEndSession(sessionFile string) error {
 					result.HasPenalty = true
 					result.PenaltyTime += p.pitLane.AveragePitLaneTime + time.Second*10
 
-					p.logger.Infof("adding %s penalty to car %d for unserved drive through penalty", result.CarID, result.PenaltyTime)
+					p.logger.Infof("adding %s penalty to %s for un-served drive through penalty", result.PenaltyTime.String(), result.DriverName)
 
 					if numCleanLaps != 0 {
 						if result.PenaltyTime > averageCleanLap {
@@ -430,7 +558,7 @@ func (p *PenaltiesPlugin) OnClientLoaded(car acserver.CarInfo) error {
 }
 
 func (p *PenaltiesPlugin) OnLapCompleted(carID acserver.CarID, lap acserver.Lap) error {
-	if p.server.GetSessionInfo().SessionType != acserver.SessionTypeRace {
+	if p.currentSession != acserver.SessionTypeRace {
 		return nil
 	}
 
@@ -624,7 +752,7 @@ func (p *PenaltiesPlugin) applyPenalty(entrant acserver.CarInfo, penaltyInfo *pe
 				penaltyInfo.driveThroughLaps = driveThroughNumLaps
 			}
 
-			chatMessage = fmt.Sprintf("You have been given a Drive Through Penalty %s! Please serve within the next %d lap(s).", messageContext, penaltyInfo.driveThroughLaps)
+			chatMessage = fmt.Sprintf("You have been given a Drive Through Penalty for %s! Please serve within the next %d lap(s).", messageContext, penaltyInfo.driveThroughLaps)
 		}
 	case acserver.PenaltyWarn:
 		chatMessage = fmt.Sprintf("Please avoid %s! Your behaviour has been noted for admins to review in the results file", messageContext)
@@ -650,7 +778,7 @@ func (p *PenaltiesPlugin) OnCollisionWithEnv(event acserver.ClientEvent) error {
 }
 
 func (p *PenaltiesPlugin) onCollision(event acserver.ClientEvent, withCar bool) error {
-	if !p.eventConfig.CollisionPenaltiesEnabled {
+	if !p.eventConfig.CollisionPenaltiesEnabled || p.currentSession != acserver.SessionTypeRace {
 		return nil
 	}
 

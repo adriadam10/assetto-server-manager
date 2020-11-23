@@ -144,6 +144,15 @@ func ConfigDefault() ServerConfig {
 			CollisionPenaltiesBoPNumLaps:          2,
 			CollisionPenaltiesDriveThroughNumLaps: 2,
 
+			TyrePenaltiesEnabled:                   false,
+			TyrePenaltiesMustStartOnBestQualifying: true,
+			TyrePenaltiesPenaltyType:               acserver.PenaltyDriveThrough,
+			TyrePenaltiesMinimumCompounds:          2,
+			TyrePenaltiesMinimumCompoundsPenalty:   0,
+			TyrePenaltiesBoPAmount:                 50,
+			TyrePenaltiesBoPNumLaps:                2,
+			TyrePenaltiesDriveThroughNumLaps:       2,
+
 			PitLane: &pitlanedetection.PitLane{},
 
 			DriftModeEnabled: false,

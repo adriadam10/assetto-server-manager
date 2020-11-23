@@ -6,6 +6,8 @@ import (
 	"os"
 	"path/filepath"
 
+	"justapengu.in/acsm/internal/acserver"
+
 	"github.com/cj123/ini"
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
@@ -186,7 +188,7 @@ func (f RaceWeekendSessionToSessionFilter) Filter(raceWeekend *RaceWeekend, pare
 const lockedTyreSetupFolder = "server_manager_locked_tyres"
 
 func (rw *RaceWeekend) buildLockedTyreSetup(session *RaceWeekendSession, entrant *RaceWeekendSessionEntrant, fastestLap *SessionLap) error {
-	tyreIndex, err := findTyreIndex(entrant.Car.Model, fastestLap.Tyre, session.RaceConfig)
+	tyreIndex, err := acserver.FindTyreIndex(entrant.Car.Model, fastestLap.Tyre, ServerInstallPath, session.RaceConfig.Tyres())
 
 	if err != nil {
 		return err

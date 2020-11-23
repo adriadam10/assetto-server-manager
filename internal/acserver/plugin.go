@@ -58,6 +58,9 @@ type ServerPlugin interface {
 
 	GetLeaderboard() []*LeaderboardLine
 
+	// Fixed setups can be sent mid session
+	SendSetup(overrideValues map[string]float32, carID CarID) error
+
 	SetUpdateInterval(interval time.Duration)
 }
 
