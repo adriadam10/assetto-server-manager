@@ -450,21 +450,11 @@ class LiveMap implements WebsocketHandler {
                 // find the guid for this car ID:
                 const driverGUID = this.raceControl.status!.CarIDToGUID[update.CarID];
 
-                let blueFlag = false;
-
-                if (this.raceControl.status.ConnectedDrivers) {
-                    let driver = this.raceControl.status.ConnectedDrivers.Drivers[driverGUID];
-
-                    if (driver) {
-                        driver.NormalisedSplinePos = update.NormalisedSplinePos;
-                        blueFlag = driver.BlueFlag
-                    }
-                }
 
                 let $myDot = this.dots.get(driverGUID);
                 let dotPos = this.translateToTrackCoordinate(update.Pos);
 
-                if (blueFlag) {
+                if (update.BlueFlag) {
                     $myDot!.children(".name").addClass("blue-flag");
                 } else {
                     $myDot!.children(".name").removeClass("blue-flag");
@@ -715,16 +705,6 @@ class LiveTimings implements WebsocketHandler {
                 let driverA = this.raceControl.status.ConnectedDrivers.Drivers[guidA]
                 let driverB = this.raceControl.status.ConnectedDrivers.Drivers[guidB]
 
-                if (driverA.TotalNumLaps === driverB.TotalNumLaps) {
-                    if (driverA.NormalisedSplinePos > driverB.NormalisedSplinePos) {
-                        return -1;
-                    } else if (driverA.NormalisedSplinePos < driverB.NormalisedSplinePos) {
-                        return 1;
-                    } else {
-                        return 0;
-                    }
-                }
-
                 // javascript has no stable sort. use our (backend sorted) position numbers to ensure stability.
                 return driverA.Position - driverB.Position;
             });
@@ -855,7 +835,6 @@ class LiveTimings implements WebsocketHandler {
                 const update = new CarUpdate(message.Message);
 
                 if (this.raceControl.status.SessionInfo.Type === SessionType.Race) {
-
                     if (!this.raceControl.status!.CarIDToGUID.hasOwnProperty(update.CarID)) {
                         return;
                     }
@@ -866,7 +845,11 @@ class LiveTimings implements WebsocketHandler {
 
                         let driver = this.raceControl.status.ConnectedDrivers.Drivers[driverGUID];
 
+                        driver.Position = update.RacePosition;
                         driver.Split = update.Gap;
+                        driver.BlueFlag = update.BlueFlag;
+                        driver.DRSActive = update.DRSActive;
+                        driver.IsInPits = update.IsInPits;
                     }
                 }
 

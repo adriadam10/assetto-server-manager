@@ -355,7 +355,6 @@ class RaceControlDriver {
     SteerAngle: number;
     StatusBytes: number;
     BlueFlag: boolean;
-    MiniSectors: number[];
     Collisions: Collision[] | null;
     Cars: { [key: string]: RaceControlCarLapInfo };
 
@@ -376,7 +375,6 @@ class RaceControlDriver {
         this.SteerAngle = ('SteerAngle' in d) ? d.SteerAngle as number : 0;
         this.StatusBytes = ('StatusBytes' in d) ? d.StatusBytes as number : 0;
         this.BlueFlag = ('BlueFlag' in d) ? d.BlueFlag as boolean : false;
-        this.MiniSectors = ('MiniSectors' in d) ? d.MiniSectors as number[] : [];
         this.Collisions = Array.isArray(d.Collisions) ? d.Collisions.map((v: any) => new Collision(v)) : null;
         this.Cars = ('Cars' in d) ? d.Cars as { [key: string]: RaceControlCarLapInfo } : {};
     }

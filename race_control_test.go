@@ -870,7 +870,7 @@ func TestRaceControl_OnCarUpdate(t *testing.T) {
 		return
 	}
 
-	_, err = raceControl.OnCarUpdate(udp.CarUpdate{
+	err = raceControl.OnCarUpdate(udp.CarUpdate{
 		CarID:               drivers[1].CarID,
 		Pos:                 udp.Vec{X: 100, Y: 20, Z: 3},
 		Velocity:            udp.Vec{X: 10, Y: 20, Z: 20},
@@ -902,7 +902,7 @@ func TestRaceControl_OnCarUpdate(t *testing.T) {
 	}
 
 	t.Run("Unknown driver", func(t *testing.T) {
-		_, err := raceControl.OnCarUpdate(udp.CarUpdate{
+		err := raceControl.OnCarUpdate(udp.CarUpdate{
 			CarID:               100, // unknown car
 			Pos:                 udp.Vec{X: 100, Y: 20, Z: 3},
 			Velocity:            udp.Vec{X: 10, Y: 20, Z: 20},
