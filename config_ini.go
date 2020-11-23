@@ -439,9 +439,6 @@ type CurrentRaceConfig struct {
 	CollisionPenaltiesBoPNumLaps          int                  `ini:"-"`
 	CollisionPenaltiesDriveThroughNumLaps int                  `ini:"-"`
 
-	// @TODO put all of the penalties in a click to show thingy? They make the page a bit long. PUT THEM IN TABS
-
-	// @TODO migration for these
 	TyrePenaltiesEnabled                   bool                 `ini:"-"`
 	TyrePenaltiesMustStartOnBestQualifying bool                 `ini:"-"`
 	TyrePenaltiesPenaltyType               acserver.PenaltyType `ini:"-"`
