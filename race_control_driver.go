@@ -83,11 +83,13 @@ func (rcd *RaceControlDriver) ClearSessionInfo() {
 	carInfo := rcd.CarInfo
 	loadedTime := rcd.LoadedTime
 	connectedTime := rcd.ConnectedTime
+	isInPits := rcd.IsInPits
 
 	rcd.RaceControlDriverData = RaceControlDriverData{
 		CarInfo:       carInfo,
 		LoadedTime:    loadedTime,
 		ConnectedTime: connectedTime,
+		IsInPits:      isInPits,
 
 		Cars: map[string]*RaceControlCarLapInfo{
 			carInfo.CarModel: NewRaceControlCarLapInfo(carInfo.CarModel),

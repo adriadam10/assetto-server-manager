@@ -1917,7 +1917,7 @@
                     <div class="col-sm-9">
 
                         <select class="form-control" id="CustomCutsPenaltyType" name="CustomCutsPenaltyType">
-                            {{ range $val, $name := .CutPenaltyOptions }}
+                            {{ range $val, $name := .PenaltyOptions }}
                                 <option value="{{ $val }}" {{ if eq $f.CustomCutsPenaltyType $val }} selected="selected" {{ end }}>{{ $name }}</option>
                             {{ end }}
                         </select>
@@ -2107,7 +2107,7 @@
                     <div class="col-sm-9">
 
                         <select class="form-control" id="CollisionPenaltiesPenaltyType" name="CollisionPenaltiesPenaltyType">
-                            {{ range $val, $name := .CutPenaltyOptions }}
+                            {{ range $val, $name := .PenaltyOptions }}
                                 <option value="{{ $val }}" {{ if eq $f.CollisionPenaltiesPenaltyType $val }} selected="selected" {{ end }}>{{ $name }}</option>
                             {{ end }}
                         </select>
@@ -2294,7 +2294,7 @@
                     <div class="col-sm-9">
 
                         <select class="form-control" id="DRSPenaltiesPenaltyType" name="DRSPenaltiesPenaltyType">
-                            {{ range $val, $name := .CutPenaltyOptions }}
+                            {{ range $val, $name := .PenaltyOptions }}
                                 <option value="{{ $val }}" {{ if eq $f.DRSPenaltiesPenaltyType $val }} selected="selected" {{ end }}>{{ $name }}</option>
                             {{ end }}
                         </select>
@@ -2363,6 +2363,184 @@
                             If a driver completes the race with a pending drive through penalty they will be given an automatic time penalty.</small>
                     </div>
                 </div>
+            </div>
+        </div>
+
+        <div class="card mt-3 border-secondary">
+            <div class="card-header">
+                <strong>Custom Tyre Penalties</strong>
+            </div>
+
+            <div class="card-body">
+
+                <div class="form-group row">
+                    <label for="TyrePenaltiesEnabled" class="col-sm-3 col-form-label">Enable Custom Tyre Penalties</label>
+
+                    <div class="col-sm-9">
+
+                        <input
+                                class="form-control"
+                                type="checkbox"
+                                id="TyrePenaltiesEnabled"
+                                name="TyrePenaltiesEnabled"
+                                {{ if $f.TyrePenaltiesEnabled }}
+                                    checked="checked"
+                                {{ end }}
+                        ><br/>
+
+                        <small>
+                            Custom tyre penalties are controlled entirely by the server to prevent driver intervention.
+                            If a driver uses less than the minimum required number of compounds in a race session they
+                            will be given the configured minimum tyre penalty. If a driver does not start on the tyre
+                            used to achieve their best qualifying time (in the specified qualifying session) they will be
+                            given the configured best qualifying compound penalty.
+
+                            <strong>These penalties only apply in race sessions.</strong>
+                        </small>
+                    </div>
+                </div>
+
+                <div class="form-group row">
+                    <label for="TyrePenaltiesMinimumCompounds" class="col-sm-3 col-form-label">Minimum Tyre Compounds</label>
+
+                    <div class="col-sm-9">
+                        <input
+                                type="number"
+                                id="TyrePenaltiesMinimumCompounds"
+                                name="TyrePenaltiesMinimumCompounds"
+                                class="form-control"
+                                value="{{ $f.TyrePenaltiesMinimumCompounds }}"
+                                min="0"
+                                step="1"
+                        >
+
+                        <small>Each driver must use at least this many tyre compounds during the race. If they do not they
+                        will be given the configured minimum tyre penalty.</small>
+                    </div>
+                </div>
+
+                <div class="form-group row">
+                    <label for="TyrePenaltiesMinimumCompoundsPenalty" class="col-sm-3 col-form-label">Minimum Tyre Compounds Penalty</label>
+
+                    <div class="col-sm-9">
+                        <input
+                                type="number"
+                                id="TyrePenaltiesMinimumCompoundsPenalty"
+                                name="TyrePenaltiesMinimumCompoundsPenalty"
+                                class="form-control"
+                                value="{{ $f.TyrePenaltiesMinimumCompoundsPenalty }}"
+                                min="0"
+                                step="1"
+                        >
+
+                        <small>If a driver does not use the configured minimum number of tyre compounds in a race they will be
+                            given this time penalty (seconds) in the results file. If 0 they will be disqualified.</small>
+                    </div>
+                </div>
+
+                {{ if not $.IsRaceWeekend }}
+
+                    <div class="form-group row">
+                        <label for="TyrePenaltiesMustStartOnBestQualifying" class="col-sm-3 col-form-label">Start on Best Qualifying Compound</label>
+
+                        <div class="col-sm-9">
+
+                            <input
+                                    class="form-control"
+                                    type="checkbox"
+                                    id="TyrePenaltiesMustStartOnBestQualifying"
+                                    name="TyrePenaltiesMustStartOnBestQualifying"
+                                    {{ if $f.TyrePenaltiesMustStartOnBestQualifying }}
+                                        checked="checked"
+                                    {{ end }}
+                            ><br/>
+
+                            <small>
+                                If enabled each driver must start the race on the tyre compound used to complete their fastest
+                                qualifying time in the specified qualifying session. If they do not they will be given the configured
+                                penalty at the end of lap one.
+                            </small>
+                        </div>
+                    </div>
+
+                    <div class="form-group row">
+                        <label for="TyrePenaltiesPenaltyType" class="col-sm-3 col-form-label">Qualifying Compound Penalty Type</label>
+
+                        <div class="col-sm-9">
+
+                            <select class="form-control" id="TyrePenaltiesPenaltyType" name="TyrePenaltiesPenaltyType">
+                                {{ range $val, $name := .PenaltyOptions }}
+                                    <option value="{{ $val }}" {{ if eq $f.TyrePenaltiesPenaltyType $val }} selected="selected" {{ end }}>{{ $name }}</option>
+                                {{ end }}
+                            </select>
+
+                            <small>The type of penalty to apply if a driver starts the race on the wrong tyre compound.</small>
+                        </div>
+                    </div>
+
+                    {{ $hideBoPOptionsTyres := and (ne $f.TyrePenaltiesPenaltyType 1) (ne $f.TyrePenaltiesPenaltyType 2) }}
+
+                    <div class="form-group row" style="{{ if $hideBoPOptionsTyres }}display: none;{{ end }}" id="TyrePenaltiesBoPAmountWrapper">
+                        <label for="TyrePenaltiesBoPAmount" class="col-sm-3 col-form-label">Ballast(kg)/Restrictor(%) to Apply</label>
+
+                        <div class="col-sm-9">
+                            <input
+                                    type="number"
+                                    id="TyrePenaltiesBoPAmount"
+                                    name="TyrePenaltiesBoPAmount"
+                                    class="form-control"
+                                    value="{{ $f.TyrePenaltiesBoPAmount }}"
+                                    {{ if not $hideBoPOptionsTyres }}
+                                        min="0"
+                                    {{ end }}
+                                    step="0.01"
+                            >
+
+                            <small>The amount of ballast/restrictor to apply when the penalty is applied.</small>
+                        </div>
+                    </div>
+
+                    <div class="form-group row" style="{{ if $hideBoPOptionsTyres }}display: none;{{ end }}" id="TyrePenaltiesBoPNumLapsWrapper">
+                        <label for="TyrePenaltiesBoPNumLaps" class="col-sm-3 col-form-label">Number of Laps of Penalty Ballast/Restrictor</label>
+
+                        <div class="col-sm-9">
+                            <input
+                                    type="number"
+                                    id="TyrePenaltiesBoPNumLaps"
+                                    name="TyrePenaltiesBoPNumLaps"
+                                    class="form-control"
+                                    value="{{ $f.TyrePenaltiesBoPNumLaps }}"
+                                    {{ if not $hideBoPOptionsTyres }}
+                                        min="1"
+                                    {{ end }}
+                                    step="1"
+                            >
+
+                            <small>After this number of laps the ballast/restrictor penalty will be removed.</small>
+                        </div>
+                    </div>
+
+                    <div class="form-group row" style="{{ if (ne $f.TyrePenaltiesPenaltyType 4) }}display: none;{{ end }}" id="TyrePenaltiesDriveThroughNumLapsWrapper">
+                        <label for="TyrePenaltiesDriveThroughNumLaps" class="col-sm-3 col-form-label">Number of Laps to Serve Drive Through</label>
+
+                        <div class="col-sm-9">
+                            <input
+                                    type="number"
+                                    id="TyrePenaltiesDriveThroughNumLaps"
+                                    name="TyrePenaltiesDriveThroughNumLaps"
+                                    class="form-control"
+                                    value="{{ $f.TyrePenaltiesDriveThroughNumLaps }}"
+                                    min="1"
+                                    step="1"
+                            >
+
+                            <small>If a driver does not complete their drive through within this number of laps they will be kicked.
+                                If a driver completes the race with a pending drive through penalty they will be given an automatic time penalty.</small>
+                        </div>
+                    </div>
+
+                {{ end }}
+
             </div>
         </div>
 

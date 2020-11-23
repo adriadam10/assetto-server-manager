@@ -113,6 +113,16 @@ type EventConfig struct {
 	CollisionPenaltiesBoPNumLaps          int         `json:"collision_penalties_bop_num_laps" yaml:"collision_penalties_bop_num_laps"`
 	CollisionPenaltiesDriveThroughNumLaps int         `json:"collision_penalties_drive_through_num_laps" yaml:"collision_penalties_drive_through_num_laps"`
 
+	TyrePenaltiesEnabled                 bool `json:"tyre_penalties_enabled" yaml:"tyre_penalties_enabled"`
+	TyrePenaltiesMinimumCompounds        int  `json:"tyre_penalties_minimum_compounds" yaml:"tyre_penalties_minimum_compounds"`
+	TyrePenaltiesMinimumCompoundsPenalty int  `json:"tyre_penalties_minimum_compounds_penalty" yaml:"tyre_penalties_minimum_compounds_penalty"`
+
+	TyrePenaltiesMustStartOnBestQualifying bool        `json:"tyre_penalties_must_start_on_best_qualifying" yaml:"tyre_penalties_must_start_on_best_qualifying"`
+	TyrePenaltiesPenaltyType               PenaltyType `json:"tyre_penalties_penalty_type" yaml:"tyre_penalties_penalty_type"`
+	TyrePenaltiesBoPAmount                 float32     `json:"tyre_penalties_bop_amount" yaml:"tyre_penalties_bop_amount"`
+	TyrePenaltiesBoPNumLaps                int         `json:"tyre_penalties_bop_num_laps" yaml:"tyre_penalties_bop_num_laps"`
+	TyrePenaltiesDriveThroughNumLaps       int         `json:"tyre_penalties_drive_through_num_laps" yaml:"tyre_penalties_drive_through_num_laps"`
+
 	DriftModeEnabled bool `json:"drift_mode_enabled" yaml:"drift_mode_enabled"`
 }
 

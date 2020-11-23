@@ -136,7 +136,7 @@ entrants:
 				continue
 			}
 
-			setupFile, err := ini.Load(filepath.Join(ss.baseDirectory, entrant.FixedSetup))
+			setupFile, err := ini.Load(filepath.Join(ss.baseDirectory, "setups", entrant.FixedSetup))
 
 			if err != nil {
 				return err
@@ -500,46 +500,46 @@ func (ss *ServerState) ChangeTyre(car *Car, tyre string) error {
 	return nil
 }
 
-func (ss *ServerState) CreateBoPPacket(entrants []*Car) *Packet {
+func (ss *ServerState) CreateBoPPacket(cars []*Car) *Packet {
 	bw := NewPacket(nil)
 	bw.Write(TCPSendBoP)
-	bw.Write(uint8(len(entrants)))
+	bw.Write(uint8(len(cars)))
 
-	for _, entrant := range entrants {
-		bw.Write(entrant.CarID)
-		bw.Write(entrant.Ballast)
-		bw.Write(entrant.Restrictor)
+	for _, car := range cars {
+		bw.Write(car.CarID)
+		bw.Write(car.Ballast)
+		bw.Write(car.Restrictor)
 	}
 
 	return bw
 }
 
-func (ss *ServerState) BroadcastUpdateBoP(entrant *Car) {
-	ss.logger.Infof("Broadcasting updated BoP for %s (ballast: %.0f, restrictor: %.0f) to all clients", entrant.String(), entrant.Ballast, entrant.Restrictor)
+func (ss *ServerState) BroadcastUpdateBoP(car *Car) {
+	ss.logger.Infof("Broadcasting updated BoP for %s (ballast: %.0f, restrictor: %.0f) to all clients", car.String(), car.Ballast, car.Restrictor)
 
-	var entrants []*Car
+	var cars []*Car
 
-	entrants = append(entrants, entrant)
+	cars = append(cars, car)
 
-	bw := ss.CreateBoPPacket(entrants)
+	bw := ss.CreateBoPPacket(cars)
 
 	ss.BroadcastAllTCP(bw)
 }
 
-func (ss *ServerState) SendBoP(entrant *Car) error {
-	ss.logger.Infof("Sending BoP info to entrant: %s", entrant.String())
+func (ss *ServerState) SendBoP(car *Car) error {
+	ss.logger.Infof("Sending BoP info to entrant: %s", car.String())
 
 	bw := ss.CreateBoPPacket(ss.entryList)
 
-	return bw.WriteTCP(entrant.Connection.tcpConn)
+	return bw.WriteTCP(car.Connection.tcpConn)
 }
 
-func (ss *ServerState) SendMOTD(entrant *Car) error {
+func (ss *ServerState) SendMOTD(car *Car) error {
 	if ss.messageOfTheDay == "" {
 		return nil
 	}
 
-	ss.logger.Infof("Sending MOTD to entrant: %s", entrant.String())
+	ss.logger.Infof("Sending MOTD to entrant: %s", car.String())
 
 	bw := NewPacket(nil)
 	bw.Write(TCPSendTextFile)
@@ -547,15 +547,15 @@ func (ss *ServerState) SendMOTD(entrant *Car) error {
 
 	bw.WriteBigUTF32String(ss.messageOfTheDay)
 
-	return bw.WriteTCP(entrant.Connection.tcpConn)
+	return bw.WriteTCP(car.Connection.tcpConn)
 }
 
-func (ss *ServerState) SendDRSZones(entrant *Car) error {
+func (ss *ServerState) SendDRSZones(car *Car) error {
 	if ss.drsZones == nil {
 		return nil
 	}
 
-	ss.logger.Infof("Sending DRS Zones to entrant: %s", entrant.String())
+	ss.logger.Infof("Sending DRS Zones to entrant: %s", car.String())
 
 	bw := NewPacket(nil)
 	bw.Write(TCPSendDRSZone)
@@ -566,32 +566,32 @@ func (ss *ServerState) SendDRSZones(entrant *Car) error {
 		bw.Write(zone.End)
 	}
 
-	return bw.WriteTCP(entrant.Connection.tcpConn)
+	return bw.WriteTCP(car.Connection.tcpConn)
 }
 
-func (ss *ServerState) SendSetup(entrant *Car) error {
-	if entrant.FixedSetup == "" {
+func (ss *ServerState) SendSetup(car *Car) error {
+	if car.FixedSetup == "" {
 		return nil
 	}
 
-	if _, ok := ss.setups[entrant.FixedSetup]; !ok {
-		ss.logger.Infof("Fixed setup %s was selected for %s, but was not found on event start! Setup not applied!", entrant.FixedSetup, entrant.Driver.Name)
+	if _, ok := ss.setups[car.FixedSetup]; !ok {
+		ss.logger.Infof("Fixed setup %s was selected for %s, but was not found on event start! Setup not applied!", car.FixedSetup, car.Driver.Name)
 		return nil
 	}
 
-	ss.logger.Infof("Sending fixed setup %s to %s", entrant.FixedSetup, entrant.Driver.Name)
+	ss.logger.Infof("Sending fixed setup %s to %s", car.FixedSetup, car.Driver.Name)
 
 	bw := NewPacket(nil)
 	bw.Write(TCPSendSetup)
-	bw.Write(ss.setups[entrant.FixedSetup].isFixed)
-	bw.Write(uint8(len(ss.setups[entrant.FixedSetup].values)))
+	bw.Write(ss.setups[car.FixedSetup].isFixed)
+	bw.Write(uint8(len(ss.setups[car.FixedSetup].values)))
 
-	for key, val := range ss.setups[entrant.FixedSetup].values {
+	for key, val := range ss.setups[car.FixedSetup].values {
 		bw.WriteString(key)
 		bw.Write(val)
 	}
 
-	return bw.WriteTCP(entrant.Connection.tcpConn)
+	return bw.WriteTCP(car.Connection.tcpConn)
 }
 
 func (ss *ServerState) SendStatus(car *Car, currentTime int64) error {
