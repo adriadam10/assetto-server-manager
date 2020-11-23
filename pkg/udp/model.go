@@ -173,7 +173,11 @@ type CarUpdate struct {
 	NormalisedSplinePos float32 `json:"NormalisedSplinePos"`
 	SteerAngle          uint8   `json:"SteerAngle"`
 	StatusBytes         uint32  `json:"StatusBytes"`
+	RacePosition        int     `json:"RacePosition"`
 	Gap                 string  `json:"Gap"`
+	BlueFlag            bool    `json:"BlueFlag"`
+	IsInPits            bool    `json:"IsInPits"`
+	DRSActive           bool    `json:"DRSActive"`
 }
 
 func (CarUpdate) Event() Event {

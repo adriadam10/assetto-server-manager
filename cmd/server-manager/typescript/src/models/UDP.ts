@@ -147,7 +147,11 @@ class CarUpdate {
     NormalisedSplinePos: number;
     SteerAngle: number;
     StatusBytes: number;
+    RacePosition: number;
     Gap: string;
+    BlueFlag: boolean;
+    IsInPits: boolean;
+    DRSActive: boolean;
 
     constructor(data?: any) {
         const d: any = (data && typeof data === 'object') ? ToObject(data) : {};
@@ -159,7 +163,11 @@ class CarUpdate {
         this.NormalisedSplinePos = ('NormalisedSplinePos' in d) ? d.NormalisedSplinePos as number : 0;
         this.SteerAngle = ('SteerAngle' in d) ? d.SteerAngle as number : 0;
         this.StatusBytes = ('StatusBytes' in d) ? d.StatusBytes as number : 0;
+        this.RacePosition = ('RacePosition' in d) ? d.RacePosition as number : 0;
         this.Gap = ('Gap' in d) ? d.Gap as string : '';
+        this.BlueFlag = ('BlueFlag' in d) ? d.BlueFlag as boolean : false;
+        this.IsInPits = ('IsInPits' in d) ? d.IsInPits as boolean : false;
+        this.DRSActive = ('DRSActive' in d) ? d.DRSActive as boolean : false;
     }
 
     toObject(): any {
@@ -170,6 +178,7 @@ class CarUpdate {
         cfg.NormalisedSplinePos = 'number';
         cfg.SteerAngle = 'number';
         cfg.StatusBytes = 'number';
+        cfg.RacePosition = 'number';
         return ToObject(this, cfg);
     }
 }

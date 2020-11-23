@@ -134,7 +134,7 @@ func (rc *RaceControl) UDPCallback(message udp.Message) {
 
 		sendUpdatedRaceControlStatus = true
 	case udp.CarUpdate:
-		sendUpdatedRaceControlStatus, err = rc.OnCarUpdate(m)
+		err = rc.OnCarUpdate(m)
 	case udp.SessionCarInfo:
 		if m.Event() == udp.EventNewConnection {
 			err = rc.OnClientConnect(m)
@@ -218,11 +218,11 @@ func (rc *RaceControl) OnVersion(version udp.Version) error {
 
 // OnCarUpdate occurs every udp.RealTimePosInterval and returns car position, speed, etc.
 // drivers top speeds are recorded per lap, as well as their last seen updated.
-func (rc *RaceControl) OnCarUpdate(update udp.CarUpdate) (bool, error) {
+func (rc *RaceControl) OnCarUpdate(update udp.CarUpdate) error {
 	driver, err := rc.findConnectedDriverByCarID(update.CarID)
 
 	if err != nil {
-		return false, err
+		return err
 	}
 
 	speed := metersPerSecondToKilometersPerHour(
@@ -248,35 +248,19 @@ func (rc *RaceControl) OnCarUpdate(update udp.CarUpdate) (bool, error) {
 	driver.SteerAngle = update.SteerAngle
 	driver.StatusBytes = update.StatusBytes
 	wasInPits := driver.IsInPits
-	drsWasActive := driver.DRSActive
 
 	driver.IsInPits = pitLane.IsInPits(update)
 	driver.DRSActive = driver.StatusBytes&acserver.DRSByte == acserver.DRSByte
 
 	if rc.SessionInfo.Type == acserver.SessionTypeRace {
-		miniSectorIndex := int(update.NormalisedSplinePos*numMiniSectors) % numMiniSectors
-
-		if miniSectorIndex < driver.lastMiniSector {
-			driver.lastMiniSector = 0
-		}
-
-		for i := driver.lastMiniSector; i <= miniSectorIndex; i++ {
-			driver.miniSectors[i] = time.Now().UnixNano()
-		}
-
-		driver.lastMiniSector = miniSectorIndex
+		driver.UpdateMiniSector(update)
 	}
+	driver.BlueFlag = false
 
 	driver.mutex.Unlock()
 
-	sendUpdatedRaceControlStatus := false
-
 	if driver.IsInPits && speed < 2 {
 		driver.LastPitStop = driver.TotalNumLaps
-	}
-
-	if driver.IsInPits != wasInPits || driver.DRSActive != drsWasActive {
-		sendUpdatedRaceControlStatus = true
 	}
 
 	if driver.IsInPits != wasInPits {
@@ -288,7 +272,6 @@ func (rc *RaceControl) OnCarUpdate(update udp.CarUpdate) (bool, error) {
 	// calculate blue flags
 	if rc.SessionInfo.Type == acserver.SessionTypeRace {
 		driver.mutex.Lock()
-		blueFlagToFound := false
 
 		if driver.Position == 1 {
 			driver.Split = formatDuration(0, true)
@@ -307,20 +290,7 @@ func (rc *RaceControl) OnCarUpdate(update udp.CarUpdate) (bool, error) {
 
 			if driverB.Position == driver.Position+1 && time.Since(driverB.LastGapUpdate) > sectorUpdateInterval {
 				if lapDiff <= 1 {
-					driverBMostRecentMiniSectorIndex := 0
-					driverBMostRecentMiniSectorTime := int64(0)
-
-					for i, sector := range driverB.miniSectors {
-						if sector > driverBMostRecentMiniSectorTime && driver.miniSectors[i] != 0 {
-							driverBMostRecentMiniSectorIndex = i
-							driverBMostRecentMiniSectorTime = sector
-						}
-					}
-
-					driverBSectorTime := driverB.miniSectors[driverBMostRecentMiniSectorIndex]
-					driverSectorTime := driver.miniSectors[driverBMostRecentMiniSectorIndex]
-
-					split := (time.Duration(driverBSectorTime-driverSectorTime) * time.Nanosecond).Round(time.Millisecond)
+					split := driver.IntervalToDriver(driverB)
 
 					if split > sectorLapInterval && lapDiff == 1 {
 						driverB.Split = "1 lap"
@@ -339,74 +309,32 @@ func (rc *RaceControl) OnCarUpdate(update udp.CarUpdate) (bool, error) {
 				driverB.LastGapUpdate = time.Now()
 			}
 
-			if driver.BlueFlag && driver.BlueFlagTo == driverB.CarInfo.CarID {
-				blueFlagToFound = true
+			if driver.TotalNumLaps < driverB.TotalNumLaps && driver.NormalisedSplinePos > driverB.NormalisedSplinePos && math.Abs(float64(driver.NormalisedSplinePos-driverB.NormalisedSplinePos)) < 0.5 {
+				intervalToB := driver.IntervalToDriver(driverB)
 
-				if driver.TotalNumLaps < driverB.TotalNumLaps {
-					// driver B has gone past
-					if driverB.NormalisedSplinePos-driver.NormalisedSplinePos > 0 && driverB.NormalisedSplinePos-driver.NormalisedSplinePos <= 0.2 {
-						logrus.Debugf("blue flag for %s cleared: %s overtook them", driver.CarInfo.DriverName, driverB.CarInfo.DriverName)
+				hasBlueFlag := intervalToB >= 0 && intervalToB < time.Second*5
 
-						driver.BlueFlag = false
-						sendUpdatedRaceControlStatus = true
-					}
-
-					// driver B has fallen back
-					if driver.NormalisedSplinePos-driverB.NormalisedSplinePos >= 0 && driver.LastPos.DistanceTo(driverB.LastPos) > 74 {
-						logrus.Debugf("blue flag for %s cleared: %s fell back", driver.CarInfo.DriverName, driverB.CarInfo.DriverName)
-
-						driver.BlueFlag = false
-						sendUpdatedRaceControlStatus = true
-					}
-
-					// driver is in pits
-					if driver.IsInPits {
-						logrus.Debugf("blue flag for %s cleared: they entered the pits", driver.CarInfo.DriverName)
-
-						driver.BlueFlag = false
-						sendUpdatedRaceControlStatus = true
-					}
-				}
-			}
-
-			if driverB.Position > driver.Position {
-				// can't have blue flag to driver behind
-				return nil
-			}
-
-			if driver.TotalNumLaps < driverB.TotalNumLaps {
-				if !driver.BlueFlag {
-					if driver.NormalisedSplinePos-driverB.NormalisedSplinePos >= 0 {
-						// driver is ahead, use pos to find distance between
-						if driver.LastPos.DistanceTo(driverB.LastPos) <= 120 && !driver.IsInPits {
-							logrus.Debugf("blue flag for %s initialised: let %s through", driver.CarInfo.DriverName, driverB.CarInfo.DriverName)
-
-							driver.BlueFlag = true
-							driver.BlueFlagTo = driverB.CarInfo.CarID
-							blueFlagToFound = true
-							sendUpdatedRaceControlStatus = true
-						}
-					}
+				if hasBlueFlag {
+					driver.BlueFlag = true
+					driver.BlueFlagTo = driver.CarInfo.CarID
 				}
 			}
 
 			return nil
 		})
 
-		if driver.BlueFlag && !blueFlagToFound {
-			logrus.Debugf("blue flag for %s cleared: the other driver (car ID: %d) was not found", driver.CarInfo.DriverName, driver.BlueFlagTo)
-
-			driver.BlueFlag = false
-		}
-
 		driver.mutex.Unlock()
 	}
 
+	update.RacePosition = driver.Position
 	update.Gap = driver.Split
+	update.BlueFlag = driver.BlueFlag
+	update.IsInPits = driver.IsInPits
+	update.DRSActive = driver.DRSActive
 
 	_, err = rc.broadcaster.Send(update)
 
-	return sendUpdatedRaceControlStatus, err
+	return err
 }
 
 // OnNewSession occurs every new session. If the session is the first in an event and it is not a looped practice,
