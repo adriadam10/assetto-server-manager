@@ -36,6 +36,8 @@ We've also changed the following things in Server Manager itself:
 * If a new entrant signs up to a Championship whilst a practice session is in progress they are now added to the entry list live and will be able to join the server without a restart!
 * Driver Swaps: you can now separate names by ';', in the same order as the GUIDs, so e.g. Driver Name 1;Driver Name 2;Driver Name 3 would match GUID1;GUID2;GUID3, and drivers names will then show correctly in Live Timings and results files.
 * Spectator Password - you can now connect to the server using a Spectator Password, and access commands to help spectating events!
+* Custom Favicon - you can now change the favicon for Server Manager in the Server Options!
+* Custom Analytics Tracking Code - you can now add your own custom analytics tracking code (e.g. from google/cloudflare, etc) to every page!
 
 Fixed:
 

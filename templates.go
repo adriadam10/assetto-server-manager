@@ -560,29 +560,31 @@ type TemplateVars interface {
 }
 
 type BaseTemplateVars struct {
-	Messages              []interface{}
-	Errors                []interface{}
-	ServerStatus          bool
-	ServerEvent           RaceEvent
-	ServerName            string
-	CustomCSS             template.CSS
-	User                  *Account
-	IsHosted              bool
-	MaxClientsOverride    int
-	IsDarkTheme           bool
-	Request               *http.Request
-	Debug                 bool
-	MonitoringEnabled     bool
-	SentryDSN             template.JSStr
-	RecaptchaSiteKey      string
-	WideContainer         bool
-	OGImage               string
-	ACSREnabled           bool
-	BaseURLIsSet          bool
-	BaseURLIsValid        bool
-	ServerID              ServerID
-	ShowEventDetailsPopup bool
-	PluginsEnabled        bool
+	Messages                    []interface{}
+	Errors                      []interface{}
+	ServerStatus                bool
+	ServerEvent                 RaceEvent
+	ServerName                  string
+	CustomCSS                   template.CSS
+	User                        *Account
+	IsHosted                    bool
+	MaxClientsOverride          int
+	IsDarkTheme                 bool
+	Request                     *http.Request
+	Debug                       bool
+	MonitoringEnabled           bool
+	SentryDSN                   template.JSStr
+	RecaptchaSiteKey            string
+	WideContainer               bool
+	OGImage                     string
+	Favicon                     string
+	ACSREnabled                 bool
+	BaseURLIsSet                bool
+	BaseURLIsValid              bool
+	ServerID                    ServerID
+	ShowEventDetailsPopup       bool
+	PluginsEnabled              bool
+	CustomAnalyticsTrackingCode template.HTML
 }
 
 func (b *BaseTemplateVars) Get() *BaseTemplateVars {
@@ -632,6 +634,8 @@ func (tr *Renderer) addData(w http.ResponseWriter, r *http.Request, vars Templat
 	data.ServerID = serverID
 	data.ShowEventDetailsPopup = opts.ShowEventDetailsPopup
 	data.PluginsEnabled = !config.Server.DisablePlugins
+	data.Favicon = opts.Favicon
+	data.CustomAnalyticsTrackingCode = template.HTML(opts.CustomAnalyticsTrackingCode)
 
 	if opts.OGImage != "" {
 		data.OGImage = opts.OGImage
