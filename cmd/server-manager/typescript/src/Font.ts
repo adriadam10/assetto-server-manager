@@ -53,6 +53,7 @@ import {faRedoAlt} from "@fortawesome/free-solid-svg-icons/faRedoAlt";
 import {faClock} from "@fortawesome/free-solid-svg-icons/faClock";
 import {faPlug} from "@fortawesome/free-solid-svg-icons/faPlug";
 import {faSpinner} from "@fortawesome/free-solid-svg-icons/faSpinner";
+import {faInfoCircle} from "@fortawesome/free-solid-svg-icons/faInfoCircle";
 
 library.add(
     faUser,
@@ -107,6 +108,7 @@ library.add(
     faClock,
     faPlug,
     faSpinner,
+    faInfoCircle,
 );
 
 dom.watch();

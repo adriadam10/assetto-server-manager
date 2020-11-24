@@ -9,7 +9,10 @@ import (
 	"runtime"
 	"time"
 
+	"github.com/google/uuid"
+
 	"justapengu.in/acsm/internal/acserver"
+	"justapengu.in/acsm/internal/license"
 )
 
 var LaunchTime = time.Now()
@@ -29,9 +32,11 @@ func NewHealthCheck(raceControl *RaceControl, store Store, process ServerProcess
 }
 
 type HealthCheckResponse struct {
-	OK       bool
-	Version  string
-	IsHosted bool
+	OK         bool
+	Version    string
+	IsHosted   bool
+	IsLicensed bool
+	LicenseID  uuid.UUID
 
 	OS            string
 	NumCPU        int
@@ -70,11 +75,21 @@ func (h *HealthCheck) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		serverName = opts.Name
 	}
 
+	var licenseID uuid.UUID
+
+	if license.IsLicensed() {
+		licenseID = license.GetLicense().ID
+	}
+
 	_ = json.NewEncoder(w).Encode(HealthCheckResponse{
-		OK:                 true,
-		OS:                 runtime.GOOS + "/" + runtime.GOARCH,
-		Version:            BuildVersion,
-		IsHosted:           IsHosted,
+		OK:       true,
+		OS:       runtime.GOOS + "/" + runtime.GOARCH,
+		Version:  BuildVersion,
+		IsHosted: IsHosted,
+
+		IsLicensed: license.IsLicensed(),
+		LicenseID:  licenseID,
+
 		MaxClientsOverride: MaxClientsOverride,
 		NumCPU:             runtime.NumCPU(),
 		NumGoroutines:      runtime.NumGoroutine(),

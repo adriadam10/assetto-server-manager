@@ -19,6 +19,7 @@ require (
 	github.com/cznic/b v0.0.0-20181122101859-a26611c4d92d // indirect
 	github.com/cznic/mathutil v0.0.0-20181122101859-297441e03548 // indirect
 	github.com/cznic/strutil v0.0.0-20181122101858-275e90344537 // indirect
+	github.com/davecgh/go-spew v1.1.1
 	github.com/dimchansky/utfbom v1.1.0
 	github.com/dustin/go-humanize v1.0.0
 	github.com/facebookgo/ensure v0.0.0-20160127193407-b4ab57deab51 // indirect
@@ -38,6 +39,7 @@ require (
 	github.com/haisum/recaptcha v0.0.0-20170327142240-7d3b8053900e
 	github.com/hako/durafmt v0.0.0-20200710122514-c0fb7b4da026
 	github.com/huandu/xstrings v1.3.2 // indirect
+	github.com/hyperboloide/lk v0.0.0-20200504060759-b535f1973118
 	github.com/imdario/mergo v0.3.11 // indirect
 	github.com/jaytaylor/html2text v0.0.0-20200412013138-3577fbdbcff7
 	github.com/jmhodges/levigo v1.0.0 // indirect
@@ -73,7 +75,7 @@ require (
 	golang.org/x/net v0.0.0-20201021035429-f5854403a974
 	golang.org/x/sync v0.0.0-20201020160332-67f06af15bc9
 	golang.org/x/text v0.3.3
-	golang.org/x/tools v0.0.0-20201102043006-b53d4cbd60a6 // indirect
+	golang.org/x/tools v0.0.0-20201124165954-ed677e9dcd1e // indirect
 	google.golang.org/protobuf v1.25.0 // indirect
 	gopkg.in/ini.v1 v1.42.0 // indirect
 	gopkg.in/yaml.v2 v2.3.0

@@ -13,7 +13,7 @@ clean:
 	rm -rf typescript/.gulp-cache
 
 run:
-	go build -ldflags "-s -w -X justapengu.in/acsm.BuildVersion=${VERSION} ${LDFLAGS}"
+	go build -ldflags "-s -w -X justapengu.in/acsm.BuildVersion=${VERSION} ${LDFLAGS}" -tags licensed
 	FILESYSTEM_HTML=true DEBUG=true ./server-manager
 
 assets:

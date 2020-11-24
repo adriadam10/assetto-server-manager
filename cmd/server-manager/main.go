@@ -23,6 +23,7 @@ import (
 	"justapengu.in/acsm/cmd/server-manager/static"
 	"justapengu.in/acsm/cmd/server-manager/views"
 	"justapengu.in/acsm/internal/changelog"
+	"justapengu.in/acsm/internal/license"
 )
 
 var defaultAddress = "0.0.0.0:8772"
@@ -37,6 +38,28 @@ func init() {
 }
 
 func main() {
+	if license.IsLicensed() {
+		if err := license.LoadAndValidateLicense(os.Getenv("ACSM_LICENSE")); err != nil {
+			logrus.WithError(err).Fatal("Failed to validate license")
+			return
+		}
+
+		l := license.GetLicense()
+
+		if !l.Expires.IsZero() {
+			go func() {
+				tick := time.Tick(time.Minute * 10)
+
+				for range tick {
+					if l.Expires.Before(time.Now()) {
+						logrus.Fatalf("License has expired")
+						return
+					}
+				}
+			}()
+		}
+	}
+
 	config, err := acsm.ReadConfig("config.yml")
 
 	if err != nil {
