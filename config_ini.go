@@ -374,7 +374,7 @@ type CurrentRaceConfig struct {
 	RacePitWindowStart        int           `ini:"RACE_PIT_WINDOW_START" help:"pit window opens at lap/minute specified"`
 	RacePitWindowEnd          int           `ini:"RACE_PIT_WINDOW_END" help:"pit window closes at lap/minute specified"`
 	ReversedGridRacePositions int           `ini:"REVERSED_GRID_RACE_POSITIONS" help:" 0 = no additional race, 1toX = only those position will be reversed for the next race, -1 = all the position will be reversed (Retired players will be on the last positions)"`
-	TimeOfDayMultiplier       int           `ini:"TIME_OF_DAY_MULT" help:"multiplier for the time of day"`
+	TimeOfDayMultiplier       float64       `ini:"TIME_OF_DAY_MULT" help:"multiplier for the time of day"`
 	QualifyMaxWaitPercentage  int           `ini:"QUALIFY_MAX_WAIT_PERC" help:"The factor to calculate the remaining time in a qualify session after the session is ended: 120 means that 120% of the session fastest lap remains to end the current lap."`
 	RaceGasPenaltyDisabled    int           `ini:"RACE_GAS_PENALTY_DISABLED" input:"checkbox" help:"0 = any cut will be penalized with the gas cut message; 1 = no penalization will be forced, but cuts will be saved in the race result json."`
 	MaxBallastKilograms       int           `ini:"MAX_BALLAST_KG" help:"the max total of ballast that can be added to an entrant in the entry list or through the admin command"`

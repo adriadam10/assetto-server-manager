@@ -36,6 +36,8 @@ type Server struct {
 }
 
 func NewServer(ctx context.Context, baseDirectory string, serverConfig *ServerConfig, raceConfig *EventConfig, entryList EntryList, checksums []CustomChecksumFile, logger Logger, plugin Plugin) (*Server, error) {
+	logger.Infof("Initialising acServer with compatibility for server version %d", CurrentProtocolVersion)
+
 	if plugin == nil {
 		plugin = nilPlugin{}
 	}
@@ -43,6 +45,14 @@ func NewServer(ctx context.Context, baseDirectory string, serverConfig *ServerCo
 	if len(entryList) > raceConfig.MaxClients {
 		logger.Warnf("Entry List length exceeds configured MaxClients value. Increasing to match.")
 		raceConfig.MaxClients = len(entryList)
+	}
+
+	for _, session := range raceConfig.Sessions {
+		if session.SessionType == SessionTypeRace && session.Time == 0 && session.Laps <= 3 {
+			logger.Infof("Race session has less than 3 laps. Enabling teleport penalty")
+			raceConfig.StartRule = StartRuleTeleportToPits
+			break
+		}
 	}
 
 	if raceConfig.HasSession(SessionTypeBooking) {
@@ -91,7 +101,6 @@ func NewServer(ctx context.Context, baseDirectory string, serverConfig *ServerCo
 
 func (s *Server) Start() error {
 	runtime.GOMAXPROCS(s.state.serverConfig.NumberOfThreads)
-	s.logger.Infof("Initialising acServer with compatibility for server version %d", CurrentProtocolVersion)
 
 	s.tcp = NewTCP(s.state.serverConfig.TCPPort, s)
 	s.udp = NewUDP(s.state.serverConfig.UDPPort, s, s.state.serverConfig.ReceiveBufferSize, s.state.serverConfig.SendBufferSize)

@@ -260,7 +260,7 @@ func readLegacyConfigs() (*TempConfig, error) {
 		RacePitWindowStart:        uint16(sc.RacePitWindowStart),
 		RacePitWindowEnd:          uint16(sc.RacePitWindowEnd),
 		ReversedGridRacePositions: int16(sc.ReversedGridRacePositions),
-		TimeOfDayMultiplier:       sc.TimeOfDayMultiplier,
+		TimeOfDayMultiplier:       float64(sc.TimeOfDayMultiplier),
 		QualifyMaxWaitPercentage:  sc.QualifyMaxWaitPercentage,
 		RaceGasPenaltyDisabled:    sc.RaceGasPenaltyDisabled == 1,
 		MaxBallastKilograms:       sc.MaxBallastKilograms,
