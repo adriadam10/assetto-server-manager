@@ -231,6 +231,7 @@ type GlobalServerConfig struct {
 	DarkTheme formulate.BoolNumber `ini:"-" help:"Enable Server Manager's Dark Theme by default"`
 	CustomCSS string               `ini:"-" elem:"textarea" help:"Customise the style of Server Manager! You can <a href='https://github.com/JustaPenguin/assetto-server-manager/wiki/Custom-CSS-Examples'>view some examples</a> on the Server Manager Wiki!"`
 	OGImage   string               `ini:"-" show:"premium" help:"Link to an image on the web here to set it as your default Open Graph image (will show in links)"`
+	Favicon   string               `ini:"-" show:"premium" help:"Set to a link on the web to change the favicon!"`
 
 	ContentManagerIntegration   FormHeading          `ini:"-" json:"-"`
 	EnableContentManagerWrapper formulate.BoolNumber `ini:"-" help:"When on, this option makes Server Manager provide extra information to Content Manager. This includes more detail about connected clients, event descriptions and download links. A side-effect of this is that your server name will contain a new piece of information (an 'i' character followed by a port - which Content Manager requires). Also - if enabled - this wrapper uses a GeoIP functionality provided by <a href='https://freegeoip.app''>freegeoip.app</a>."`
@@ -248,6 +249,7 @@ type GlobalServerConfig struct {
 	LogACServerOutputToFile           bool                 `ini:"-" show:"open" help:"When on, Server Manager will output each Assetto Corsa session into a log file in the logs folder."`
 	NumberOfACServerLogsToKeep        int                  `ini:"-" show:"open" help:"The number of AC Server logs to keep in the logs folder. (Oldest files will be deleted first. 0 = keep all files)"`
 	ShowEventDetailsPopup             bool                 `ini:"-" help:"Allows all users to view a popup that describes in detail the setup of Custom Races, Championship Events and Race Weekend Sessions."`
+	CustomAnalyticsTrackingCode       string               `ini:"-" elem:"textarea" show:"premium" help:"If set, this custom analytics tracking code will be placed on every page."`
 
 	// Discord Integration
 	DiscordIntegration FormHeading `ini:"-" json:"-"`
