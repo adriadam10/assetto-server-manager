@@ -585,7 +585,7 @@ func (rm *RaceManager) BuildCustomRaceFromForm(r *http.Request) (*CurrentRaceCon
 		TyreWearRate:            formValueAsInt(r.FormValue("TyreWearRate")),
 		ForceVirtualMirror:      formValueAsInt(r.FormValue("ForceVirtualMirror")),
 		ForceOpponentHeadlights: formValueAsInt(r.FormValue("ForceOpponentHeadlights")) == 1,
-		TimeOfDayMultiplier:     formValueAsInt(r.FormValue("TimeOfDayMultiplier")),
+		TimeOfDayMultiplier:     formValueAsFloat(r.FormValue("TimeOfDayMultiplier")),
 
 		DynamicTrack: DynamicTrackConfig{
 			SessionStart:    formValueAsInt(r.FormValue("SessionStart")),

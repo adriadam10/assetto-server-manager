@@ -60,7 +60,7 @@ type EventConfig struct {
 	RacePitWindowStart        uint16   `json:"race_pit_window_start" yaml:"race_pit_window_start"`
 	RacePitWindowEnd          uint16   `json:"race_pit_window_end" yaml:"race_pit_window_end"`
 	ReversedGridRacePositions int16    `json:"reversed_grid_race_positions" yaml:"reversed_grid_race_positions"`
-	TimeOfDayMultiplier       int      `json:"time_of_day_multiplier" yaml:"time_of_day_multiplier"`
+	TimeOfDayMultiplier       float64  `json:"time_of_day_multiplier" yaml:"time_of_day_multiplier"`
 	QualifyMaxWaitPercentage  int      `json:"qualify_max_wait_percentage" yaml:"qualify_max_wait_percentage"`
 	RaceGasPenaltyDisabled    bool     `json:"race_gas_penalty_disabled" yaml:"race_gas_penalty_disabled"`
 	MaxBallastKilograms       int      `json:"max_ballast_kilograms" yaml:"max_ballast_kilograms"`
@@ -74,7 +74,7 @@ type EventConfig struct {
 
 	MaxClients   int       `json:"max_clients" yaml:"max_clients"`
 	RaceOverTime uint32    `json:"race_over_time" yaml:"race_over_time"`
-	StartRule    StartRule `json:"start_rule" yaml:"start_rule"` // @TODO if race is 3 laps or less, enable teleport penalty
+	StartRule    StartRule `json:"start_rule" yaml:"start_rule"`
 
 	WindBaseSpeedMin       int `json:"wind_base_speed_min" yaml:"wind_base_speed_min"`
 	WindBaseSpeedMax       int `json:"wind_base_speed_max" yaml:"wind_base_speed_max"`
