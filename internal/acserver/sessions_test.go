@@ -104,7 +104,7 @@ func TestReverseLeaderboard(t *testing.T) {
 							Driver: Driver{
 								Name: row.name,
 							},
-							SessionData: SessionData{hasCompletedSession: row.finished},
+							SessionData: SessionData{HasCompletedSession: row.finished},
 						},
 					},
 					Time:    row.time,
