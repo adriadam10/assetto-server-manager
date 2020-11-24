@@ -243,12 +243,16 @@ func (p *PenaltiesPlugin) OnCarUpdate(car acserver.CarInfo) error {
 	if penaltyInfo.driveThrough {
 		for _, pitLaneCar := range p.pitLane.Cars {
 			if acserver.CarID(pitLaneCar.ID) == penaltyInfo.carID {
+				if car.SessionData.HasCompletedSession {
+					continue
+				}
+
 				if pitLaneCar.IsInPits {
 					penaltyInfo.driveThroughActive = true
 					if time.Since(penaltyInfo.driveThroughStarted) > p.pitLane.AveragePitLaneTime {
 						penaltyInfo.driveThrough = false
 
-						err := p.server.SendChat("Drive though complete!", acserver.ServerCarID, car.CarID, true)
+						err := p.server.SendChat("Drive through complete!", acserver.ServerCarID, car.CarID, true)
 
 						if err != nil {
 							p.logger.WithError(err).Error("Send chat returned an error")
@@ -300,10 +304,15 @@ func (p *PenaltiesPlugin) OnNewSession(newSession acserver.SessionInfo) error {
 		penalty.driveThrough = false
 		penalty.clearPenaltyIn = 0
 		penalty.warnings = 0
+		penalty.warningsCollisions = 0
+		penalty.warningsDRS = 0
 		penalty.totalLaps = 0
 		penalty.cleanLaps = nil
 		penalty.totalCleanLapTime = 0
+		penalty.bestLap = 0
 	}
+
+	p.logger.Info("All penalties and warnings reset for connected drivers")
 
 	if p.currentSession != acserver.SessionTypeRace {
 		return nil
@@ -364,7 +373,7 @@ func (p *PenaltiesPlugin) OnEndSession(sessionFile string) error {
 		}
 	}
 
-	if !((p.currentSession == acserver.SessionTypeQualifying && p.eventConfig.TyrePenaltiesEnabled && p.eventConfig.TyrePenaltiesMustStartOnBestQualifying) ||
+	if !resultsNeedModifying && !((p.currentSession == acserver.SessionTypeQualifying && p.eventConfig.TyrePenaltiesEnabled && p.eventConfig.TyrePenaltiesMustStartOnBestQualifying) ||
 		(p.currentSession == acserver.SessionTypeRace && p.eventConfig.TyrePenaltiesEnabled && p.eventConfig.TyrePenaltiesMinimumCompounds > 1)) {
 		return nil
 	}
@@ -587,6 +596,11 @@ func (p *PenaltiesPlugin) OnLapCompleted(carID acserver.CarID, lap acserver.Lap)
 
 	penaltyInfo.totalLaps++
 
+	if entrant.SessionData.HasCompletedSession {
+		// don't clear/give penalties on final lap
+		return nil
+	}
+
 	if p.eventConfig.DRSPenaltiesEnabled && int(penaltyInfo.totalLaps) == p.eventConfig.DRSPenaltiesEnableOnLap {
 		err = p.server.SendChat("DRS Enabled", acserver.ServerCarID, entrant.CarID, true)
 
@@ -797,6 +811,10 @@ func (p *PenaltiesPlugin) onCollision(event acserver.ClientEvent, withCar bool) 
 		return nil
 	}
 
+	if p.eventConfig.CollisionPenaltiesIgnoreFirstLap && penaltyInfo.totalLaps < 1 {
+		return nil
+	}
+
 	collisionTime := time.Now()
 
 	// AC often reports multiple collisions for one "collision" if cars bounce a bit etc.
@@ -813,12 +831,6 @@ func (p *PenaltiesPlugin) onCollision(event acserver.ClientEvent, withCar bool) 
 
 	if err != nil {
 		return err
-	}
-
-	sessionInfo := p.server.GetSessionInfo()
-
-	if sessionInfo.NumLaps <= 1 && p.eventConfig.CollisionPenaltiesIgnoreFirstLap {
-		return nil
 	}
 
 	if event.Speed > p.eventConfig.CollisionPenaltiesOnlyOverSpeed {
