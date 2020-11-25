@@ -115,7 +115,7 @@ type SessionData struct {
 	P2PCount        int16
 	MandatoryPit    bool
 
-	hasCompletedSession bool
+	HasCompletedSession bool
 }
 
 func (c *Car) HasGUID(guid string) bool {
@@ -660,14 +660,14 @@ func (c *Car) HasCompletedSession() bool {
 	c.mutex.RLock()
 	defer c.mutex.RUnlock()
 
-	return c.SessionData.hasCompletedSession
+	return c.SessionData.HasCompletedSession
 }
 
 func (c *Car) SetHasCompletedSession(b bool) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
-	c.SessionData.hasCompletedSession = b
+	c.SessionData.HasCompletedSession = b
 }
 
 func (c *Car) GetLaps() []*Lap {
