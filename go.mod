@@ -75,7 +75,7 @@ require (
 	golang.org/x/net v0.0.0-20201021035429-f5854403a974
 	golang.org/x/sync v0.0.0-20201020160332-67f06af15bc9
 	golang.org/x/text v0.3.3
-	golang.org/x/tools v0.0.0-20201124165954-ed677e9dcd1e // indirect
+	golang.org/x/tools v0.0.0-20201124202034-299f270db459 // indirect
 	google.golang.org/protobuf v1.25.0 // indirect
 	gopkg.in/ini.v1 v1.42.0 // indirect
 	gopkg.in/yaml.v2 v2.3.0

@@ -6,6 +6,8 @@ import (
 	"bytes"
 	"encoding/gob"
 	"errors"
+	"io/ioutil"
+	"strings"
 	"time"
 
 	"github.com/hyperboloide/lk"
@@ -29,14 +31,20 @@ var (
 	ErrLicenseExpired = errors.New("license: license has expired")
 )
 
-func LoadAndValidateLicense(licenseKeyB32Encoded string) error {
+func LoadAndValidateLicense(filename string) error {
 	publicKey, err := lk.PublicKeyFromB32String(publicKeyBase32Encoded)
 
 	if err != nil {
 		return err
 	}
 
-	license, err := lk.LicenseFromB32String(licenseKeyB32Encoded)
+	b, err := ioutil.ReadFile(filename)
+
+	if err != nil {
+		return err
+	}
+
+	license, err := lk.LicenseFromB32String(parseLicense(string(b)))
 
 	if err != nil {
 		return err
@@ -66,4 +74,15 @@ func LoadAndValidateLicense(licenseKeyB32Encoded string) error {
 	}
 
 	return nil
+}
+
+func parseLicense(l string) string {
+	l = strings.TrimSpace(l)
+	l = strings.TrimPrefix(l, licensePreamble)
+	l = strings.TrimSuffix(l, licensePostamble)
+
+	l = strings.Replace(l, "\n", "", -1)
+	l = strings.Replace(l, "\r", "", -1)
+
+	return l
 }

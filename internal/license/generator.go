@@ -48,5 +48,28 @@ func GenerateLicense(privateKeyB32Encoded string, email string, expiry time.Time
 
 	encoded, err = key.ToB32String()
 
-	return license, encoded, err
+	return license, formatLicense(encoded), err
+}
+
+const (
+	Filename = "ACSM.License"
+
+	licensePreamble  = "-----BEGIN LICENSE-----\n"
+	licensePostamble = "\n-----END LICENSE-----"
+)
+
+func formatLicense(encoded string) string {
+	out := licensePreamble
+
+	for i := 0; i < len(encoded); i++ {
+		out += string(encoded[i])
+
+		if i > 0 && i%50 == 0 {
+			out += "\n"
+		}
+	}
+
+	out += licensePostamble
+
+	return out
 }

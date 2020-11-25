@@ -39,7 +39,7 @@ func init() {
 
 func main() {
 	if license.IsLicensed() {
-		if err := license.LoadAndValidateLicense(os.Getenv("ACSM_LICENSE")); err != nil {
+		if err := license.LoadAndValidateLicense(license.Filename); err != nil {
 			logrus.WithError(err).Fatal("Failed to validate license")
 			return
 		}

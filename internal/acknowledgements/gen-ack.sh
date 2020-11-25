@@ -2,6 +2,15 @@
 tmp_dir=$(mktemp -d -t ci-XXXXXXXXXX)
 OUT=$tmp_dir/ACKNOWLEDGEMENTS.txt
 
+pushd () {
+    command pushd "$@" > /dev/null
+}
+
+popd () {
+    command popd "$@" > /dev/null
+}
+
+
 licenses=(
 	"license"
 	"license.txt"
@@ -15,6 +24,10 @@ if [ $(uname -s) == "Darwin" ]; then
     FINDB=gfind
     SEDB=gsed
 fi
+
+echo -e "Portions of Assetto Corsa Server Manager's development were aided and influenced by the 'actools' library (https://github.com/gro-ove/actools).\nUse of this software is governed by the terms of the license below:\n\n" >>$OUT
+cat actools/LICENSE.txt >>$OUT
+echo -e "\n\n----------\n\n" >>$OUT
 
 pushd ../../
   go mod vendor
