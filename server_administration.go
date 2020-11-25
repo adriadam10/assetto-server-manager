@@ -20,7 +20,7 @@ import (
 
 	"justapengu.in/acsm/internal/acknowledgements"
 	"justapengu.in/acsm/internal/acserver"
-	"justapengu.in/acsm/internal/license"
+	"justapengu.in/acsm/pkg/license"
 )
 
 func init() {
@@ -443,25 +443,14 @@ type aboutTemplateVars struct {
 }
 
 func (sah *ServerAdministrationHandler) about(w http.ResponseWriter, r *http.Request) {
-	isLicensed := license.IsLicensed()
-	var licenseID uuid.UUID
-	var expires time.Time
-	var licenseDate time.Time
-
-	if isLicensed {
-		l := license.GetLicense()
-		licenseID = l.ID
-		expires = l.Expires
-		licenseDate = l.Provisioned
-	}
+	l := license.GetLicense()
 
 	sah.viewRenderer.MustLoadTemplate(w, r, "about.html", &aboutTemplateVars{
 		Acknowledgements: acknowledgements.Acknowledgements,
 		Version:          BuildVersion,
-		IsLicensed:       isLicensed,
-		LicenseID:        licenseID,
-		LicenseDate:      licenseDate,
-		LicenseExpires:   expires,
+		LicenseID:        l.ID,
+		LicenseDate:      l.Provisioned,
+		LicenseExpires:   l.Expires,
 	})
 }
 

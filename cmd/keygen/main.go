@@ -6,7 +6,7 @@ import (
 
 	"github.com/davecgh/go-spew/spew"
 
-	"justapengu.in/acsm/internal/license"
+	"justapengu.in/acsm/pkg/license"
 )
 
 const (
@@ -14,7 +14,7 @@ const (
 )
 
 func main() {
-	l, encoded, err := license.GenerateLicense(privateKey, "cj@icj.me", time.Now().Add(time.Hour))
+	l, encoded, err := license.GenerateLicense(privateKey, "support@emperorservers.com", time.Time{})
 
 	if err != nil {
 		panic(err)

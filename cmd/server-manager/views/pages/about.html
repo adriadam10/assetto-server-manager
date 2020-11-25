@@ -12,13 +12,10 @@
 
         <p>&copy; <a href="https://emperorservers.com">Emperor Servers</a> {{ now.Format "2006" }}</p>
 
-
-        {{ if $.IsLicensed }}
-            <h3>License</h3>
-            <strong>License ID:</strong> {{ $.LicenseID.String }}<br>
-            <strong>License Date:</strong> {{ fullTimeFormat $.LicenseDate }}<br>
-            <strong>License Expires:</strong> {{ if $.LicenseExpires.IsZero }}Never{{ else }}{{ fullTimeFormat $.LicenseExpires }}{{ end }}<br>
-        {{ end }}
+        <h3>License</h3>
+        <strong>License ID:</strong> {{ $.LicenseID.String }}<br>
+        <strong>License Date:</strong> {{ fullTimeFormat $.LicenseDate }}<br>
+        <strong>License Expires:</strong> {{ if $.LicenseExpires.IsZero }}Never{{ else }}{{ fullTimeFormat $.LicenseExpires }}{{ end }}<br>
 
         <br><br>
 

@@ -1,5 +1,3 @@
-// +build licensed
-
 package license
 
 import (
@@ -15,10 +13,6 @@ import (
 )
 
 const publicKeyBase32Encoded = "ARDCMQ757URYX7O35WCVWLSHLNWJ67MAK5FGEBWI2XGH5J5EWCBNWY7QEAKGX4O2FVVTFCM4ZEENQVCTYWH4IKY4TQGYLSMZTXZIJGML3OHUILQDM7OJNMAOCA6HIS5TXI76I5VJWCFQNKBFO27EROVBOBZQ===="
-
-func IsLicensed() bool {
-	return true
-}
 
 func GetLicense() *License {
 	return loadedLicense
@@ -78,8 +72,8 @@ func LoadAndValidateLicense(filename string) error {
 
 func parseLicense(l string) string {
 	l = strings.TrimSpace(l)
-	l = strings.TrimPrefix(l, licensePreamble)
-	l = strings.TrimSuffix(l, licensePostamble)
+	l = strings.TrimPrefix(l, licensePrefix)
+	l = strings.TrimSuffix(l, licenseSuffix)
 
 	l = strings.Replace(l, "\n", "", -1)
 	l = strings.Replace(l, "\r", "", -1)

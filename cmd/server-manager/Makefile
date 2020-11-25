@@ -13,7 +13,7 @@ clean:
 	rm -rf typescript/.gulp-cache
 
 run:
-	go build -ldflags "-s -w -X justapengu.in/acsm.BuildVersion=${VERSION} ${LDFLAGS}" -tags licensed
+	go build -ldflags "-s -w -X justapengu.in/acsm.BuildVersion=${VERSION} ${LDFLAGS}"
 	FILESYSTEM_HTML=true DEBUG=true ./server-manager
 
 assets:
@@ -25,9 +25,11 @@ asset-embed:
 
 deploy: clean assets asset-embed
 	# directory structure
-	mkdir -p build/linux build/windows
+	mkdir -p build/linux build/windows build/macOS
 	cp config.example.yml build/linux/config.yml
 	cp config.example.yml build/windows/config.yml
+	cp config.example.yml build/macOS/config.yml
+
 	sed -i 's/executable_path\: acServer/executable_path\: acServer.exe/' build/windows/config.yml
 
 	# windows icon
@@ -37,6 +39,7 @@ deploy: clean assets asset-embed
 	# build
 	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -a -installsuffix cgo -ldflags="-s -w -X justapengu.in/acsm.BuildVersion=${VERSION} ${LDFLAGS}" -o build/linux/server-manager
 	CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -ldflags="-s -w -X justapengu.in/acsm.BuildVersion=${VERSION} ${LDFLAGS}" -o build/windows/server-manager.exe
+	CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -ldflags="-s -w -X justapengu.in/acsm.BuildVersion=${VERSION} ${LDFLAGS}" -o build/macOS/server-manager
 
 	cp ../../README.md build/README.txt
 	cp ../../INSTALL.txt build/INSTALL.txt
