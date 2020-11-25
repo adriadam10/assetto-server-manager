@@ -14,9 +14,13 @@ import (
 	"github.com/alecthomas/chroma/formatters/html"
 	"github.com/alecthomas/chroma/quick"
 	"github.com/go-chi/chi"
+	"github.com/google/uuid"
 	"github.com/mitchellh/go-wordwrap"
 	"github.com/sirupsen/logrus"
+
+	"justapengu.in/acsm/internal/acknowledgements"
 	"justapengu.in/acsm/internal/acserver"
+	"justapengu.in/acsm/pkg/license"
 )
 
 func init() {
@@ -424,6 +428,29 @@ type changelogTemplateVars struct {
 func (sah *ServerAdministrationHandler) changelog(w http.ResponseWriter, r *http.Request) {
 	sah.viewRenderer.MustLoadTemplate(w, r, "changelog.html", &changelogTemplateVars{
 		Changelog: Changelog,
+	})
+}
+
+type aboutTemplateVars struct {
+	BaseTemplateVars
+
+	Acknowledgements string
+	Version          string
+	IsLicensed       bool
+	LicenseID        uuid.UUID
+	LicenseDate      time.Time
+	LicenseExpires   time.Time
+}
+
+func (sah *ServerAdministrationHandler) about(w http.ResponseWriter, r *http.Request) {
+	l := license.GetLicense()
+
+	sah.viewRenderer.MustLoadTemplate(w, r, "about.html", &aboutTemplateVars{
+		Acknowledgements: acknowledgements.Acknowledgements,
+		Version:          BuildVersion,
+		LicenseID:        l.ID,
+		LicenseDate:      l.Provisioned,
+		LicenseExpires:   l.Expires,
 	})
 }
 
