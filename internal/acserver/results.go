@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"time"
 
 	"github.com/sirupsen/logrus"
@@ -127,9 +128,24 @@ func (ss *ServerState) GenerateResults(sessionInfo SessionConfig) *SessionResult
 				RelPosition:   &event.RelativePosition,
 				Type:          typeString,
 				WorldPosition: &event.Position,
+				Timestamp:     int(event.TimeStamp.Unix()),
 			})
 		}
 	}
+
+	sort.Slice(laps, func(i, j int) bool {
+		lapI := laps[i]
+		lapJ := laps[j]
+
+		return lapI.Timestamp < lapJ.Timestamp
+	})
+
+	sort.Slice(events, func(i, j int) bool {
+		eventI := events[i]
+		eventJ := events[j]
+
+		return eventI.Timestamp < eventJ.Timestamp
+	})
 
 	resultDate := time.Now()
 
@@ -206,6 +222,7 @@ type SessionEvent struct {
 	RelPosition   *Vector3F      `json:"RelPosition"`
 	Type          string         `json:"Type"`
 	WorldPosition *Vector3F      `json:"WorldPosition"`
+	Timestamp     int            `json:"Timestamp"`
 }
 
 type SessionLap struct {

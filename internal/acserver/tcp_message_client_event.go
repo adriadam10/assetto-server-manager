@@ -2,6 +2,7 @@ package acserver
 
 import (
 	"net"
+	"time"
 )
 
 type ClientEventMessageHandler struct {
@@ -27,6 +28,7 @@ type ClientEvent struct {
 	Speed            float32
 	Position         Vector3F
 	RelativePosition Vector3F
+	TimeStamp        time.Time
 }
 
 const (
@@ -47,6 +49,7 @@ func (d ClientEventMessageHandler) OnMessage(conn net.Conn, p *Packet) error {
 		clientEvent := &ClientEvent{
 			CarID:      entrant.CarID,
 			DriverGUID: entrant.Driver.GUID,
+			TimeStamp:  time.Now(),
 		}
 
 		p.Read(&clientEvent.EventType)

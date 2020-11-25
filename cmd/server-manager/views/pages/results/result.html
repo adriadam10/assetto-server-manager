@@ -93,9 +93,9 @@
                                                 <th>Show on Map</th>
                                             </tr>
 
-                                            {{ range $pos, $event := $sessionResults.Events }}
+                                            {{ range $num, $event := $sessionResults.Events }}
                                                 <tr {{ if eq $account.GUID $event.Driver.GUID }}style="font-weight: bold"{{ end }}>
-                                                    <td>{{ add $pos 1 }}</td>
+                                                    <td>{{ add $num 1 }}</td>
                                                     <td class="driver-link" data-href="#{{ $event.Driver.GUID }}-{{ $event.CarID }}">{{ driverName $event.Driver.Name }}</td>
                                                     <td class="driver-link" data-href="#{{ $event.OtherDriver.GUID }}-{{ $event.OtherCarID }}">{{ driverName $event.OtherDriver.Name }}</td>
                                                     <td>
@@ -113,7 +113,7 @@
                                                     {{ end }}
                                                     <td>{{ $event.GetRelPosition }}</td>
                                                     <td>{{ $event.GetWorldPosition }}</td>
-                                                    <td><input class="event-checkbox" type="checkbox" name="event-{{ $pos }}" id="event-{{ $pos }}" checked="checked"></td>
+                                                    <td><input class="event-checkbox" type="checkbox" name="event-{{ $num }}" id="event-{{ $num }}" checked="checked"></td>
                                                 </tr>
                                             {{ end }}
                                         </table>
