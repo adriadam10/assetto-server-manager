@@ -1,6 +1,7 @@
 package acserver
 
 import (
+	"fmt"
 	"math"
 )
 
@@ -68,4 +69,8 @@ func (v Vector3F) Normalize() Vector3F {
 		return Vector3F{0, 0, 0}
 	}
 	return v.Mul(float32(1 / math.Sqrt(float64(n2))))
+}
+
+func (v Vector3F) String() string {
+	return fmt.Sprintf("Vec3F(%f, %f, %f)", v.X, v.Y, v.Z)
 }

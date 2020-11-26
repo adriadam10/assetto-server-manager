@@ -71,14 +71,14 @@ func (pm *PositionMessageHandler) OnMessage(_ net.PacketConn, addr net.Addr, p *
 	currentSession := pm.sessionManager.GetCurrentSession()
 
 	if currentSession.IsSoloQualifying() {
-		carUpdate.Velocity = Vector3F{
-			X: 0,
-			Y: 0,
-			Z: 0,
-		}
-	}
+		pitboxPosition, _ := car.GetCarLoadPosition()
+		pitboxPosition.Timestamp = carUpdate.Timestamp
+		pitboxPosition.Sequence = carUpdate.Sequence
 
-	car.SetStatus(carUpdate, !currentSession.IsSoloQualifying() || !car.HasSentFirstUpdate())
+		car.SetStatus(pitboxPosition)
+	} else {
+		car.SetStatus(carUpdate)
+	}
 
 	car.SetHasUpdateToBroadcast(true)
 	car.AdjustTimeOffset()
@@ -91,6 +91,7 @@ func (pm *PositionMessageHandler) OnMessage(_ net.PacketConn, addr net.Addr, p *
 		}
 
 		car.SetHasSentFirstUpdate(true)
+		car.SetCarLoadPosition(carUpdate, currentSession.SessionType)
 
 		if err := pm.SendFirstUpdate(car); err != nil {
 			return err

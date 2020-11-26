@@ -255,7 +255,7 @@ func (sm *SessionManager) NextSession(force, wasRestart bool) {
 		}
 	}
 
-	sm.BroadcastSessionStart(sm.currentSession.startTime)
+	sm.BroadcastSessionStart()
 
 	currentSessionConfig := sm.GetCurrentSession()
 
@@ -264,6 +264,26 @@ func (sm *SessionManager) NextSession(force, wasRestart bool) {
 
 	if currentSessionConfig.IsSoloQualifying() {
 		sm.state.BroadcastChat(ServerCarID, soloQualifyingIntroMessage, false)
+
+		go func() {
+			// this code will only happen for looped servers and drivers where the driver loaded in to a race session
+			// before the loop happened. any driver that loaded in for SessionTypePractice or SessionTypeQualifying will
+			// never hit this code, and their 'load position' will be correctly set to their pit box.
+			time.Sleep(time.Second)
+
+			for _, car := range sm.state.entryList {
+				if !car.IsConnected() || !car.HasSentFirstUpdate() {
+					continue
+				}
+
+				if _, loadedInSessionType := car.GetCarLoadPosition(); loadedInSessionType != SessionTypeRace {
+					continue
+				}
+
+				sm.logger.Infof("Solo Qualifying locked position guessed for Car: %s (pos: %s)", car.String(), car.PluginStatus.Position.String())
+				car.SetCarLoadPosition(car.PluginStatus, SessionTypeQualifying)
+			}
+		}()
 	}
 
 	sm.UpdateLobby()
@@ -649,7 +669,7 @@ func (sm *SessionManager) SendSessionInfo(entrant *Car, leaderBoard []*Leaderboa
 	return bw.WriteTCP(entrant.Connection.tcpConn)
 }
 
-func (sm *SessionManager) BroadcastSessionStart(startTime int64) {
+func (sm *SessionManager) BroadcastSessionStart() {
 	if sm.state.entryList.NumConnected() == 0 {
 		return
 	}
@@ -664,7 +684,7 @@ func (sm *SessionManager) BroadcastSessionStart(startTime int64) {
 			p := NewPacket(nil)
 			p.Write(TCPMessageSessionStart)
 			p.Write(int32(sm.currentSession.startTime - int64(entrant.Connection.TimeOffset)))
-			p.Write(uint32(startTime - int64(entrant.Connection.TimeOffset)))
+			p.Write(uint32(sm.state.CurrentTimeMillisecond() - int64(entrant.Connection.TimeOffset)))
 			p.Write(uint16(entrant.Connection.Ping))
 
 			if err := p.WriteTCP(entrant.Connection.tcpConn); err != nil {

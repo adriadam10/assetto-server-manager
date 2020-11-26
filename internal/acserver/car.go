@@ -49,6 +49,9 @@ type CarInfo struct {
 
 	// Deprecated: SpectatorMode is not supported by the game itself
 	SpectatorMode uint8 `json:"-"`
+
+	carLoadPosition    CarUpdate
+	carLoadSessionType SessionType
 }
 
 type Car struct {
@@ -574,18 +577,11 @@ func (c *Car) ClearSessionData() {
 	c.SessionData = SessionData{}
 }
 
-func (c *Car) SetStatus(carUpdate CarUpdate, fullAssign bool) {
+func (c *Car) SetStatus(carUpdate CarUpdate) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
-	if fullAssign {
-		c.Status = carUpdate
-	} else {
-		// solo sessions still require a timestamp and sequence number so that
-		// car positions can be correctly checked
-		c.Status.Timestamp = carUpdate.Timestamp
-		c.Status.Sequence = carUpdate.Sequence
-	}
+	c.Status = carUpdate
 }
 
 func (c *Car) SetPluginStatus(carUpdate CarUpdate) {
@@ -684,11 +680,40 @@ func (c *Car) LapCount() int {
 	return c.SessionData.LapCount
 }
 
+func (c *Car) SetCarLoadPosition(l CarUpdate, sessType SessionType) {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+
+	if c.carLoadPosition.Timestamp > 0 && sessType == SessionTypeRace {
+		// we already have a car load position for this car, and we don't want
+		// to use their race grid spot if we can avoid it
+		return
+	}
+
+	l.Velocity = Vector3F{
+		X: 0,
+		Y: 0,
+		Z: 0,
+	}
+
+	c.carLoadPosition = l
+	c.carLoadSessionType = sessType
+}
+
+func (c *Car) GetCarLoadPosition() (CarUpdate, SessionType) {
+	c.mutex.RLock()
+	defer c.mutex.RUnlock()
+
+	return c.carLoadPosition, c.carLoadSessionType
+}
+
 const IERP13c = "ier_p13c"
 
-var IERP13cTyres = []string{"S1", "S2", "S3", "S4", "S5", "S6", "S7", "S8"}
+var (
+	IERP13cTyres = []string{"S1", "S2", "S3", "S4", "S5", "S6", "S7", "S8"}
 
-var ErrCouldNotFindTyreForCar = errors.New("servermanager: could not find tyres for car")
+	ErrCouldNotFindTyreForCar = errors.New("acserver: could not find tyres for car")
+)
 
 func FindTyreIndex(carModel, tyreName, installPath string, legalTyres map[string]bool) (int, error) {
 	tyreIndexCount := 0
