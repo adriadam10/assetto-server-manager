@@ -36,7 +36,7 @@ $(() => {
     new HostedIntroPopup();
     Messages.initSummerNote();
     new Championship.View();
-    new CustomRace.View();
+    new CustomRace.Edit();
     new Results();
     new RaceList();
     new SpectatorCar();

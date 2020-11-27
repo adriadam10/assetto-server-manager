@@ -1868,20 +1868,20 @@
             <div class="card-body">
                 <ul class="nav nav-tabs" id="myTab" role="tablist">
                     <li class="nav-item">
-                        <a class="nav-link active" id="cuts-tab" data-toggle="tab" href="#cuts" role="tab" aria-controls="cuts" aria-selected="true">Cuts</a>
+                        <a class="nav-link active {{ if $f.CustomCutsEnabled }}text-success{{ end }}" id="cuts-tab" data-toggle="tab" href="#cuts" role="tab" aria-controls="cuts" aria-selected="true">Cuts</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" id="collisions-tab" data-toggle="tab" href="#collisions" role="tab" aria-controls="collisions" aria-selected="false">Collisions</a>
+                        <a class="nav-link {{ if $f.CollisionPenaltiesEnabled }}text-success{{ end }}" id="collisions-tab" data-toggle="tab" href="#collisions" role="tab" aria-controls="collisions" aria-selected="false">Collisions</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" id="drs-tab" data-toggle="tab" href="#drs" role="tab" aria-controls="drs" aria-selected="false">DRS</a>
+                        <a class="nav-link {{ if $f.DRSPenaltiesEnabled }}text-success{{ end }}" id="drs-tab" data-toggle="tab" href="#drs" role="tab" aria-controls="drs" aria-selected="false">DRS</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" id="tyres-tab" data-toggle="tab" href="#tyres" role="tab" aria-controls="tyres" aria-selected="false">Tyres</a>
+                        <a class="nav-link {{ if $f.TyrePenaltiesEnabled }}text-success{{ end }}" id="tyres-tab" data-toggle="tab" href="#tyres" role="tab" aria-controls="tyres" aria-selected="false">Tyres</a>
                     </li>
                 </ul>
 
-                <div class="tab-content" id="myTabContent">
+                <div class="tab-content pt-3" id="myTabContent">
                     <div class="tab-pane fade show active" id="cuts" role="tabpanel" aria-labelledby="cuts-tab">
                         <div class="mt-2">
 
@@ -1891,7 +1891,7 @@
                                 <div class="col-sm-9">
 
                                     <input
-                                            class="form-control"
+                                            class="penalty-type-enabler"
                                             type="checkbox"
                                             id="CustomCutsEnabled"
                                             name="CustomCutsEnabled"
@@ -2059,7 +2059,7 @@
                                 <div class="col-sm-9">
 
                                     <input
-                                            class="form-control"
+                                            class="penalty-type-enabler"
                                             type="checkbox"
                                             id="CollisionPenaltiesEnabled"
                                             name="CollisionPenaltiesEnabled"
@@ -2224,7 +2224,7 @@
                                 <div class="col-sm-9">
 
                                     <input
-                                            class="form-control"
+                                            class="penalty-type-enabler"
                                             type="checkbox"
                                             id="DRSPenaltiesEnabled"
                                             name="DRSPenaltiesEnabled"
@@ -2385,7 +2385,7 @@
                                 <div class="col-sm-9">
 
                                     <input
-                                            class="form-control"
+                                            class="penalty-type-enabler"
                                             type="checkbox"
                                             id="TyrePenaltiesEnabled"
                                             name="TyrePenaltiesEnabled"
