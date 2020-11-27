@@ -133,9 +133,10 @@ func (cuh *ContentUploadHandler) handleUploadPayload(payload UploadPayload, cont
 			return err
 		}
 
-		if contentType == ContentTypeCar {
+		switch contentType {
+		case ContentTypeCar:
 			uploadedCars[parts[0]] = true
-		} else if contentType == ContentTypeTrack {
+		case ContentTypeTrack:
 			uploadedTracks[parts[0]] = true
 		}
 
@@ -147,7 +148,8 @@ func (cuh *ContentUploadHandler) handleUploadPayload(payload UploadPayload, cont
 		}
 	}
 
-	if contentType == ContentTypeCar {
+	switch contentType {
+	case ContentTypeCar:
 		// index the cars that have been uploaded.
 		for car := range uploadedCars {
 			car, err := cuh.carManager.LoadCar(car, nil)
@@ -172,26 +174,36 @@ func (cuh *ContentUploadHandler) handleUploadPayload(payload UploadPayload, cont
 				return err
 			}
 		}
-	}
-
-	if contentType == ContentTypeTrack && payload.GenerateTrackMaps {
+	case ContentTypeTrack:
 		for track := range uploadedTracks {
-			t, err := cuh.trackManager.GetTrackFromName(track)
+			track, err := cuh.trackManager.GetTrackFromName(track)
 
-			if err != nil {
-				return err
+			if err == nil {
+				for _, layout := range track.Layouts {
+					clearFromTrackInfoCache(track.Name, layout)
+				}
 			}
+		}
 
-			for _, layout := range t.Layouts {
-				layoutForWarn := layout
+		if payload.GenerateTrackMaps {
+			for track := range uploadedTracks {
+				t, err := cuh.trackManager.GetTrackFromName(track)
 
-				if layout == defaultLayoutName {
-					layout = ""
-					layoutForWarn = "default"
+				if err != nil {
+					return err
 				}
 
-				if err := cuh.trackManager.BuildTrackMap(track, layout); err != nil {
-					logrus.WithError(err).Warnf("Track layout (%s, %s) was uploaded but AI spline files are missing or out of date, some advanced SM features will be unavailable for this layout!", track, layoutForWarn)
+				for _, layout := range t.Layouts {
+					layoutForWarn := layout
+
+					if layout == defaultLayoutName {
+						layout = ""
+						layoutForWarn = "default"
+					}
+
+					if err := cuh.trackManager.BuildTrackMap(track, layout); err != nil {
+						logrus.WithError(err).Warnf("Track layout (%s, %s) was uploaded but AI spline files are missing or out of date, some advanced SM features will be unavailable for this layout!", track, layoutForWarn)
+					}
 				}
 			}
 		}
