@@ -1,10 +1,11 @@
 import dragula from "dragula";
 
 export namespace CustomRace {
-    export class View {
+    export class Edit {
         public constructor() {
             this.initDraggableCards();
             this.initPenaltyTypeWatcher();
+            this.initShowEnabledPenaltyTypes();
         }
 
         private initDraggableCards(): void {
@@ -27,6 +28,20 @@ export namespace CustomRace {
 
                 $weatherDelete.show();
                 $weatherDelete.first().hide();
+            });
+        }
+        private initShowEnabledPenaltyTypes(): void {
+            $(".penalty-type-enabler").each(function (index, elem) {
+                $(elem).on('switchChange.bootstrapSwitch', function (event, state) {
+                    let $this = $(this);
+                    let $panelLabel = $("#" + $this.closest(".tab-pane").attr("aria-labelledby"));
+
+                    if (state) {
+                        $panelLabel.addClass("text-success");
+                    } else {
+                        $panelLabel.removeClass("text-success");
+                    }
+                });
             });
         }
 

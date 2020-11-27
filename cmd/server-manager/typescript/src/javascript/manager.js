@@ -590,7 +590,6 @@ class RaceSetup {
     showEnabledSessions() {
         let that = this;
 
-
         let $hiddenWhenBookingEnabled = that.$parent.find(".hidden-booking-enabled");
         let $visibleWhenBookingEnabled = that.$parent.find(".visible-booking-enabled");
 
