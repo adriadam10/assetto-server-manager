@@ -42,12 +42,10 @@ deploy: clean assets asset-embed
 	CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -ldflags="-s -w -X justapengu.in/acsm.BuildVersion=${VERSION} ${LDFLAGS}" -o build/macOS/server-manager
 
 	cp ../../README.md build/README.txt
-	cp ../../INSTALL.txt build/INSTALL.txt
-	cp ../../LICENSE build/LICENSE.txt
 	cp ../../CHANGELOG.md build/CHANGELOG.txt
 	cp -R plugins build/
 	mv build/plugins/lua_readme.md build/plugins/lua_readme.txt
-	unix2dos build/README.txt build/LICENSE.txt build/CHANGELOG.txt build/windows/config.yml build/INSTALL.txt
+	unix2dos build/README.txt build/CHANGELOG.txt build/windows/config.yml build/plugins/lua_readme.txt
 
 	# archive
 	cd build && zip -r ../server-manager_${VERSION}.zip *

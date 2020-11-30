@@ -38,9 +38,6 @@ steam:
   # where to install assetto corsa server
   install_path: assetto
 
-  # the path to the executable to run. relative to the install_path by default
-  executable_path: acServer
-
   # set this to true to force an install every time the server manager is loaded
   force_update: false
 
@@ -56,12 +53,14 @@ http:
   hostname: 0.0.0.0:8772
 
   # session key is used to encrypt the http session
+  # You MUST change this. You can use a website such
+  # as https://passwordsgenerator.net/ to generate a value for it.
   session_key: RANDOMLY_GENERATE_THIS
 
   # server manager base URL is the URL that the server manager is accessible on
   # used for ACSR integration and links in championship welcome message in game
   # you can leave this blank if not required
-  # example: https://opengt3.assettocorsaservers.com <-- requires https:// or
+  # example: https://opengt3.emperorservers.com <-- requires https:// or
   # http://, no closing / at the end
   server_manager_base_URL:
 
@@ -193,7 +192,7 @@ server:
   # have deleted content, started/stopped events when they shouldn't have etc.
   audit_logging: true
 
-  # Server Manager has built in support for some plugins (STracker, KissMyRank
+  # Server Manager has built in support for some plugins (sTracker, KissMyRank
   # and Real Penalty). If you want to use these plugins you can enable them
   # here, then use the Server Manager UI to activate and configure them.
   #

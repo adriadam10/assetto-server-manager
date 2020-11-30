@@ -71,12 +71,14 @@ func LoadAndValidateLicense(filename string) error {
 }
 
 func parseLicense(l string) string {
+	// windows line endings
+	l = strings.Replace(l, "\r\n", "\n", -1)
+
 	l = strings.TrimSpace(l)
 	l = strings.TrimPrefix(l, licensePrefix)
 	l = strings.TrimSuffix(l, licenseSuffix)
 
 	l = strings.Replace(l, "\n", "", -1)
-	l = strings.Replace(l, "\r", "", -1)
 
 	return l
 }
