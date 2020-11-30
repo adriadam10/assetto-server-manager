@@ -450,7 +450,7 @@ func (s *Server) pluginPositionUpdate() {
 				}
 
 				if err := s.plugin.OnCarUpdate(car.Copy()); err != nil {
-					s.logger.WithError(err).Errorf("Could not send car update for car: %d", car.CarID)
+					s.logger.WithError(err).Debugf("Could not send car update for car: %d", car.CarID)
 				}
 			}
 		case v := <-s.pluginUpdateInterval:
