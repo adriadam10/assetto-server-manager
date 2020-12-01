@@ -43,6 +43,7 @@ require (
 	github.com/imdario/mergo v0.3.11 // indirect
 	github.com/jaytaylor/html2text v0.0.0-20200412013138-3577fbdbcff7
 	github.com/jmhodges/levigo v1.0.0 // indirect
+	github.com/jpillora/longestcommon v0.0.0-20161227235612-adb9d91ee629
 	github.com/kahlys/proxy v0.0.0-20190107154630-55f25d8735f4
 	github.com/lorenzosaino/go-sysctl v0.1.0
 	github.com/mattn/go-runewidth v0.0.9 // indirect
@@ -75,7 +76,7 @@ require (
 	golang.org/x/net v0.0.0-20201021035429-f5854403a974
 	golang.org/x/sync v0.0.0-20201020160332-67f06af15bc9
 	golang.org/x/text v0.3.3
-	golang.org/x/tools v0.0.0-20201124202034-299f270db459 // indirect
+	golang.org/x/tools v0.0.0-20201201064407-fd09bd90d85c // indirect
 	google.golang.org/protobuf v1.25.0 // indirect
 	gopkg.in/ini.v1 v1.42.0 // indirect
 	gopkg.in/yaml.v2 v2.3.0

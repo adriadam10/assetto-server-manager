@@ -1162,7 +1162,7 @@ func migrateBlacklistToBlockList(s Store) error {
 }
 
 func addDefaultPenaltyOptionsToCustomRaces(s Store) error {
-	logrus.Infof("Running migration: Add default penalty options to Custom Races")
+	logrus.Infof("Running migration: Add default cut penalty options to Custom Races")
 
 	customRaces, err := s.ListCustomRaces()
 
@@ -1404,7 +1404,7 @@ func fixCarDuplicationInRaceSetups(s Store) error {
 }
 
 func addDRSAndCollisionsDefaultPenaltyOptionsToCustomRaces(s Store) error {
-	logrus.Infof("Running migration: Add default penalty options to Custom Races")
+	logrus.Infof("Running migration: Add default collision and drs penalty options to Custom Races")
 
 	customRaces, err := s.ListCustomRaces()
 
@@ -1552,7 +1552,7 @@ func addDRSAndCollisionsDefaultPenaltyOptionsToCustomRaces(s Store) error {
 }
 
 func addTyresDefaultPenaltyOptionsToCustomRaces(s Store) error {
-	logrus.Infof("Running migration: Add default penalty options to Custom Races")
+	logrus.Infof("Running migration: Add default tyre penalty options to Custom Races")
 
 	customRaces, err := s.ListCustomRaces()
 

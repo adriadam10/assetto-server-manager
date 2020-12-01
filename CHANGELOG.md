@@ -38,6 +38,7 @@ We've also changed the following things in Server Manager itself:
 * Spectator Password - you can now connect to the server using a Spectator Password, and access commands to help spectating events!
 * Custom Favicon - you can now change the favicon for Server Manager in the Server Options!
 * Custom Analytics Tracking Code - you can now add your own custom analytics tracking code (e.g. from google/cloudflare, etc) to every page!
+* Improved the Track selection dropdowns in all Race Setup pages. You can now see more readable track names, and filter all tracks and layouts.
 
 Fixed:
 
@@ -49,6 +50,8 @@ Fixed:
 * Fixes an issue where multiservers could omit scanning new cars if they were added in groups, rather than one at once. If your server is missing cars in the car list, please "Rebuild Search Index" on the Server Options page!
 * Fixes incorrect date/time of Sol weathers in the Event Details popup
 * Fixes an issue where track names would not update when a track was reuploaded.
+* Fixes an issue where pitboxes could not be loaded for a track with an invalid JSON file.
+* Improved process management for plugins and acServer itself. Thanks to @mayfield for this one!
 
 Removed:
 

@@ -5,10 +5,10 @@ import "summernote/dist/summernote-bs4";
 import "multiselect";
 import "moment";
 import "moment-timezone";
-import "./javascript/manager.js";
 import "./Font";
 import "./Calendar";
 
+import {EntryPoint} from "./javascript/manager";
 import {RaceControl} from "./RaceControl";
 import {CarDetail} from "./CarDetail";
 import {TrackDetail} from "./TrackDetail";
@@ -24,8 +24,11 @@ import {Results} from "./Results";
 import {RaceList} from "./RaceList";
 import {SpectatorCar} from "./SpectatorCar";
 import {CustomChecksums} from "./CustomChecksums";
+import {Form} from "./Form";
 
 $(() => {
+    new Form();
+    EntryPoint();
     new RaceControl();
     new CarDetail();
     new TrackDetail();
@@ -50,5 +53,6 @@ $(() => {
 declare global {
     interface JQuery {
         multiSelect: any;
+        select2: any;
     }
 }
