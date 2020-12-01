@@ -61,10 +61,10 @@ const (
 func formatLicense(encoded string) string {
 	out := licensePrefix
 
-	for i := 0; i < len(encoded); i++ {
-		out += string(encoded[i])
+	for i := 1; i <= len(encoded); i++ {
+		out += string(encoded[i-1])
 
-		if i > 0 && i%50 == 0 {
+		if i%50 == 0 {
 			out += "\n"
 		}
 	}
