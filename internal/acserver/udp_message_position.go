@@ -121,14 +121,10 @@ func (pm *PositionMessageHandler) SendFirstUpdate(car *Car) error {
 		bw.WriteUTF32String(entrant.Driver.Name)
 	}
 
-	if err := bw.WriteTCP(car.Connection.tcpConn); err != nil {
-		return err
-	}
+	pm.state.WritePacket(bw, car.Connection.tcpConn)
 
 	// send weather to car
-	if err := pm.weatherManager.SendWeather(car); err != nil {
-		return err
-	}
+	pm.weatherManager.SendWeather(car)
 
 	// send a lap completed message for car ID 0xFF to broadcast all other lap times to the connecting user.
 	if err := pm.sessionManager.CompleteLap(ServerCarID, &LapCompleted{}, car); err != nil {
@@ -145,9 +141,7 @@ func (pm *PositionMessageHandler) SendFirstUpdate(car *Car) error {
 		bw.Write(otherEntrant.CarID)
 		bw.WriteString(otherEntrant.Tyres)
 
-		if err := bw.WriteTCP(car.Connection.tcpConn); err != nil {
-			return err
-		}
+		pm.state.WritePacket(bw, car.Connection.tcpConn)
 
 		bw = NewPacket(nil)
 
@@ -156,9 +150,7 @@ func (pm *PositionMessageHandler) SendFirstUpdate(car *Car) error {
 		bw.Write(otherEntrant.SessionData.P2PCount)
 		bw.Write(uint8(0))
 
-		if err := bw.WriteTCP(car.Connection.tcpConn); err != nil {
-			return err
-		}
+		pm.state.WritePacket(bw, car.Connection.tcpConn)
 
 		bw = NewPacket(nil)
 		bw.Write(TCPMandatoryPitCompleted)
@@ -170,32 +162,22 @@ func (pm *PositionMessageHandler) SendFirstUpdate(car *Car) error {
 			bw.Write(uint8(0x00))
 		}
 
-		if err := bw.WriteTCP(car.Connection.tcpConn); err != nil {
-			return err
-		}
+		pm.state.WritePacket(bw, car.Connection.tcpConn)
 	}
 
 	car.SetLoadedTime(time.Now())
 
 	// send bop for car
-	if err := pm.state.SendBoP(car); err != nil {
-		return err
-	}
+	pm.state.SendBoP(car)
 
 	// send MOTD to the newly connected car
-	if err := pm.state.SendMOTD(car); err != nil {
-		return err
-	}
+	pm.state.SendMOTD(car)
 
 	// send fixed setup too
-	if err := pm.state.SendSetup(car); err != nil {
-		return err
-	}
+	pm.state.SendSetup(car)
 
 	// if there are drs zones, send them too
-	if err := pm.state.SendDRSZones(car); err != nil {
-		return err
-	}
+	pm.state.SendDRSZones(car)
 
 	currentSession := pm.sessionManager.GetCurrentSession()
 

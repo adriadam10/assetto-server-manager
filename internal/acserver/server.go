@@ -232,9 +232,7 @@ func (s *Server) loop() {
 					if time.Since(car.GetLastUpdateReceivedTime()) > connectionTimeout {
 						s.logger.Warnf("Car: '%s' has not been seen in %s. Disconnecting...", car.String(), connectionTimeout)
 
-						if err := s.state.DisconnectCar(car); err != nil {
-							s.logger.WithError(err).Errorf("Could not broadcast timed out car disconnect")
-						}
+						s.state.DisconnectCar(car)
 
 						continue
 					}
@@ -425,7 +423,9 @@ func (s *Server) SendSetup(overrideValues map[string]float32, carID CarID) error
 		}
 	}
 
-	return s.state.SendSetup(car)
+	s.state.SendSetup(car)
+
+	return nil
 }
 
 func (s *Server) SetUpdateInterval(interval time.Duration) {

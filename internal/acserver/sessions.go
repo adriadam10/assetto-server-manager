@@ -249,9 +249,7 @@ func (sm *SessionManager) NextSession(force, wasRestart bool) {
 
 	for _, entrant := range sm.state.entryList {
 		if entrant.IsConnected() {
-			if err := sm.SendSessionInfo(entrant, previousSessionLeaderboard); err != nil {
-				sm.logger.WithError(err).Error("Couldn't send session info")
-			}
+			sm.SendSessionInfo(entrant, previousSessionLeaderboard)
 		}
 	}
 
@@ -641,7 +639,7 @@ func (sm *SessionManager) SetSessionIndex(i uint8) {
 	sm.currentSessionIndex = i
 }
 
-func (sm *SessionManager) SendSessionInfo(entrant *Car, leaderBoard []*LeaderboardLine) error {
+func (sm *SessionManager) SendSessionInfo(entrant *Car, leaderBoard []*LeaderboardLine) {
 	sm.mutex.RLock()
 	defer sm.mutex.RUnlock()
 
@@ -666,7 +664,7 @@ func (sm *SessionManager) SendSessionInfo(entrant *Car, leaderBoard []*Leaderboa
 
 	bw.Write(sm.currentSession.startTime - int64(entrant.Connection.TimeOffset))
 
-	return bw.WriteTCP(entrant.Connection.tcpConn)
+	sm.state.WritePacket(bw, entrant.Connection.tcpConn)
 }
 
 func (sm *SessionManager) BroadcastSessionStart() {
@@ -687,9 +685,7 @@ func (sm *SessionManager) BroadcastSessionStart() {
 			p.Write(uint32(sm.state.CurrentTimeMillisecond() - int64(entrant.Connection.TimeOffset)))
 			p.Write(uint16(entrant.Connection.Ping))
 
-			if err := p.WriteTCP(entrant.Connection.tcpConn); err != nil {
-				sm.logger.WithError(err).Errorf("Could not send race start packet to %s", entrant.String())
-			}
+			sm.state.WritePacket(p, entrant.Connection.tcpConn)
 		}
 	}
 }
@@ -795,7 +791,8 @@ func (sm *SessionManager) CompleteLap(carID CarID, lap *LapCompleted, target *Ca
 	bw.Write(sm.state.dynamicTrack.CurrentGrip())
 
 	if target != nil {
-		return bw.WriteTCP(target.Connection.tcpConn)
+		sm.state.WritePacket(bw, target.Connection.tcpConn)
+		return nil
 	}
 
 	sm.state.BroadcastAllTCP(bw)

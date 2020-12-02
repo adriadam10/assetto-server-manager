@@ -135,7 +135,7 @@ func (t *TCP) Listen(ctx context.Context) error {
 
 						if err := binary.Read(conn, binary.LittleEndian, &messageLength); err != nil {
 							if e, ok := err.(*net.OpError); ok && (!e.Temporary() || e.Timeout()) {
-								t.logger.WithError(err).Errorf("Detected broken TCP connection for: %s", conn.RemoteAddr().String())
+								t.logger.WithError(err).Errorf("Detected broken TCP connection for: %s. Closing now.", conn.RemoteAddr().String())
 								t.state.closeTCPConnection(conn)
 								continue
 							}
@@ -146,7 +146,7 @@ func (t *TCP) Listen(ctx context.Context) error {
 
 						if err = t.handleConnection(conn, messageLength); err != nil {
 							if e, ok := err.(*net.OpError); ok && (!e.Temporary() || e.Timeout()) {
-								t.logger.WithError(err).Errorf("Detected broken TCP connection for: %s", conn.RemoteAddr().String())
+								t.logger.WithError(err).Errorf("Detected broken TCP connection for: %s. Closing now.", conn.RemoteAddr().String())
 								t.state.closeTCPConnection(conn)
 								continue
 							}
