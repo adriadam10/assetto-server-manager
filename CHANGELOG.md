@@ -1,3 +1,14 @@
+v2.0.0-b1
+---------
+
+(The majority of this portion of the changelog will eventually be removed or added into the main v2.0.0 changelog)
+
+Beta Fixes:
+
+* Added description text about cut detection.
+
+---
+
 v2.0.0
 ------
 
