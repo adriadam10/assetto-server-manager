@@ -6,6 +6,7 @@ v2.0.0-b1
 Beta Fixes:
 
 * Added description text about cut detection.
+* Fixes the format of the CarInfo (54) packet.
 
 ---
 
