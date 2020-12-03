@@ -318,10 +318,7 @@ func (ss *ServerState) BroadcastAllTCP(p *Packet) {
 			continue
 		}
 
-		if err := p.WriteTCP(entrant.Connection.tcpConn); err != nil {
-			ss.logger.WithError(err).Errorf("Could not broadcast message to CarID: %d", entrant.CarID)
-			continue
-		}
+		ss.WritePacket(p, entrant.Connection.tcpConn)
 	}
 }
 
@@ -331,10 +328,21 @@ func (ss *ServerState) BroadcastOthersTCP(p *Packet, ignoreCarID CarID) {
 			continue
 		}
 
-		if err := p.WriteTCP(entrant.Connection.tcpConn); err != nil {
-			ss.logger.WithError(err).Errorf("Could not broadcast message to CarID: %d", entrant.CarID)
-			continue
+		ss.WritePacket(p, entrant.Connection.tcpConn)
+	}
+}
+
+func (ss *ServerState) WritePacket(p *Packet, conn net.Conn) {
+	err := p.WriteTCP(conn)
+
+	if err != nil {
+		if e, ok := err.(*net.OpError); ok && (!e.Temporary() || e.Timeout()) {
+			ss.logger.WithError(err).Errorf("Detected permanent issue with network connection: %s. Closing now.", conn.RemoteAddr().String())
+			ss.closeTCPConnection(conn)
+			return
 		}
+
+		ss.logger.WithError(err).Errorf("Failed to write packet to conn: %s", conn.RemoteAddr().String())
 	}
 }
 
@@ -473,7 +481,9 @@ func (ss *ServerState) SendChat(fromCarID CarID, toCarID CarID, message string, 
 		}()
 	}
 
-	return p.WriteTCP(car.Connection.tcpConn)
+	ss.WritePacket(p, car.Connection.tcpConn)
+
+	return nil
 }
 
 func (ss *ServerState) ChangeTyre(car *Car, tyre string) error {
@@ -526,17 +536,17 @@ func (ss *ServerState) BroadcastUpdateBoP(car *Car) {
 	ss.BroadcastAllTCP(bw)
 }
 
-func (ss *ServerState) SendBoP(car *Car) error {
+func (ss *ServerState) SendBoP(car *Car) {
 	ss.logger.Infof("Sending BoP info to entrant: %s", car.String())
 
 	bw := ss.CreateBoPPacket(ss.entryList)
 
-	return bw.WriteTCP(car.Connection.tcpConn)
+	ss.WritePacket(bw, car.Connection.tcpConn)
 }
 
-func (ss *ServerState) SendMOTD(car *Car) error {
+func (ss *ServerState) SendMOTD(car *Car) {
 	if ss.messageOfTheDay == "" {
-		return nil
+		return
 	}
 
 	ss.logger.Infof("Sending MOTD to entrant: %s", car.String())
@@ -547,12 +557,12 @@ func (ss *ServerState) SendMOTD(car *Car) error {
 
 	bw.WriteBigUTF32String(ss.messageOfTheDay)
 
-	return bw.WriteTCP(car.Connection.tcpConn)
+	ss.WritePacket(bw, car.Connection.tcpConn)
 }
 
-func (ss *ServerState) SendDRSZones(car *Car) error {
+func (ss *ServerState) SendDRSZones(car *Car) {
 	if ss.drsZones == nil {
-		return nil
+		return
 	}
 
 	ss.logger.Infof("Sending DRS Zones to entrant: %s", car.String())
@@ -566,17 +576,17 @@ func (ss *ServerState) SendDRSZones(car *Car) error {
 		bw.Write(zone.End)
 	}
 
-	return bw.WriteTCP(car.Connection.tcpConn)
+	ss.WritePacket(bw, car.Connection.tcpConn)
 }
 
-func (ss *ServerState) SendSetup(car *Car) error {
+func (ss *ServerState) SendSetup(car *Car) {
 	if car.FixedSetup == "" {
-		return nil
+		return
 	}
 
 	if _, ok := ss.setups[car.FixedSetup]; !ok {
 		ss.logger.Infof("Fixed setup %s was selected for %s, but was not found on event start! Setup not applied!", car.FixedSetup, car.Driver.Name)
-		return nil
+		return
 	}
 
 	ss.logger.Infof("Sending fixed setup %s to %s", car.FixedSetup, car.Driver.Name)
@@ -591,7 +601,7 @@ func (ss *ServerState) SendSetup(car *Car) error {
 		bw.Write(val)
 	}
 
-	return bw.WriteTCP(car.Connection.tcpConn)
+	ss.WritePacket(bw, car.Connection.tcpConn)
 }
 
 func (ss *ServerState) SendStatus(car *Car, currentTime int64) error {
@@ -697,9 +707,9 @@ func (ss *ServerState) BroadcastCarUpdate(car *Car) {
 	}
 }
 
-func (ss *ServerState) DisconnectCar(car *Car) error {
+func (ss *ServerState) DisconnectCar(car *Car) {
 	if car == nil {
-		return nil
+		return
 	}
 
 	ss.closeTCPConnection(car.Connection.tcpConn)
@@ -711,8 +721,6 @@ func (ss *ServerState) DisconnectCar(car *Car) error {
 	p.Write(car.CarID)
 
 	ss.BroadcastAllTCP(p)
-
-	return nil
 }
 
 func (ss *ServerState) closeTCPConnectionWithError(conn net.Conn, errorMessage MessageType) error {

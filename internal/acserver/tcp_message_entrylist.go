@@ -52,7 +52,9 @@ func (e EntryListMessageHandler) OnMessage(conn net.Conn, p *Packet) error {
 		entrantIndex++
 	}
 
-	return o.WriteTCP(conn)
+	e.state.WritePacket(o, conn)
+
+	return nil
 }
 
 func (e EntryListMessageHandler) MessageType() MessageType {

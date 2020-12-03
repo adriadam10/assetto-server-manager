@@ -125,9 +125,7 @@ func (wm *WeatherManager) ChangeWeather(weatherConfig *WeatherConfig, weatherUpd
 			continue
 		}
 
-		if err := wm.SendWeather(car); err != nil {
-			wm.logger.WithError(err).Errorf("Could not send weather to car: %s", car.String())
-		}
+		wm.SendWeather(car)
 	}
 
 	go func() {
@@ -197,7 +195,7 @@ func (wm *WeatherManager) calculateWind(weatherConfig *WeatherConfig) (speed, di
 	return speed, direction
 }
 
-func (wm *WeatherManager) SendWeather(entrant *Car) error {
+func (wm *WeatherManager) SendWeather(entrant *Car) {
 	wm.mutex.Lock()
 	defer wm.mutex.Unlock()
 	wm.logger.Infof("Sending weather (%s), to entrant: %s", wm.currentWeather.String(), entrant.String())
@@ -210,7 +208,7 @@ func (wm *WeatherManager) SendWeather(entrant *Car) error {
 	bw.Write(wm.currentWeather.WindSpeed)
 	bw.Write(wm.currentWeather.WindDirection)
 
-	return bw.WriteTCP(entrant.Connection.tcpConn)
+	wm.state.WritePacket(bw, entrant.Connection.tcpConn)
 }
 
 func (wm *WeatherManager) SendSunAngle(currentTime int64) {

@@ -22,7 +22,9 @@ func (d *DisconnectMessageHandler) OnMessage(conn net.Conn, p *Packet) error {
 		return err
 	}
 
-	return d.state.DisconnectCar(car)
+	d.state.DisconnectCar(car)
+
+	return nil
 }
 
 func (d *DisconnectMessageHandler) MessageType() MessageType {

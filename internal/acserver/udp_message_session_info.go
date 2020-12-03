@@ -30,7 +30,9 @@ func (s SessionInfoHandler) OnMessage(_ net.PacketConn, addr net.Addr, p *Packet
 		return nil
 	}
 
-	return s.sessionManager.SendSessionInfo(entrant, nil)
+	s.sessionManager.SendSessionInfo(entrant, nil)
+
+	return nil
 }
 
 func (s SessionInfoHandler) MessageType() MessageType {

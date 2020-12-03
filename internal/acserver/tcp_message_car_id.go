@@ -34,7 +34,8 @@ func (c CarIDMessageHandler) OnMessage(conn net.Conn, p *Packet) error {
 		o.Write(entrant.SessionData.P2PCount)
 		o.Write(uint8(0))
 
-		return o.WriteTCP(conn)
+		c.state.WritePacket(o, conn)
+		return nil
 	}
 
 	c.logger.Debugf("P2P Count what is the number: %d", p2pCount)
