@@ -228,6 +228,8 @@ func (wm *WeatherManager) OnNewSession(session SessionConfig) {
 	wm.currentWeatherIndex = 0
 	wm.weatherProgression = false
 	wm.nextWeatherUpdate = 0
+	wm.sunAngle = wm.state.raceConfig.SunAngle
+	wm.lastSunUpdate = 0
 	wm.sessionStartTime = wm.state.CurrentTimeMillisecond()
 	wm.mutex.Unlock()
 
@@ -292,11 +294,6 @@ func (wm *WeatherManager) OnNewSession(session SessionConfig) {
 			WindVariationDirection: 15,
 		}, int64(session.WaitTime))
 	}
-
-	wm.mutex.Lock()
-	wm.sunAngle = wm.state.raceConfig.SunAngle
-	wm.SendSunAngle(wm.state.CurrentTimeMillisecond())
-	wm.mutex.Unlock()
 }
 
 const (

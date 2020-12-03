@@ -153,7 +153,22 @@ func (u *UDPPlugin) handleConnection(data []byte) error {
 			return err
 		}
 
-		response := carInfoPacket(EventCarInfo, car)
+		response := acserver.NewPacket(nil)
+		response.Write(EventCarInfo)
+		response.Write(car.CarID)
+
+		if u.server.CarIsConnected(car.CarID) {
+			response.Write(uint8(1))
+		} else {
+			response.Write(uint8(0))
+		}
+
+		response.WriteUTF32String(car.Model)
+		response.WriteUTF32String(car.Skin)
+		response.WriteUTF32String(car.Driver.Name)
+		response.WriteUTF32String(car.Driver.Team)
+		response.WriteUTF32String(car.Driver.GUID)
+
 		return response.WriteToUDPConn(u.packetConn)
 	case EventSendChat:
 		var carID acserver.CarID

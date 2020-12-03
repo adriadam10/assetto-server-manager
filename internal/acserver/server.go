@@ -289,6 +289,16 @@ func (s *Server) GetCarInfo(id CarID) (CarInfo, error) {
 	return car.Copy(), nil
 }
 
+func (s *Server) CarIsConnected(id CarID) bool {
+	car, err := s.state.GetCarByID(id)
+
+	if err != nil {
+		return false
+	}
+
+	return car.IsConnected()
+}
+
 func (s *Server) GetSessionInfo() SessionInfo {
 	currentWeather := s.weatherManager.GetCurrentWeather()
 	currentSession := s.sessionManager.GetCurrentSession()

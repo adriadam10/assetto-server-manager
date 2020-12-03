@@ -33,6 +33,7 @@ type Plugin interface {
 
 type ServerPlugin interface {
 	GetCarInfo(id CarID) (CarInfo, error)
+	CarIsConnected(id CarID) bool
 	GetSessionInfo() SessionInfo
 	GetEventConfig() EventConfig
 
