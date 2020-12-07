@@ -7,6 +7,7 @@ Beta Fixes:
 
 * Added description text about cut detection.
 * Fixes the format of the CarInfo (54) packet.
+* Stopped drivers from being added to no join list when kicked due to a checksum mismatch.
 
 ---
 
