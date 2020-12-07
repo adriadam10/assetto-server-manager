@@ -803,15 +803,15 @@ class LiveTimings implements WebsocketHandler {
             let $this = $(e.currentTarget) as JQuery<HTMLInputElement>;
 
             if ($this.text() == "no") {
-                $this.text("yes")
-                $this.removeClass("btn-danger")
-                $this.addClass("btn-success")
+                $this.text("yes");
+                $this.removeClass("btn-danger");
+                $this.addClass("btn-success");
 
                 that.showCollisionPopups = false;
             } else {
-                $this.text("no")
-                $this.removeClass("btn-success")
-                $this.addClass("btn-danger")
+                $this.text("no");
+                $this.removeClass("btn-success");
+                $this.addClass("btn-danger");
 
                 that.showCollisionPopups = true;
             }
