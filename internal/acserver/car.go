@@ -50,6 +50,10 @@ type CarInfo struct {
 	// Deprecated: SpectatorMode is not supported by the game itself
 	SpectatorMode uint8 `json:"-"`
 
+	// GridPosition is the starting grid position of the car. A GridPosition of 0 signifies that the driver
+	// was not in the previous session. Positions start from 1.
+	GridPosition int `json:"-"`
+
 	carLoadPosition    CarUpdate
 	carLoadSessionType SessionType
 }

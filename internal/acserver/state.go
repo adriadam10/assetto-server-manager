@@ -808,6 +808,21 @@ func (ss *ServerState) Leaderboard(sessionType SessionType) []*LeaderboardLine {
 		sort.SliceStable(leaderboard, func(i, j int) bool {
 			carI, carJ := leaderboard[i], leaderboard[j]
 
+			if carI.NumLaps == 0 && carJ.NumLaps == 0 {
+				// 0 grid position signifies that the car wasn't in the previous session.
+				if carI.Car.GridPosition == 0 {
+					// carI is not less than J (carI has no grid position)
+					return false
+				}
+
+				if carJ.Car.GridPosition == 0 {
+					// carI is less than J (carI has a grid position)
+					return true
+				}
+
+				return carI.Car.GridPosition < carJ.Car.GridPosition
+			}
+
 			if carI.NumLaps == carJ.NumLaps {
 				return carI.Time < carJ.Time
 			}
