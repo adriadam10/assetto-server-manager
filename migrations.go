@@ -96,6 +96,7 @@ var (
 		fixCarDuplicationInRaceSetups,
 		addDRSAndCollisionsDefaultPenaltyOptionsToCustomRaces,
 		addTyresDefaultPenaltyOptionsToCustomRaces,
+		addRealPenaltyAppUDPPort,
 	}
 )
 
@@ -1661,4 +1662,18 @@ func addTyresDefaultPenaltyOptionsToCustomRaces(s Store) error {
 	}
 
 	return nil
+}
+
+func addRealPenaltyAppUDPPort(s Store) error {
+	logrus.Infof("Running migration: Add Real Penalty App UDP Port")
+
+	rpOpts, err := s.LoadRealPenaltyOptions()
+
+	if err != nil {
+		return err
+	}
+
+	rpOpts.RealPenaltyAppConfig.General.AppUDPPort = rpOpts.RealPenaltyAppConfig.General.AppTCPPort
+
+	return s.UpsertRealPenaltyOptions(rpOpts)
 }

@@ -51,6 +51,7 @@ We've also changed the following things in Server Manager itself:
 * Custom Favicon - you can now change the favicon for Server Manager in the Server Options!
 * Custom Analytics Tracking Code - you can now add your own custom analytics tracking code (e.g. from google/cloudflare, etc) to every page!
 * Improved the Track selection dropdowns in all Race Setup pages. You can now see more readable track names, and filter all tracks and layouts.
+* Adds missing Real Penalty 'APP_UDP_PORT' option.
 
 Fixed:
 
