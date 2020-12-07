@@ -363,15 +363,17 @@ func (ss *ServerState) Kick(carID CarID, reason KickReason) error {
 		return err
 	}
 
-	switch ss.serverConfig.BlockListMode {
-	case BlockListModeNormalKick:
-	case BlockListModeNoRejoin:
-		ss.noJoinList[entrant.Driver.GUID] = true
-	case BlockListModeAddToList:
-		err := ss.AddToBlockList(entrant.Driver.GUID)
+	if reason != KickReasonChecksumFailed {
+		switch ss.serverConfig.BlockListMode {
+		case BlockListModeNormalKick:
+		case BlockListModeNoRejoin:
+			ss.noJoinList[entrant.Driver.GUID] = true
+		case BlockListModeAddToList:
+			err := ss.AddToBlockList(entrant.Driver.GUID)
 
-		if err != nil {
-			ss.logger.WithError(err).Errorf("Kick: Couldn't add %s to the server blocklist.json", entrant.Driver.GUID)
+			if err != nil {
+				ss.logger.WithError(err).Errorf("Kick: Couldn't add %s to the server blocklist.json", entrant.Driver.GUID)
+			}
 		}
 	}
 
