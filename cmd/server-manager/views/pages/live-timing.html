@@ -91,6 +91,8 @@
                 <a id="cm-join-link" href="{{ . }}" class="btn btn-success btn-sm mt-1">Join</a>
             {{ end }}
 
+            <button id="settings" data-toggle="popover" class="btn btn-sm btn-info mt-1" data-placement="bottom">Settings</button>
+
             {{ if AdminAccess }}
                 <button id="admin-panel" data-toggle="popover" class="btn btn-sm btn-info mt-1" data-placement="bottom">Admin Panel</button>
             {{ end }}
@@ -117,6 +119,16 @@
                 <li><strong>Width:</strong> <span id="track-width"></span></li>
                 <li><strong>Run:</strong> <span id="track-run"></span></li>
             </ul>
+        </div>
+
+        <div id="popover-content-settings" class="d-none">
+            <label for="toggle-collision-popups">Hide Collision Popups</label>
+
+            <button
+                    id="toggle-collision-popups"
+                    name="toggle-collision-popups"
+                    class="btn btn-sm btn-danger ml-1"
+            >no</button>
         </div>
 
         <div id="popover-content-admin-panel" class="d-none">
