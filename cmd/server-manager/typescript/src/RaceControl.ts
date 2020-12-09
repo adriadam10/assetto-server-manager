@@ -1048,6 +1048,11 @@ class LiveTimings implements WebsocketHandler {
                     // only show current lap time text if the last lap completed time is after session start.
                     currentLapTimeText = msToTime(moment().utc().diff(moment(carInfo.LastLapCompletedTime).utc()), false, 1);
                 }
+
+                if (currentLapTimeText.startsWith("-")) {
+                    // remove leading negative symbol
+                    currentLapTimeText = currentLapTimeText.substring(1);
+                }
             }
 
             let $currentLap = $tr.find(".current-lap");
