@@ -385,7 +385,7 @@ func (c *Car) AddLap(lap *LapCompleted) *Lap {
 // maximumLapTime is the max amount of lap time possible on the server
 const maximumLapTime = 999999999 * time.Millisecond
 
-func (c *Car) BestLap() *Lap {
+func (c *Car) BestLap(sessionType SessionType) *Lap {
 	c.mutex.RLock()
 	defer c.mutex.RUnlock()
 
@@ -393,7 +393,11 @@ func (c *Car) BestLap() *Lap {
 		LapTime: maximumLapTime,
 	}
 
-	for _, lap := range c.SessionData.Laps {
+	for i, lap := range c.SessionData.Laps {
+		if (sessionType == SessionTypeQualifying || sessionType == SessionTypePractice) && i == 0 {
+			continue
+		}
+
 		if lap.LapTime != 0 && lap.Cuts == 0 && lap.LapTime < bestLap.LapTime {
 			bestLap = lap
 		}
