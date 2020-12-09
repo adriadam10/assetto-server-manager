@@ -1050,7 +1050,7 @@ class LiveTimings implements WebsocketHandler {
                 }
 
                 if (currentLapTimeText.startsWith("-")) {
-                    // remove leading hours
+                    // remove leading negative symbol
                     currentLapTimeText = currentLapTimeText.substring(1);
                 }
             }
