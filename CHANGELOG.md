@@ -9,6 +9,7 @@ Beta Fixes:
 * Fixes the format of the CarInfo (54) packet.
 * Stopped drivers from being added to no join list when kicked due to a checksum mismatch.
 * Added a settings button to live timings that allows viewers to hide the new collision popups.
+* The first lap set by a driver in a session is no longer considered to be valid to avoid outlaps on certain tracks being faster than the fastest possible normal lap (Bathurst, Spa etc.)
 
 ---
 
