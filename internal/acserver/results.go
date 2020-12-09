@@ -52,7 +52,7 @@ func (ss *ServerState) GenerateResults(sessionInfo SessionConfig) *SessionResult
 		// laps and events are within entrant.sessionData
 		result = append(result, &SessionResult{
 			BallastKG:  leaderboardLine.Car.Ballast,
-			BestLap:    int(leaderboardLine.Car.BestLap().LapTime.Milliseconds()),
+			BestLap:    int(leaderboardLine.Car.BestLap(sessionInfo.SessionType).LapTime.Milliseconds()),
 			CarID:      carID,
 			CarModel:   leaderboardLine.Car.Model,
 			DriverGUID: leaderboardLine.Car.Driver.GUID,
