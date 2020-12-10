@@ -57,6 +57,7 @@ func (h *HTTP) Router() http.Handler {
 	router.Mount("/INFO", http.HandlerFunc(h.Info))
 	router.Mount("/ENTRY", http.HandlerFunc(h.TimeTable))
 	router.Mount("/JSON|{guid}", http.HandlerFunc(h.EntryList))
+	router.Mount("/JSON|", http.HandlerFunc(h.EntryList))
 	router.Mount("/SUB|{params}", http.HandlerFunc(h.BookCar))
 	router.Mount("/UNSUB|{guid}", http.HandlerFunc(h.UnBookCar))
 	router.NotFound(func(w http.ResponseWriter, r *http.Request) {
@@ -85,11 +86,6 @@ type HTTPEntryListCar struct {
 
 func (h *HTTP) EntryList(w http.ResponseWriter, r *http.Request) {
 	requestedGUID := chi.URLParam(r, "guid")
-
-	if requestedGUID == "" {
-		http.Error(w, http.StatusText(http.StatusForbidden), http.StatusForbidden)
-		return
-	}
 
 	e := &HTTPEntryList{
 		Cars: make([]*HTTPEntryListCar, 0),
