@@ -11,6 +11,7 @@ Beta Fixes:
 * Added a settings button to live timings that allows viewers to hide the new collision popups.
 * Prevent laps from starting with a "-" character at the beginning of a lap.
 * The first lap set by a driver in a session is no longer considered to be valid to avoid outlaps on certain tracks being faster than the fastest possible normal lap (Bathurst, Spa etc.).
+* Fixes an issue where duplicating a Championship with Race Weekends inside it would result in the Race Weekends not copying across correctly.
 
 ---
 
@@ -69,6 +70,8 @@ Fixed:
 * Fixes an issue where track names would not update when a track was reuploaded.
 * Fixes an issue where pitboxes could not be loaded for a track with an invalid JSON file.
 * Improved process management for plugins and acServer itself. Thanks to @mayfield for this one!
+* Duplicating a Championship now clears all registration requests.
+* Fixes a crash that could occur when concurrently reading weather configurations.
 
 Removed:
 
