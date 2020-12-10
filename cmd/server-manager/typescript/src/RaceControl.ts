@@ -667,12 +667,16 @@ class LiveTimings implements WebsocketHandler {
     private readonly $disconnectedDriversTable: JQuery<HTMLTableElement>;
     private readonly $storedTimes: JQuery<HTMLDivElement>;
 
+    private showCollisionPopups: boolean = true;
+
     constructor(raceControl: RaceControl, liveMap: LiveMap) {
         this.raceControl = raceControl;
         this.liveMap = liveMap;
         this.$connectedDriversTable = $("#live-table");
         this.$disconnectedDriversTable = $("#live-table-disconnected");
         this.$storedTimes = $("#stored-times");
+
+        this.handleSettings();
 
         setInterval(this.populateConnectedDrivers.bind(this), 1000);
 
@@ -789,6 +793,29 @@ class LiveTimings implements WebsocketHandler {
 
     public refresh(): void {
         this.populateConnectedDrivers();
+    }
+
+    private handleSettings(): void {
+        let that = this;
+        const $document = $(document);
+
+        $document.on("click", "#toggle-collision-popups", function (e: ClickEvent) {
+            let $this = $(e.currentTarget) as JQuery<HTMLInputElement>;
+
+            if ($this.text() == "no") {
+                $this.text("yes");
+                $this.removeClass("btn-danger");
+                $this.addClass("btn-success");
+
+                that.showCollisionPopups = false;
+            } else {
+                $this.text("no");
+                $this.removeClass("btn-success");
+                $this.addClass("btn-danger");
+
+                that.showCollisionPopups = true;
+            }
+        });
     }
 
     public handleWebsocketMessage(message: WSMessage): void {
@@ -1021,6 +1048,11 @@ class LiveTimings implements WebsocketHandler {
                     // only show current lap time text if the last lap completed time is after session start.
                     currentLapTimeText = msToTime(moment().utc().diff(moment(carInfo.LastLapCompletedTime).utc()), false, 1);
                 }
+
+                if (currentLapTimeText.startsWith("-")) {
+                    // remove leading negative symbol
+                    currentLapTimeText = currentLapTimeText.substring(1);
+                }
             }
 
             let $currentLap = $tr.find(".current-lap");
@@ -1098,7 +1130,7 @@ class LiveTimings implements WebsocketHandler {
             }
 
             // events
-            if (driver.Collisions) {
+            if (driver.Collisions && this.showCollisionPopups) {
                 for (const collision of driver.Collisions) {
                     this.buildCollisionToast(collision, driver, speedUnits);
                 }

@@ -786,11 +786,11 @@ func (ss *ServerState) Leaderboard(sessionType SessionType) []*LeaderboardLine {
 
 			lapCount = len(laps)
 		default:
-			bestLap := car.BestLap()
+			bestLap := car.BestLap(sessionType)
 			duration = bestLap.LapTime
 
-			for _, lap := range laps {
-				if lap.Cuts == 0 {
+			for i, lap := range laps {
+				if lap.Cuts == 0 && i != 0 {
 					lapCount++
 				}
 			}

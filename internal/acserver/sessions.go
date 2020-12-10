@@ -545,7 +545,7 @@ func (sm *SessionManager) BestLapTimeInSession() time.Duration {
 	var bestLapTime time.Duration
 
 	for _, entrant := range sm.state.entryList {
-		best := entrant.BestLap()
+		best := entrant.BestLap(sm.currentSession.Config.SessionType)
 
 		if bestLapTime == 0 {
 			bestLapTime = best.LapTime
