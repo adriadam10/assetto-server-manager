@@ -153,6 +153,8 @@ func (sm *SessionManager) SaveResultsAndBuildLeaderboard(forceAdvance bool) (pre
 
 	for pos, leaderboardLine := range previousSessionLeaderboard {
 		sm.logger.Printf("%d. %s - %s", pos, leaderboardLine.Car.Driver.Name, leaderboardLine)
+
+		leaderboardLine.Car.GridPosition = pos + 1
 	}
 
 	if sm.currentSession.numCompletedLaps > 0 {
