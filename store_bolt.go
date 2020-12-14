@@ -1048,6 +1048,18 @@ func (rs *BoltStore) LoadLiveTimingsData() (*LiveTimingsPersistedData, error) {
 	return lt, err
 }
 
+func (rs *BoltStore) DeleteLiveTimingsData() error {
+	return rs.db.Update(func(tx *bbolt.Tx) error {
+		bkt, err := rs.liveTimingsDataBucket(tx)
+
+		if err != nil {
+			return err
+		}
+
+		return bkt.Put(liveTimingsKey, nil)
+	})
+}
+
 func (rs *BoltStore) UpsertLastRaceEvent(r RaceEvent) error {
 	return rs.db.Update(func(tx *bbolt.Tx) error {
 		bkt, err := rs.liveTimingsDataBucket(tx)

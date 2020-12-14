@@ -1,3 +1,14 @@
+v2.0.0-b2
+---------
+
+(The majority of this portion of the changelog will eventually be removed or added into the main v2.0.0 changelog)
+
+Added:
+
+* Added a 'Delete Live Timings' button to the Server Options page.
+
+---
+
 v2.0.0-b1
 ---------
 
