@@ -345,6 +345,7 @@ func Router(
 		r.HandleFunc("/accounts", accountHandler.manageAccounts)
 		r.HandleFunc("/search-index", carsHandler.rebuildSearchIndex)
 		r.HandleFunc("/tracks/rebuild-maps", tracksHandler.rebuildTrackMaps)
+		r.HandleFunc("/server/delete-live-timings", raceControlHandler.deleteLiveTimingsData)
 		r.HandleFunc("/required-apps", customChecksumHandler.index)
 
 		r.HandleFunc("/restart-session", raceControlHandler.restartSession)

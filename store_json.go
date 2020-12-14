@@ -647,6 +647,10 @@ func (rs *JSONStore) LoadLiveTimingsData() (*LiveTimingsPersistedData, error) {
 	return lt, err
 }
 
+func (rs *JSONStore) DeleteLiveTimingsData() error {
+	return rs.deleteFile(rs.base, liveTimingsDataFile)
+}
+
 func (rs *JSONStore) UpsertLastRaceEvent(r RaceEvent) error {
 	raceEvent, err := marshalRaceEvent(r)
 

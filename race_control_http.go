@@ -422,3 +422,24 @@ func (rch *RaceControlHandler) countdown(w http.ResponseWriter, r *http.Request)
 		}
 	}
 }
+
+func (rch *RaceControlHandler) deleteLiveTimingsData(w http.ResponseWriter, r *http.Request) {
+	if rch.serverProcess.IsRunning() {
+		if err := rch.serverProcess.Stop(); err != nil {
+			logrus.WithError(err).Errorf("Could not stop server")
+			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+			return
+		}
+	}
+
+	rch.raceControl.clearAllDrivers()
+
+	if err := rch.store.DeleteLiveTimingsData(); err != nil {
+		logrus.WithError(err).Errorf("Could not delete stored live timings")
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		return
+	}
+
+	AddFlash(w, r, "Live Timings cleared successfully!")
+	http.Redirect(w, r, r.Referer(), http.StatusFound)
+}

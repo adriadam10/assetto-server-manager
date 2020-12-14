@@ -35,4 +35,13 @@
     </p>
 
     <a class="btn btn-primary" href="/tracks/rebuild-maps">Rebuild Track Maps</a>
+
+
+    <br><br>
+
+    <p>
+        You can use the button below to clear all currently stored Live Timings data. This action is permanent. <strong>If an event is running, it will be stopped.</strong>
+    </p>
+
+    <a class="btn btn-danger" href="/server/delete-live-timings" onclick="confirm('Do you really want to stop the running event (if any) and permanently delete all live timings? This action is irreversible.')">Delete Live Timings</a>
 {{ end }}
