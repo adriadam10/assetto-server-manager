@@ -12,6 +12,7 @@ Beta Fixes:
 * Prevent laps from starting with a "-" character at the beginning of a lap.
 * The first lap set by a driver in a session is no longer considered to be valid to avoid outlaps on certain tracks being faster than the fastest possible normal lap (Bathurst, Spa etc.).
 * Fixes an issue where duplicating a Championship with Race Weekends inside it would result in the Race Weekends not copying across correctly.
+* Fixes # laps since pitstop sometimes being negative
 
 ---
 

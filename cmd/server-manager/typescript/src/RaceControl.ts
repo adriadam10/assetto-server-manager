@@ -1098,10 +1098,16 @@ class LiveTimings implements WebsocketHandler {
             $tr.find(".gap").text(driver.Split);
         }
 
-        let pitStopText = ""
+        let pitStopText = "";
 
         if (driver.LastPitStop > 0 && !isNaN(driver.LastPitStop)) {
-            pitStopText = " (" + (carInfo.NumLaps - driver.LastPitStop) + "/pit)"
+            let lapsSinceLastPit = carInfo.NumLaps - driver.LastPitStop;
+
+            if (lapsSinceLastPit < 0) {
+                lapsSinceLastPit = 0;
+            }
+
+            pitStopText = " (" + lapsSinceLastPit + "/pit)";
         }
 
         // lap number
@@ -1189,7 +1195,7 @@ class LiveTimings implements WebsocketHandler {
             $tag.attr({'id': `split-` + splitIndex, 'class': 'badge ml-2 mt-1 badge-' + badgeColour});
 
             if (split.SplitIndex === undefined) {
-                split.SplitIndex = 0
+                split.SplitIndex = 0;
             }
 
             $tag.text(
