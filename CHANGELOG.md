@@ -7,6 +7,10 @@ Added:
 
 * Added a 'Delete Live Timings' button to the Server Options page.
 
+Fixed:
+
+* Fixes an issue where the server timetable endpoint would not load.
+
 ---
 
 v2.0.0-b1
