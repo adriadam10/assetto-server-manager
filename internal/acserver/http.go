@@ -273,7 +273,7 @@ func (h *HTTP) TimeTable(w http.ResponseWriter, r *http.Request) {
 	}
 
 	err := timeTableTemplate.Execute(w, timeTableData{
-		SessionType: currentSession.SessionType.ResultsString(),
+		SessionType: currentSession.SessionType,
 		SessionName: currentSession.Name,
 		TimeLeft:    timeLeft,
 		LapsLeft:    lapsLeft,
@@ -288,7 +288,7 @@ func (h *HTTP) TimeTable(w http.ResponseWriter, r *http.Request) {
 }
 
 type timeTableData struct {
-	SessionType string
+	SessionType SessionType
 	SessionName string
 	TimedEvent  bool
 	TimeLeft    time.Duration
@@ -352,7 +352,7 @@ const timeTableHTML = `
 <title>Assetto Corsa Server: Entry List</title>
 </head>
 <body>
-<p>Session: {{ $.SessionType }} [{{ $.SessionName }}], {{ if $.TimedEvent }}TIME LEFT: {{ FormatSessionTime $.TimeLeft }}{{ else }}LAPS REMAINING: {{ $.LapsLeft }}{{ end }}</p>
+<p>Session: {{ $.SessionType.ResultsString }} [{{ $.SessionName }}], {{ if $.TimedEvent }}TIME LEFT: {{ FormatSessionTime $.TimeLeft }}{{ else }}LAPS REMAINING: {{ $.LapsLeft }}{{ end }}</p>
 <p>Entry List</p>
 <table>
 	<tr>
@@ -387,7 +387,7 @@ const timeTableHTML = `
 				{{- FormatLapTime $car.LastLap.LapTime }}
 			</td>
 			<td>
-				{{- FormatLapTime $car.BestLap.LapTime }}
+				{{- FormatLapTime ($car.BestLap $.SessionType).LapTime }}
 			</td>
 			<td>
 				{{- FormatLapTime $car.TotalConnectionTime }}
