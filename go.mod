@@ -65,6 +65,9 @@ require (
 	github.com/smartystreets/assertions v0.0.0-20190215210624-980c5ac6f3ac // indirect
 	github.com/solovev/steam_go v0.0.0-20170222182106-48eb5aae6c50
 	github.com/ssor/bom v0.0.0-20170718123548-6386211fdfcf // indirect
+	github.com/tdewolff/minify v2.3.6+incompatible
+	github.com/tdewolff/parse v2.3.4+incompatible // indirect
+	github.com/tdewolff/test v1.0.6 // indirect
 	github.com/teambition/rrule-go v1.6.0
 	github.com/tecbot/gorocksdb v0.0.0-20190519120508-025c3cf4ffb4 // indirect
 	github.com/tinylib/msgp v1.1.2 // indirect

@@ -299,28 +299,8 @@ func (s *Server) CarIsConnected(id CarID) bool {
 	return car.IsConnected()
 }
 
-func (s *Server) GetSessionInfo() SessionInfo {
-	currentWeather := s.weatherManager.GetCurrentWeather()
-	currentSession := s.sessionManager.GetCurrentSession()
-
-	return SessionInfo{
-		Version:         CurrentResultsVersion,
-		SessionIndex:    s.sessionManager.GetSessionIndex(),
-		SessionCount:    uint8(len(s.state.raceConfig.Sessions)),
-		ServerName:      s.state.serverConfig.Name,
-		Track:           s.state.raceConfig.Track,
-		TrackConfig:     s.state.raceConfig.TrackLayout,
-		Name:            currentSession.Name,
-		NumMinutes:      currentSession.Time,
-		NumLaps:         currentSession.Laps,
-		WaitTime:        currentSession.WaitTime,
-		AmbientTemp:     currentWeather.Ambient,
-		RoadTemp:        currentWeather.Road,
-		WeatherGraphics: currentWeather.GraphicsName,
-		ElapsedTime:     s.sessionManager.ElapsedSessionTime(),
-		SessionType:     currentSession.SessionType,
-		IsSolo:          currentSession.Solo,
-	}
+func (s *Server) GetSessionInfo(sessionIndex int) SessionInfo {
+	return s.sessionManager.BuildSessionInfo(sessionIndex)
 }
 
 func (s *Server) AddDriver(name, team, guid, model string) error {

@@ -141,7 +141,7 @@ func (p *PenaltiesPlugin) OnCarUpdate(car acserver.CarInfo) error {
 		return nil
 	}
 
-	sessionInfo := p.server.GetSessionInfo()
+	sessionInfo := p.server.GetSessionInfo(-1)
 
 	if p.eventConfig.DRSPenaltiesEnabled && sessionInfo.SessionType == acserver.SessionTypeRace {
 		penaltyInfo.isAllowedDRS = false
@@ -270,7 +270,7 @@ func (p *PenaltiesPlugin) OnCarUpdate(car acserver.CarInfo) error {
 }
 
 func (p *PenaltiesPlugin) OnNewSession(newSession acserver.SessionInfo) error {
-	p.currentSession = p.server.GetSessionInfo().SessionType
+	p.currentSession = p.server.GetSessionInfo(-1).SessionType
 	p.eventConfig = p.server.GetEventConfig()
 
 	for _, penalty := range p.penalties {
