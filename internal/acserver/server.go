@@ -271,7 +271,7 @@ func (s *Server) loop() {
 			totalTimeForUpdate := s.state.CurrentTimeMillisecond() - currentTime
 
 			if sleepTime != idleSleepTime && totalTimeForUpdate > serverTickRate {
-				s.logger.Errorf("CPU overload detected! Previous update took %dms", totalTimeForUpdate)
+				s.logger.Warnf("CPU overload detected! Previous update took %dms. Catching up now.", totalTimeForUpdate)
 			} else {
 				time.Sleep(sleepTime)
 			}
