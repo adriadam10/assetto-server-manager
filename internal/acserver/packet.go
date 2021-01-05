@@ -154,9 +154,3 @@ func (p *Packet) WriteUDP(conn writerTo, addr net.Addr) error {
 
 	return err
 }
-
-func (p *Packet) WriteToUDPConn(conn *net.UDPConn) error {
-	_, err := conn.Write(p.buf.Bytes())
-
-	return err
-}

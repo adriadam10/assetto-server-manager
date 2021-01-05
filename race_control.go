@@ -449,7 +449,7 @@ func (rc *RaceControl) requestSessionInfo() {
 	for {
 		select {
 		case <-sessionInfoTicker.C:
-			rc.UDPCallback(convertSessionInfoToUDP(udp.EventSessionInfo, rc.server.GetSessionInfo()))
+			rc.UDPCallback(convertSessionInfoToUDP(udp.EventSessionInfo, rc.server.GetSessionInfo(-1)))
 		case <-rc.serverProcessStopped:
 			logrus.Debugf("Assetto Process completed. Disconnecting all connected drivers. Session done.")
 			sessionInfoTicker.Stop()

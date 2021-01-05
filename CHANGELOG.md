@@ -10,6 +10,7 @@ Added:
 Fixed:
 
 * Fixes an issue where the server timetable endpoint would not load.
+* Fixes UDP Plugins.
 
 ---
 

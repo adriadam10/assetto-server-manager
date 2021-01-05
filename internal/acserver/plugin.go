@@ -34,7 +34,7 @@ type Plugin interface {
 type ServerPlugin interface {
 	GetCarInfo(id CarID) (CarInfo, error)
 	CarIsConnected(id CarID) bool
-	GetSessionInfo() SessionInfo
+	GetSessionInfo(sessionIndex int) SessionInfo
 	GetEventConfig() EventConfig
 
 	// AddDriver adds a driver to an existing entrant on the entry list, so long as there is an available slot

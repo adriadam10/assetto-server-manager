@@ -2,6 +2,7 @@ package acserver
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 	"time"
@@ -289,29 +290,50 @@ func (sm *SessionManager) NextSession(force, wasRestart bool) {
 	sm.UpdateLobby()
 
 	go func() {
-		err := sm.plugin.OnNewSession(SessionInfo{
-			Version:         uint8(CurrentProtocolVersion),
-			SessionIndex:    currentSessionIndex,
-			SessionCount:    uint8(len(sm.state.raceConfig.Sessions)),
-			ServerName:      sm.state.serverConfig.Name,
-			Track:           sm.state.raceConfig.Track,
-			TrackConfig:     sm.state.raceConfig.TrackLayout,
-			Name:            currentSessionConfig.Name,
-			NumMinutes:      currentSessionConfig.Time,
-			NumLaps:         currentSessionConfig.Laps,
-			WaitTime:        currentSessionConfig.WaitTime,
-			AmbientTemp:     sm.weatherManager.currentWeather.Ambient,
-			RoadTemp:        sm.weatherManager.currentWeather.Road,
-			WeatherGraphics: sm.weatherManager.currentWeather.GraphicsName,
-			ElapsedTime:     sm.ElapsedSessionTime(),
-			SessionType:     currentSessionConfig.SessionType,
-			IsSolo:          currentSessionConfig.Solo,
-		})
+		err := sm.plugin.OnNewSession(sm.BuildSessionInfo(int(currentSessionIndex)))
 
 		if err != nil {
 			sm.logger.WithError(err).Error("On new session plugin returned an error")
 		}
 	}()
+}
+
+func (sm *SessionManager) BuildSessionInfo(sessionIndex int) SessionInfo {
+	var currentSessionConfig SessionConfig
+
+	if sessionIndex < 0 {
+		sessionIndex = int(sm.GetSessionIndex())
+		currentSessionConfig = sm.GetCurrentSession()
+	} else {
+		config, err := sm.GetSessionConfigForIndex(sessionIndex)
+
+		if err != nil {
+			return SessionInfo{}
+		}
+
+		currentSessionConfig = *config
+	}
+
+	return SessionInfo{
+		Version:             uint8(CurrentProtocolVersion),
+		SessionIndex:        uint8(sessionIndex),
+		CurrentSessionIndex: sm.GetSessionIndex(),
+		SessionCount:        uint8(len(sm.state.raceConfig.Sessions)),
+		ServerName:          sm.state.serverConfig.Name,
+		Track:               sm.state.raceConfig.Track,
+		TrackConfig:         sm.state.raceConfig.TrackLayout,
+		Name:                currentSessionConfig.Name,
+		NumMinutes:          currentSessionConfig.Time,
+		NumLaps:             currentSessionConfig.Laps,
+		WaitTime:            currentSessionConfig.WaitTime,
+		AmbientTemp:         sm.weatherManager.currentWeather.Ambient,
+		RoadTemp:            sm.weatherManager.currentWeather.Road,
+		WeatherGraphics:     sm.weatherManager.currentWeather.GraphicsName,
+		ElapsedTime:         sm.ElapsedSessionTime(),
+		SessionType:         currentSessionConfig.SessionType,
+		IsSolo:              currentSessionConfig.Solo,
+		CurrentGrip:         sm.dynamicTrack.CurrentGrip(),
+	}
 }
 
 func (sm *SessionManager) loop(ctx context.Context) {
@@ -625,6 +647,14 @@ func (sm *SessionManager) GetCurrentSession() SessionConfig {
 	defer sm.mutex.RUnlock()
 
 	return sm.currentSession.Config
+}
+
+func (sm *SessionManager) GetSessionConfigForIndex(i int) (*SessionConfig, error) {
+	if i < 0 || i >= len(sm.state.raceConfig.Sessions) {
+		return nil, errors.New("acserver: invalid session index specified")
+	}
+
+	return sm.state.raceConfig.Sessions[i], nil
 }
 
 func (sm *SessionManager) GetSessionIndex() uint8 {

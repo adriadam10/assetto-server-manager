@@ -202,7 +202,7 @@ func (d dummyServer) GetCarInfo(id acserver.CarID) (acserver.CarInfo, error) {
 	return acserver.CarInfo{CarID: id}, nil
 }
 
-func (d dummyServer) GetSessionInfo() acserver.SessionInfo {
+func (d dummyServer) GetSessionInfo(_ int) acserver.SessionInfo {
 	return acserver.SessionInfo{}
 }
 
