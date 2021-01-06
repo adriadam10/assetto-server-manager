@@ -349,6 +349,7 @@ var (
 	timeTableTemplateFuncMap = template.FuncMap{
 		"FormatLapTime":     formatLapTimeDuration,
 		"FormatSessionTime": formatSessionTimeDuration,
+		"add":               func(a CarID, b int) int { return int(a) + b },
 	}
 
 	timeTableTemplate = template.Must(template.New("template").Funcs(timeTableTemplateFuncMap).Parse(timeTableHTML))
@@ -378,7 +379,7 @@ const timeTableHTML = `
 	</tr>
 	{{- range $index, $car := $.EntryList -}}
 		<tr>
-			<td>{{- $car.CarID -}}</td>
+			<td>{{- add $car.CarID 1 -}}</td>
 			<td>{{- $car.Driver.Name -}}</td>
 			<td>{{- $car.Model -}}</td>
 			<td>{{- $car.Driver.Team -}}</td>

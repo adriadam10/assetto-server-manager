@@ -6,6 +6,7 @@ v2.0.0-b3
 Fixes:
 
 * Fixes car selecting issues when joining a server.
+* Fixes issues with plugins accessing server HTML endpoint.
 
 ---
 
