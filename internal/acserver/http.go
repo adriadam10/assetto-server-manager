@@ -102,8 +102,8 @@ func (h *HTTP) EntryList(w http.ResponseWriter, r *http.Request) {
 			DriverTeam:      car.Driver.Team,
 			DriverNation:    car.Driver.Nation,
 			IsConnected:     car.IsConnected(),
-			IsRequestedGUID: car.HasGUID(requestedGUID),
-			IsEntryList:     true, // @TODO
+			IsRequestedGUID: car.Driver.GUID == requestedGUID,
+			IsEntryList:     !car.WasBooked,
 		})
 	}
 

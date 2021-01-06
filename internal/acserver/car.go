@@ -35,6 +35,7 @@ type CarInfo struct {
 	FixedSetup string  `json:"fixed_setup" yaml:"fixed_setup"`
 
 	IsAdmin         bool `json:"-"`
+	WasBooked       bool `json:"-"`
 	isSpectator     bool
 	spectatingCarID CarID
 
