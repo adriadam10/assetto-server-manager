@@ -107,10 +107,11 @@ func (em *EntryListManager) BookCar(driver Driver, model, skin string) (*Car, er
 
 	car := &Car{
 		CarInfo: CarInfo{
-			Driver: driver,
-			CarID:  CarID(len(em.state.entryList)),
-			Model:  model,
-			Skin:   skin,
+			Driver:    driver,
+			CarID:     CarID(len(em.state.entryList)),
+			Model:     model,
+			Skin:      skin,
+			WasBooked: true,
 		},
 	}
 

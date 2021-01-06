@@ -1,3 +1,14 @@
+v2.0.0-b3
+---------
+
+(The majority of this portion of the changelog will eventually be removed or added into the main v2.0.0 changelog)
+
+Fixes:
+
+* Fixes car selecting issues when joining a server.
+
+---
+
 v2.0.0-b2
 ---------
 
