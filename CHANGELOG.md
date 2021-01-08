@@ -7,6 +7,7 @@ Fixes:
 
 * ACServer HTTP endpoint now only displays DC if a driver is completely disconnected. Drivers loading in will show with a 
   ping of 0 until their ping is calculated.
+* ACServer now sends a lobby registration request when the server loops.
 
 ---
 
