@@ -1,3 +1,15 @@
+v2.0.0-b4
+---------
+
+(The majority of this portion of the changelog will eventually be removed or added into the main v2.0.0 changelog)
+
+Fixes:
+
+* ACServer HTTP endpoint now only displays DC if a driver is completely disconnected. Drivers loading in will show with a 
+  ping of 0 until their ping is calculated.
+
+---
+
 v2.0.0-b3
 ---------
 

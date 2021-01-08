@@ -384,12 +384,10 @@ const timeTableHTML = `
 			<td>{{- $car.Model -}}</td>
 			<td>{{- $car.Driver.Team -}}</td>
 			<td>
-				{{- $ping := $car.Connection.Ping -}}
-
-				{{- if eq $ping 0 -}}
+				{{- if not $car.IsConnected -}}
 					DC
 				{{- else -}}
-					{{- $ping -}}
+					{{- $car.Connection.Ping -}}
 				{{- end -}}
 			</td>
 			<td>{{- $car.SessionData.LapCount -}}</td>
