@@ -57,6 +57,13 @@ func (l *Lobby) Try(description string, fn func() error, reportSuccess bool) err
 	return err
 }
 
+func (l *Lobby) SetIsRegistered(b bool) {
+	l.mutex.Lock()
+	defer l.mutex.Unlock()
+
+	l.isRegistered = b
+}
+
 var ErrLobbyPortForwardingFailed = errors.New("kunos: could not register to lobby - check your port forwarding settings")
 
 func (l *Lobby) Register() error {
