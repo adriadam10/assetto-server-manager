@@ -38,7 +38,7 @@ func init() {
 }
 
 func main() {
-	if err := license.LoadAndValidateLicense(license.Filename); err != nil {
+	if err := license.LoadAndValidateLicense(license.Filename, license.ManagerTypeACSM); err != nil {
 		logrus.WithError(err).Fatal("Failed to validate license")
 		return
 	}

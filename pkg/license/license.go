@@ -21,11 +21,12 @@ func GetLicense() *License {
 var (
 	loadedLicense *License
 
-	ErrLicenseInvalid = errors.New("license: invalid license specified")
-	ErrLicenseExpired = errors.New("license: license has expired")
+	ErrLicenseInvalid             = errors.New("license: invalid license specified")
+	ErrLicenseExpired             = errors.New("license: license has expired")
+	ErrLicenseDoesNotMatchManager = errors.New("license: license does not match manager type")
 )
 
-func LoadAndValidateLicense(filename string) error {
+func LoadAndValidateLicense(filename string, managerType ManagerType) error {
 	publicKey, err := lk.PublicKeyFromB32String(publicKeyBase32Encoded)
 
 	if err != nil {
@@ -56,6 +57,10 @@ func LoadAndValidateLicense(filename string) error {
 
 	if !loadedLicense.Expires.IsZero() && time.Now().After(loadedLicense.Expires) {
 		return ErrLicenseExpired
+	}
+
+	if loadedLicense.ManagerType != managerType {
+		return ErrLicenseDoesNotMatchManager
 	}
 
 	logrus.Infof("This copy of ACSM is licensed to: %s", loadedLicense.Email)
