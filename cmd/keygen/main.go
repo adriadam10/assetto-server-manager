@@ -14,7 +14,7 @@ const (
 )
 
 func main() {
-	l, encoded, err := license.GenerateLicense(privateKey, "support@emperorservers.com", time.Time{})
+	l, encoded, err := license.GenerateLicense(privateKey, "support@emperorservers.com", time.Time{}, license.ManagerTypeACSM)
 
 	if err != nil {
 		panic(err)

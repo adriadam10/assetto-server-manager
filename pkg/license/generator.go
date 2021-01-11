@@ -18,14 +18,16 @@ type License struct {
 	Email       string
 	Provisioned time.Time
 	Expires     time.Time
+	ManagerType ManagerType
 }
 
-func GenerateLicense(privateKeyB32Encoded string, email string, expiry time.Time) (license *License, encoded string, err error) {
+func GenerateLicense(privateKeyB32Encoded string, email string, expiry time.Time, managerType ManagerType) (license *License, encoded string, err error) {
 	license = &License{
 		ID:          uuid.New(),
 		Email:       email,
 		Provisioned: time.Now(),
 		Expires:     expiry,
+		ManagerType: managerType,
 	}
 
 	privateKey, err := lk.PrivateKeyFromB32String(privateKeyB32Encoded)
@@ -51,8 +53,15 @@ func GenerateLicense(privateKeyB32Encoded string, email string, expiry time.Time
 	return license, formatLicense(encoded), err
 }
 
+type ManagerType string
+
 const (
 	Filename = "ACSM.License"
+
+	ManagerTypeACSM   ManagerType = "ManagerTypeACSM"
+	ManagerTypeAMS2   ManagerType = "ManagerTypeAMS2"
+	ManagerTypePCars2 ManagerType = "ManagerTypePcars2"
+	ManagerTypeACC    ManagerType = "ManagerTypeACC"
 
 	licensePrefix = "-----BEGIN LICENSE-----\n"
 	licenseSuffix = "\n-----END LICENSE-----"
