@@ -229,6 +229,9 @@ func (sm *SessionManager) NextSession(force, wasRestart bool) {
 			sm.currentSessionIndex = 0
 			sm.mutex.Unlock()
 
+			// mark the lobby as not registered so that the register request gets through
+			sm.lobby.SetIsRegistered(false)
+
 			if err := sm.lobby.Try("Register to lobby", sm.lobby.Register, true); err != nil {
 				sm.logger.WithError(err).Error("All attempts to register to lobby failed")
 			}
