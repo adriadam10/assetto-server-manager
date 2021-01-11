@@ -1,3 +1,39 @@
+v2.0.0-b5
+---------
+
+(The majority of this portion of the changelog will eventually be removed or added into the main v2.0.0 changelog)
+
+Fixes:
+
+* ACServer lobby reregister issue
+
+---
+
+v2.0.0-b4
+---------
+
+(The majority of this portion of the changelog will eventually be removed or added into the main v2.0.0 changelog)
+
+Fixes:
+
+* ACServer HTTP endpoint now only displays DC if a driver is completely disconnected. Drivers loading in will show with a 
+  ping of 0 until their ping is calculated.
+* ACServer now sends a lobby registration request when the server loops.
+
+---
+
+v2.0.0-b3
+---------
+
+(The majority of this portion of the changelog will eventually be removed or added into the main v2.0.0 changelog)
+
+Fixes:
+
+* Fixes car selecting issues when joining a server.
+* Fixes issues with plugins accessing server HTML endpoint.
+
+---
+
 v2.0.0-b2
 ---------
 
@@ -10,6 +46,7 @@ Added:
 Fixed:
 
 * Fixes an issue where the server timetable endpoint would not load.
+* Fixes UDP Plugins.
 
 ---
 

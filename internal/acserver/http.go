@@ -1,6 +1,7 @@
 package acserver
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"html/template"
@@ -9,6 +10,8 @@ import (
 	"time"
 
 	"github.com/go-chi/chi"
+	"github.com/tdewolff/minify"
+	"github.com/tdewolff/minify/html"
 )
 
 type HTTP struct {
@@ -99,8 +102,8 @@ func (h *HTTP) EntryList(w http.ResponseWriter, r *http.Request) {
 			DriverTeam:      car.Driver.Team,
 			DriverNation:    car.Driver.Nation,
 			IsConnected:     car.IsConnected(),
-			IsRequestedGUID: car.HasGUID(requestedGUID),
-			IsEntryList:     true, // @TODO
+			IsRequestedGUID: car.Driver.GUID == requestedGUID,
+			IsEntryList:     !car.WasBooked,
 		})
 	}
 
@@ -272,7 +275,9 @@ func (h *HTTP) TimeTable(w http.ResponseWriter, r *http.Request) {
 		timeLeft = h.sessionManager.RemainingSessionTime()
 	}
 
-	err := timeTableTemplate.Execute(w, timeTableData{
+	buf := new(bytes.Buffer)
+
+	err := timeTableTemplate.Execute(buf, timeTableData{
 		SessionType: currentSession.SessionType,
 		SessionName: currentSession.Name,
 		TimeLeft:    timeLeft,
@@ -285,6 +290,10 @@ func (h *HTTP) TimeTable(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		h.logger.WithError(err).Errorf("Could not render timetable template")
 	}
+
+	// KMR requires HTML to be minified so it can do pattern matching.
+	minifier := &html.Minifier{KeepEndTags: true}
+	_ = minifier.Minify(minify.New(), w, buf, nil)
 }
 
 type timeTableData struct {
@@ -340,6 +349,7 @@ var (
 	timeTableTemplateFuncMap = template.FuncMap{
 		"FormatLapTime":     formatLapTimeDuration,
 		"FormatSessionTime": formatSessionTimeDuration,
+		"add":               func(a CarID, b int) int { return int(a) + b },
 	}
 
 	timeTableTemplate = template.Must(template.New("template").Funcs(timeTableTemplateFuncMap).Parse(timeTableHTML))
@@ -367,36 +377,34 @@ const timeTableHTML = `
 		<td>Total</td>
 		<td>Guid</td>
 	</tr>
-	{{ range $index, $car := $.EntryList }}
+	{{- range $index, $car := $.EntryList -}}
 		<tr>
-			<td>{{ $car.CarID }}</td>
-			<td>{{ $car.Driver.Name }}</td>
-			<td>{{ $car.Model }}</td>
-			<td>{{ $car.Driver.Team }}</td>
+			<td>{{- add $car.CarID 1 -}}</td>
+			<td>{{- $car.Driver.Name -}}</td>
+			<td>{{- $car.Model -}}</td>
+			<td>{{- $car.Driver.Team -}}</td>
 			<td>
-				{{- $ping := $car.Connection.Ping -}}
-
-				{{- if eq $ping 0 -}}
+				{{- if not $car.IsConnected -}}
 					DC
 				{{- else -}}
-					{{ $ping }}
+					{{- $car.Connection.Ping -}}
 				{{- end -}}
 			</td>
-			<td>{{ $car.SessionData.LapCount }}</td>
+			<td>{{- $car.SessionData.LapCount -}}</td>
 			<td>
-				{{- FormatLapTime $car.LastLap.LapTime }}
+				{{- FormatLapTime $car.LastLap.LapTime -}}
 			</td>
 			<td>
-				{{- FormatLapTime ($car.BestLap $.SessionType).LapTime }}
+				{{- FormatLapTime ($car.BestLap $.SessionType).LapTime -}}
 			</td>
 			<td>
-				{{- FormatLapTime $car.TotalConnectionTime }}
+				{{- FormatLapTime $car.TotalConnectionTime -}}
 			</td>
 			<td>
 				{{- $car.Driver.GUID -}}
 			</td>
 		</tr>
-	{{ end }}
+	{{- end -}}
 </table>
 <table>
 	<tr>
@@ -409,17 +417,17 @@ const timeTableHTML = `
 		<td>Diff</td>
 	</tr>
 
-	{{ range $pos, $line := $.Leaderboard }}
+	{{- range $pos, $line := $.Leaderboard -}}
 		<tr>
-			<td>{{ $pos }}</td>
-			<td>{{ $line.Car.Driver.Name }}</td>
-			<td>{{ $line.Car.Model }}</td>
-			<td>{{ $line.Car.Driver.Team }}</td>
-			<td>{{ $line.NumLaps }}</td>
-			<td>{{ FormatLapTime $line.Time }}</td>
-			<td>+{{ FormatLapTime $line.GapToLeader }}</td>
-		</td>
-	{{ end }}
+			<td>{{- $pos -}}</td>
+			<td>{{- $line.Car.Driver.Name -}}</td>
+			<td>{{- $line.Car.Model -}}</td>
+			<td>{{- $line.Car.Driver.Team -}}</td>
+			<td>{{- $line.NumLaps -}}</td>
+			<td>{{- FormatLapTime $line.Time -}}</td>
+			<td>+{{- FormatLapTime $line.GapToLeader -}}</td>
+		</tr>
+	{{- end -}}
 </table>
 <p>Throughput: 0kBs</p>
 </body>

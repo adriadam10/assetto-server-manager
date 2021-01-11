@@ -259,11 +259,10 @@ func (ss *ServerState) GetCarByGUID(guid string, connected bool) *Car {
 	return nil
 }
 
-var ErrCarNotFound = errors.New("openAcServer: car not found")
+var ErrCarNotFound = errors.New("acserver: car not found")
 
 func (ss *ServerState) GetCarByID(carID CarID) (*Car, error) {
 	if carID == ServerCarID {
-		// @TODO better way of doing this?
 		return &Car{}, nil
 	}
 

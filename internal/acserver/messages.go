@@ -113,22 +113,24 @@ func (s SessionType) ResultsString() string {
 }
 
 type SessionInfo struct {
-	Version         uint8         `json:"Version"`
-	SessionIndex    uint8         `json:"SessionIndex"`
-	SessionCount    uint8         `json:"SessionCount"`
-	ServerName      string        `json:"ServerName"`
-	Track           string        `json:"Track"`
-	TrackConfig     string        `json:"TrackConfig"`
-	Name            string        `json:"Name"`
-	NumMinutes      uint16        `json:"Time"`
-	NumLaps         uint16        `json:"Laps"`
-	WaitTime        int           `json:"WaitTime"`
-	AmbientTemp     uint8         `json:"AmbientTemp"`
-	RoadTemp        uint8         `json:"RoadTemp"`
-	WeatherGraphics string        `json:"WeatherGraphics"`
-	ElapsedTime     time.Duration `json:"ElapsedTime"`
-	SessionType     SessionType   `json:"EventType"`
-	IsSolo          bool          `json:"IsSolo"`
+	Version             uint8         `json:"Version"`
+	SessionIndex        uint8         `json:"SessionIndex"`
+	CurrentSessionIndex uint8         `json:"CurrentSessionIndex"`
+	SessionCount        uint8         `json:"SessionCount"`
+	ServerName          string        `json:"ServerName"`
+	Track               string        `json:"Track"`
+	TrackConfig         string        `json:"TrackConfig"`
+	Name                string        `json:"Name"`
+	NumMinutes          uint16        `json:"Time"`
+	NumLaps             uint16        `json:"Laps"`
+	WaitTime            int           `json:"WaitTime"`
+	AmbientTemp         uint8         `json:"AmbientTemp"`
+	RoadTemp            uint8         `json:"RoadTemp"`
+	WeatherGraphics     string        `json:"WeatherGraphics"`
+	ElapsedTime         time.Duration `json:"ElapsedTime"`
+	SessionType         SessionType   `json:"EventType"`
+	IsSolo              bool          `json:"IsSolo"`
+	CurrentGrip         float32
 }
 
 type KickReason uint8

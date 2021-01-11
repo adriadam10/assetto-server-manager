@@ -112,7 +112,7 @@ func (u *UDPPlugin) Init(server acserver.ServerPlugin, logger acserver.Logger) e
 
 	var err error
 
-	u.packetConn, err = net.DialUDP("udp", u.localAddress, u.remoteAddress)
+	u.packetConn, err = net.ListenUDP("udp", u.localAddress)
 
 	if err != nil {
 		return err
@@ -169,19 +169,21 @@ func (u *UDPPlugin) handleConnection(data []byte) error {
 		response.WriteUTF32String(car.Driver.Team)
 		response.WriteUTF32String(car.Driver.GUID)
 
-		return response.WriteToUDPConn(u.packetConn)
+		return response.WriteUDP(u.packetConn, u.remoteAddress)
 	case EventSendChat:
 		var carID acserver.CarID
 
 		p.Read(&carID)
 
-		return u.server.SendChat(p.ReadUTF32String(), acserver.ServerCarID, carID, true)
+		return u.server.SendChat(p.ReadUTF32String(), acserver.ServerCarID, carID, false)
 	case EventBroadcastChat:
-		u.server.BroadcastChat(p.ReadUTF32String(), acserver.ServerCarID, true)
+		u.server.BroadcastChat(p.ReadUTF32String(), acserver.ServerCarID, false)
 	case EventGetSessionInfo:
-		response := sessionInfoPacket(EventSessionInfo, u.server.GetSessionInfo())
+		index := p.ReadInt16()
 
-		return response.WriteToUDPConn(u.packetConn)
+		response := sessionInfoPacket(EventSessionInfo, u.server.GetSessionInfo(int(index)))
+
+		return response.WriteUDP(u.packetConn, u.remoteAddress)
 	case EventKickUser:
 		var carID acserver.CarID
 
@@ -245,13 +247,13 @@ func carInfoPacket(messageType UDPPluginEvent, car acserver.CarInfo) *acserver.P
 func (u *UDPPlugin) OnNewConnection(car acserver.CarInfo) error {
 	p := carInfoPacket(EventNewConnection, car)
 
-	return p.WriteToUDPConn(u.packetConn)
+	return p.WriteUDP(u.packetConn, u.remoteAddress)
 }
 
 func (u *UDPPlugin) OnConnectionClosed(car acserver.CarInfo) error {
 	p := carInfoPacket(EventConnectionClosed, car)
 
-	return p.WriteToUDPConn(u.packetConn)
+	return p.WriteUDP(u.packetConn, u.remoteAddress)
 }
 
 func (u *UDPPlugin) OnCarUpdate(car acserver.CarInfo) error {
@@ -264,13 +266,13 @@ func (u *UDPPlugin) OnCarUpdate(car acserver.CarInfo) error {
 	p.Write(car.PluginStatus.EngineRPM)
 	p.Write(car.PluginStatus.NormalisedSplinePos)
 
-	return p.WriteToUDPConn(u.packetConn)
+	return p.WriteUDP(u.packetConn, u.remoteAddress)
 }
 
 func (u *UDPPlugin) OnNewSession(newSession acserver.SessionInfo) error {
 	p := sessionInfoPacket(EventNewSession, newSession)
 
-	return p.WriteToUDPConn(u.packetConn)
+	return p.WriteUDP(u.packetConn, u.remoteAddress)
 }
 
 func sessionInfoPacket(eventType UDPPluginEvent, sessionInfo acserver.SessionInfo) *acserver.Packet {
@@ -278,7 +280,7 @@ func sessionInfoPacket(eventType UDPPluginEvent, sessionInfo acserver.SessionInf
 	p.Write(eventType)
 	p.Write(UDPProtocolVersion)
 	p.Write(sessionInfo.SessionIndex)
-	p.Write(sessionInfo.SessionIndex) // @TODO this one should be 'current session index'?
+	p.Write(sessionInfo.CurrentSessionIndex)
 	p.Write(sessionInfo.SessionCount)
 	p.WriteUTF32String(sessionInfo.ServerName)
 	p.WriteString(sessionInfo.Track)
@@ -301,7 +303,7 @@ func (u *UDPPlugin) OnEndSession(sessionFile string) error {
 	p.Write(EventEndSession)
 	p.WriteUTF32String(sessionFile)
 
-	return p.WriteToUDPConn(u.packetConn)
+	return p.WriteUDP(u.packetConn, u.remoteAddress)
 }
 
 func (u *UDPPlugin) OnVersion(_ uint16) error {
@@ -309,7 +311,7 @@ func (u *UDPPlugin) OnVersion(_ uint16) error {
 	p.Write(EventVersion)
 	p.Write(UDPProtocolVersion)
 
-	return p.WriteToUDPConn(u.packetConn)
+	return p.WriteUDP(u.packetConn, u.remoteAddress)
 }
 
 func (u *UDPPlugin) OnChat(chat acserver.Chat) error {
@@ -318,7 +320,7 @@ func (u *UDPPlugin) OnChat(chat acserver.Chat) error {
 	p.Write(chat.FromCar)
 	p.WriteUTF32String(chat.Message)
 
-	return p.WriteToUDPConn(u.packetConn)
+	return p.WriteUDP(u.packetConn, u.remoteAddress)
 }
 
 func (u *UDPPlugin) OnClientLoaded(car acserver.CarInfo) error {
@@ -326,7 +328,7 @@ func (u *UDPPlugin) OnClientLoaded(car acserver.CarInfo) error {
 	p.Write(EventClientLoaded)
 	p.Write(car.CarID)
 
-	return p.WriteToUDPConn(u.packetConn)
+	return p.WriteUDP(u.packetConn, u.remoteAddress)
 }
 
 func (u *UDPPlugin) OnLapCompleted(carID acserver.CarID, lap acserver.Lap) error {
@@ -350,7 +352,9 @@ func (u *UDPPlugin) OnLapCompleted(carID acserver.CarID, lap acserver.Lap) error
 		}
 	}
 
-	return p.WriteToUDPConn(u.packetConn)
+	p.Write(u.server.GetSessionInfo(-1).CurrentGrip)
+
+	return p.WriteUDP(u.packetConn, u.remoteAddress)
 }
 
 func (u *UDPPlugin) OnClientEvent(_ acserver.ClientEvent) error {
@@ -367,7 +371,7 @@ func (u *UDPPlugin) OnCollisionWithCar(event acserver.ClientEvent) error {
 	p.Write(event.Position)
 	p.Write(event.RelativePosition)
 
-	return p.WriteToUDPConn(u.packetConn)
+	return p.WriteUDP(u.packetConn, u.remoteAddress)
 }
 
 func (u *UDPPlugin) OnCollisionWithEnv(event acserver.ClientEvent) error {
@@ -379,7 +383,7 @@ func (u *UDPPlugin) OnCollisionWithEnv(event acserver.ClientEvent) error {
 	p.Write(event.Position)
 	p.Write(event.RelativePosition)
 
-	return p.WriteToUDPConn(u.packetConn)
+	return p.WriteUDP(u.packetConn, u.remoteAddress)
 }
 
 func (u *UDPPlugin) OnSectorCompleted(car acserver.CarInfo, split acserver.Split) error {
@@ -394,13 +398,13 @@ func (u *UDPPlugin) OnSectorCompleted(car acserver.CarInfo, split acserver.Split
 	p.Write(split.Time)
 	p.Write(split.Cuts)
 
-	return p.WriteToUDPConn(u.packetConn)
+	return p.WriteUDP(u.packetConn, u.remoteAddress)
 }
 
 func (u *UDPPlugin) OnWeatherChange(_ acserver.CurrentWeather) error {
-	p := sessionInfoPacket(EventSessionInfo, u.server.GetSessionInfo())
+	p := sessionInfoPacket(EventSessionInfo, u.server.GetSessionInfo(-1))
 
-	return p.WriteToUDPConn(u.packetConn)
+	return p.WriteUDP(u.packetConn, u.remoteAddress)
 }
 
 func (u *UDPPlugin) OnTyreChange(car acserver.CarInfo, tyres string) error {

@@ -87,7 +87,7 @@ func (r *UDPPluginAdapter) OnNewSession(newSession acserver.SessionInfo) error {
 }
 
 func (r *UDPPluginAdapter) OnWeatherChange(_ acserver.CurrentWeather) error {
-	r.UDPCallback(convertSessionInfoToUDP(udp.EventSessionInfo, r.server.GetSessionInfo()))
+	r.UDPCallback(convertSessionInfoToUDP(udp.EventSessionInfo, r.server.GetSessionInfo(-1)))
 
 	return nil
 }
