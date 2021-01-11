@@ -53,15 +53,15 @@ func GenerateLicense(privateKeyB32Encoded string, email string, expiry time.Time
 	return license, formatLicense(encoded), err
 }
 
-type ManagerType string
+type ManagerType int
 
 const (
 	Filename = "ACSM.License"
 
-	ManagerTypeACSM   ManagerType = "ManagerTypeACSM"
-	ManagerTypeAMS2   ManagerType = "ManagerTypeAMS2"
-	ManagerTypePCars2 ManagerType = "ManagerTypePcars2"
-	ManagerTypeACC    ManagerType = "ManagerTypeACC"
+	ManagerTypeACSM ManagerType = iota
+	ManagerTypeAMS2
+	ManagerTypePCars2
+	ManagerTypeACC
 
 	licensePrefix = "-----BEGIN LICENSE-----\n"
 	licenseSuffix = "\n-----END LICENSE-----"
