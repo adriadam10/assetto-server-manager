@@ -1,3 +1,12 @@
+v2.0.0-b6
+---------
+
+(The majority of this portion of the changelog will eventually be removed or added into the main v2.0.0 changelog)
+
+* Fixes spectator mode showing cars in incorrect locations.
+
+---
+
 v2.0.0-b5
 ---------
 

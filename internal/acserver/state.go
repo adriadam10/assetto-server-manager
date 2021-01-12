@@ -650,8 +650,8 @@ func (ss *ServerState) SendMegaPacket(car *Car, currentTime int64, connectedCars
 		}
 
 		bw.Write(otherCar.CarID)
-		bw.Write(status.Sequence)
-		bw.Write(status.Timestamp - car.Connection.TimeOffset)
+		bw.Write(otherCar.Status.Sequence)
+		bw.Write(otherCar.Status.Timestamp - car.Connection.TimeOffset)
 		bw.Write(uint16(otherCar.Connection.Ping))
 		bw.Write(status.Position)
 		bw.Write(status.Rotation)
@@ -687,8 +687,8 @@ func (ss *ServerState) BroadcastCarUpdate(car *Car) {
 		p := NewPacket(nil)
 		p.Write(UDPMessageCarUpdate)
 		p.Write(car.CarID)
-		p.Write(status.Sequence)
-		p.Write(status.Timestamp - otherCar.Connection.TimeOffset)
+		p.Write(car.Status.Sequence)
+		p.Write(car.Status.Timestamp - otherCar.Connection.TimeOffset)
 		p.Write(uint16(car.Connection.Ping))
 		p.Write(status.Position)
 		p.Write(status.Rotation)
