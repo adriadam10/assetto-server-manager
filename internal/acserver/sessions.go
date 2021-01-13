@@ -464,7 +464,9 @@ func (sm *SessionManager) CurrentSessionHasFinished() bool {
 		leader := leaderboard[0].Car
 		raceOverTime := time.Duration(int64(sm.state.raceConfig.RaceOverTime)*1000) * time.Millisecond
 
-		return time.Since(leader.GetLaps()[leader.LapCount()-1].CompletedTime) > raceOverTime
+		leaderLaps := leader.GetLaps()
+
+		return time.Since(leaderLaps[len(leaderLaps)-1].CompletedTime) > raceOverTime
 	case SessionTypeBooking:
 		return sm.RemainingSessionTime() <= 0
 	default:
