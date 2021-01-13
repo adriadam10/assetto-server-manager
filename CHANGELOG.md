@@ -4,6 +4,8 @@ v2.0.0-b6
 (The majority of this portion of the changelog will eventually be removed or added into the main v2.0.0 changelog)
 
 * Fixes spectator mode showing cars in incorrect locations.
+* If two cars set an equal lap time, the car that set it first is sorted lower (i.e. closer to 1st) than the other.
+* If a car attempts to rejoin while the server already thinks it is connected, the old connection is forcibly closed and the new car is allowed to join. (Pickup mode only)
 
 ---
 

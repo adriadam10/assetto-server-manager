@@ -73,6 +73,15 @@ func (em *EntryListManager) ConnectCar(conn net.Conn, driver Driver, requestedMo
 		// look first to see if they've been in a car previously
 		for _, car := range em.state.entryList {
 			if car.IsConnected() {
+				if car.Driver.GUID == driver.GUID {
+					// this car is connected, but the driver in the car is trying to reconnect.
+					// close the existing connection and swap in the new one.
+					car.CloseConnection()
+					car.SwapDrivers(driver, NewConnection(conn), isAdmin, isSpectator)
+
+					return car, nil
+				}
+
 				continue
 			}
 

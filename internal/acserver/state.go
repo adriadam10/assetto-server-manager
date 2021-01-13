@@ -844,20 +844,26 @@ func (ss *ServerState) Leaderboard(sessionType SessionType) []*LeaderboardLine {
 			}
 
 			if carI.Time == carJ.Time {
-				carILaps := carI.Car.GetLaps()
-				carJLaps := carJ.Car.GetLaps()
+				if carI.Time == maximumLapTime {
+					// neither car has set a valid lap
+					carILaps := carI.Car.GetLaps()
+					carJLaps := carJ.Car.GetLaps()
 
-				if len(carILaps) == len(carJLaps) {
-					if carI.Car.IsConnected() && !carJ.Car.IsConnected() {
-						return true
-					} else if !carI.Car.IsConnected() && carJ.Car.IsConnected() {
-						return false
+					if len(carILaps) == len(carJLaps) {
+						if carI.Car.IsConnected() && !carJ.Car.IsConnected() {
+							return true
+						} else if !carI.Car.IsConnected() && carJ.Car.IsConnected() {
+							return false
+						}
+
+						return carI.Car.CarID < carJ.Car.CarID
 					}
 
-					return carI.Car.CarID < carJ.Car.CarID
+					return len(carILaps) > len(carJLaps)
 				}
 
-				return len(carILaps) > len(carJLaps)
+				// cars set an identical best lap. the car that completed it first is sorted lower.
+				return carI.Car.BestLap(sessionType).CompletedTime.Before(carJ.Car.BestLap(sessionType).CompletedTime)
 			}
 
 			return carI.Time < carJ.Time
