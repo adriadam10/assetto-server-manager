@@ -63,7 +63,7 @@ func LoadAndValidateLicense(filename string, managerType ManagerType) error {
 		return ErrLicenseDoesNotMatchManager
 	}
 
-	logrus.Infof("This copy of %s is licensed to: %s", managerType.String(), loadedLicense.Email)
+	logrus.Infof("This copy of %s is licensed to: %s", managerType, loadedLicense.Email)
 	logrus.Infof("License created at: %s", loadedLicense.Provisioned.Format(time.ANSIC))
 
 	if loadedLicense.Expires.IsZero() {
