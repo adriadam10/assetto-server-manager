@@ -27,6 +27,7 @@ vet: install-linter generate
 
 generate:
 	go get -u github.com/mjibson/esc
+	go get golang.org/x/tools/cmd/stringer
 	go generate ./...
 
 assets:

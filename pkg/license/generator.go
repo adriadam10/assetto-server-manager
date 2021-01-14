@@ -9,6 +9,8 @@ import (
 	"github.com/hyperboloide/lk"
 )
 
+//go:generate stringer -type=ManagerType -linecomment
+
 func init() {
 	gob.Register(License{})
 }
@@ -58,10 +60,11 @@ type ManagerType int
 const (
 	Filename = "ACSM.License"
 
-	ManagerTypeACSM ManagerType = iota
-	ManagerTypeAMS2
-	ManagerTypePCars2
-	ManagerTypeACC
+	ManagerTypeACSM   ManagerType = iota // Assetto Corsa Server Manager
+	ManagerTypeAMS2                      // Automobilista 2 Server Manager
+	ManagerTypePCars2                    // Project Cars 2 Server Manager
+	ManagerTypeACC                       // Assetto Corsa Competizione Server Manager
+	ManagerTypeAny                       // Any Server Manager
 
 	licensePrefix = "-----BEGIN LICENSE-----\n"
 	licenseSuffix = "\n-----END LICENSE-----"
