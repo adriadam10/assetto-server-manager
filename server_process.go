@@ -65,7 +65,7 @@ type AssettoServerProcess struct {
 	raceEvent      RaceEvent
 	serverConfig   *GlobalServerConfig
 	mutex          sync.Mutex
-	extraProcesses []*exec.Cmd
+	extraProcesses []*pluginProcess
 
 	sharedPitLane *pitlanedetection.PitLane
 	logFile       io.WriteCloser
@@ -661,15 +661,29 @@ func (sp *AssettoServerProcess) startPlugin(wd string, plugin *CommandPlugin) er
 
 	cmd.Dir = pluginDir
 
+	stdin, err := cmd.StdinPipe()
+
+	if err != nil {
+		return err
+	}
+
 	err = cmd.Start()
 
 	if err != nil {
 		return err
 	}
 
-	sp.extraProcesses = append(sp.extraProcesses, cmd)
+	sp.extraProcesses = append(sp.extraProcesses, &pluginProcess{
+		cmd:   cmd,
+		stdin: stdin,
+	})
 
 	return nil
+}
+
+type pluginProcess struct {
+	cmd   *exec.Cmd
+	stdin io.WriteCloser
 }
 
 func (sp *AssettoServerProcess) stopChildProcesses() {
@@ -678,17 +692,36 @@ func (sp *AssettoServerProcess) stopChildProcesses() {
 	for _, command := range sp.extraProcesses {
 		waitDone := make(chan error, 1)
 		go func() {
-			waitDone <- command.Wait()
+			waitDone <- command.cmd.Wait()
 		}()
-		if err := stopCommand(command, waitDone, 30); err != nil {
+
+		if command.cmd.Dir == filepath.Join(ServerInstallPath, "kissmyrank") {
+			_, _ = fmt.Fprintf(command.stdin, "exit\r\n")
+
+			kmrStopTimeout := time.After(time.Second * 15)
+
+			select {
+			case err := <-waitDone:
+				if err != nil {
+					logrus.WithError(err).Errorf("KissMyRank stopped with an error")
+				} else {
+					logrus.Infof("KissMyRank stopped correctly")
+				}
+				continue
+			case <-kmrStopTimeout:
+				logrus.Infof("KissMyRank did not stop correctly, manually killing...")
+			}
+		}
+
+		if err := stopCommand(command.cmd, waitDone, 30); err != nil {
 			if _, isExit := err.(*exec.ExitError); !isExit {
-				name := filepath.Base(command.Path)
-				logrus.WithError(err).Warnf("Command stop problem: %s [pid: %d]", name, command.Process.Pid)
+				name := filepath.Base(command.cmd.Path)
+				logrus.WithError(err).Warnf("Command stop problem: %s [pid: %d]", name, command.cmd.Process.Pid)
 			}
 		}
 	}
 
-	sp.extraProcesses = make([]*exec.Cmd, 0)
+	sp.extraProcesses = make([]*pluginProcess, 0)
 }
 
 func newLogBuffer(maxSize int) *logBuffer {

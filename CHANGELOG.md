@@ -138,6 +138,7 @@ Fixed:
 * Improved process management for plugins and acServer itself. Thanks to @mayfield for this one!
 * Duplicating a Championship now clears all registration requests.
 * Fixes a crash that could occur when concurrently reading weather configurations.
+* KissMyRank is now instructed to stop using a command in its console. This should hopefully prevent issues with data files corrupting on stop.
 
 Removed:
 
