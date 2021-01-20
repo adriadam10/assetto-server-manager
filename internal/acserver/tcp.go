@@ -144,6 +144,8 @@ func (t *TCP) Listen(ctx context.Context) error {
 							return
 						}
 
+						TCPBytesRead += 2
+
 						if err = t.handleConnection(conn, messageLength); err != nil {
 							if e, ok := err.(*net.OpError); ok && (!e.Temporary() || e.Timeout()) {
 								t.logger.WithError(err).Errorf("Detected broken TCP connection for: %s. Closing now.", conn.RemoteAddr().String())
@@ -169,6 +171,9 @@ func (t *TCP) handleConnection(conn net.Conn, messageLength uint16) error {
 	buf := make([]byte, messageLength)
 
 	n, err := conn.Read(buf)
+
+	TCPBytesRead += n
+	TCPMessagesReceived++
 
 	if err != nil {
 		return err
