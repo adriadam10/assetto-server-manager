@@ -779,10 +779,7 @@ func (ss *ServerState) Leaderboard(sessionType SessionType) []*LeaderboardLine {
 
 		switch sessionType {
 		case SessionTypeRace:
-			for _, lap := range laps {
-				duration += lap.LapTime
-			}
-
+			duration = car.TotalRaceTime()
 			lapCount = len(laps)
 		default:
 			bestLap := car.BestLap(sessionType)

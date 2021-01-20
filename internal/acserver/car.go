@@ -115,13 +115,14 @@ func NewConnection(tcpConn net.Conn) Connection {
 }
 
 type SessionData struct {
-	Laps            []*Lap
-	Sectors         []Split
-	Events          []*ClientEvent
-	LapCount        int
-	HasExtraLapToGo bool
-	P2PCount        int16
-	MandatoryPit    bool
+	Laps             []*Lap
+	Sectors          []Split
+	Events           []*ClientEvent
+	LapCount         int
+	HasExtraLapToGo  bool
+	P2PCount         int16
+	MandatoryPit     bool
+	TotalSessionTime time.Duration
 
 	HasCompletedSession bool
 }
@@ -359,7 +360,7 @@ func (c *Car) GetSpectatingCarID() CarID {
 	return c.spectatingCarID
 }
 
-func (c *Car) AddLap(lap *LapCompleted) *Lap {
+func (c *Car) AddLap(lap *LapCompleted, currentTime, sessionStartTime int64) *Lap {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
@@ -383,6 +384,7 @@ func (c *Car) AddLap(lap *LapCompleted) *Lap {
 
 	c.SessionData.Laps = append(c.SessionData.Laps, l)
 	c.SessionData.LapCount = int(lap.LapCount)
+	c.SessionData.TotalSessionTime = time.Duration(currentTime-sessionStartTime-int64(c.Connection.Ping)/2) * time.Millisecond
 
 	return l
 }
@@ -415,17 +417,7 @@ func (c *Car) TotalRaceTime() time.Duration {
 	c.mutex.RLock()
 	defer c.mutex.RUnlock()
 
-	if len(c.SessionData.Laps) == 0 {
-		return time.Duration(0)
-	}
-
-	var out time.Duration
-
-	for _, lap := range c.SessionData.Laps {
-		out += lap.LapTime
-	}
-
-	return out
+	return c.SessionData.TotalSessionTime
 }
 
 func (c *Car) LastLap() *Lap {

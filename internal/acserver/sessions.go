@@ -749,7 +749,7 @@ func (sm *SessionManager) CompleteLap(carID CarID, lap *LapCompleted, target *Ca
 		return nil
 	}
 
-	l := car.AddLap(lap)
+	l := car.AddLap(lap, sm.state.CurrentTimeMillisecond(), sm.currentSession.startTime)
 
 	if carID != ServerCarID {
 		// last sector only
