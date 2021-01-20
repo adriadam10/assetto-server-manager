@@ -100,9 +100,9 @@
                                                     <td class="driver-link" data-href="#{{ $event.OtherDriver.GUID }}-{{ $event.OtherCarID }}">{{ driverName $event.OtherDriver.Name }}</td>
                                                     <td>
                                                         {{ if eq $event.Type "COLLISION_WITH_ENV" }}
-                                                            Collision with environment
+                                                            Collision with environment{{ if $event.AfterSessionEnd }} after session end{{ end }}
                                                         {{ else }}
-                                                            Collision with car
+                                                            Collision with car{{ if $event.AfterSessionEnd }} after session end{{ end }}
                                                         {{ end }}
                                                     </td>
 

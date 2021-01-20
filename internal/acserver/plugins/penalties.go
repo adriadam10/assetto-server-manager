@@ -792,7 +792,7 @@ func (p *PenaltiesPlugin) OnCollisionWithEnv(event acserver.ClientEvent) error {
 }
 
 func (p *PenaltiesPlugin) onCollision(event acserver.ClientEvent, withCar bool) error {
-	if !p.eventConfig.CollisionPenaltiesEnabled || p.currentSession != acserver.SessionTypeRace {
+	if !p.eventConfig.CollisionPenaltiesEnabled || p.currentSession != acserver.SessionTypeRace || event.AfterSessionEnd {
 		return nil
 	}
 

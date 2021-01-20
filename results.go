@@ -295,7 +295,21 @@ func (s *SessionResults) GetCrashes(guid, model string) int {
 	var num int
 
 	for _, event := range s.Events {
-		if event.CarID == carID {
+		if event.CarID == carID && !event.AfterSessionEnd {
+			num++
+		}
+	}
+
+	return num
+}
+
+func (s *SessionResults) GetCrashesAfterSessionEnd(guid, model string) int {
+	carID := s.FindCarIDForGUIDAndModel(guid, model)
+
+	var num int
+
+	for _, event := range s.Events {
+		if event.CarID == carID && event.AfterSessionEnd {
 			num++
 		}
 	}
@@ -1097,14 +1111,15 @@ func (c *SessionCar) HasMultipleDrivers() bool {
 }
 
 type SessionEvent struct {
-	CarID         int            `json:"CarId"`
-	Driver        *SessionDriver `json:"Driver"`
-	ImpactSpeed   float64        `json:"ImpactSpeed"`
-	OtherCarID    int            `json:"OtherCarId"`
-	OtherDriver   *SessionDriver `json:"OtherDriver"`
-	RelPosition   *SessionPos    `json:"RelPosition"`
-	Type          string         `json:"Type"`
-	WorldPosition *SessionPos    `json:"WorldPosition"`
+	CarID           int            `json:"CarId"`
+	Driver          *SessionDriver `json:"Driver"`
+	ImpactSpeed     float64        `json:"ImpactSpeed"`
+	OtherCarID      int            `json:"OtherCarId"`
+	OtherDriver     *SessionDriver `json:"OtherDriver"`
+	RelPosition     *SessionPos    `json:"RelPosition"`
+	Type            string         `json:"Type"`
+	WorldPosition   *SessionPos    `json:"WorldPosition"`
+	AfterSessionEnd bool           `json:"AfterSessionEnd"`
 }
 
 func (se *SessionEvent) GetRelPosition() string {

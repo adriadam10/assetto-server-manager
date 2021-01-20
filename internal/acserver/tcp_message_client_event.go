@@ -29,6 +29,7 @@ type ClientEvent struct {
 	Position         Vector3F
 	RelativePosition Vector3F
 	TimeStamp        time.Time
+	AfterSessionEnd  bool
 }
 
 const (
@@ -47,9 +48,10 @@ func (d ClientEventMessageHandler) OnMessage(conn net.Conn, p *Packet) error {
 
 	for i := 0; i < int(numEvents); i++ {
 		clientEvent := &ClientEvent{
-			CarID:      entrant.CarID,
-			DriverGUID: entrant.Driver.GUID,
-			TimeStamp:  time.Now(),
+			CarID:           entrant.CarID,
+			DriverGUID:      entrant.Driver.GUID,
+			TimeStamp:       time.Now(),
+			AfterSessionEnd: entrant.HasCompletedSession(),
 		}
 
 		p.Read(&clientEvent.EventType)
