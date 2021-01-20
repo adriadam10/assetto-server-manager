@@ -96,6 +96,8 @@ func NewServer(ctx context.Context, baseDirectory string, serverConfig *ServerCo
 	server.entryListManager = NewEntryListManager(state, logger)
 	server.dynamicTrack = dynamicTrack
 
+	clearStatistics()
+
 	return server, nil
 }
 
@@ -176,6 +178,8 @@ func (s *Server) Stop(persistResults bool) (err error) {
 	}
 
 	s.state.Close()
+
+	printStatistics(s.logger, s.state.CurrentTimeMillisecond())
 
 	return nil
 }

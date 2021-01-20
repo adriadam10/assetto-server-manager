@@ -81,6 +81,9 @@ func (u *UDP) Listen(ctx context.Context) error {
 
 			n, addr, err := u.packetConn.ReadFrom(buf)
 
+			UDPBytesRead += n
+			UDPMessagesReceived++
+
 			if err != nil {
 				select {
 				case <-ctx.Done():
@@ -125,5 +128,10 @@ func (u *UDP) handleConnection(addr net.Addr, b []byte) error {
 }
 
 func (u *UDP) WriteTo(b []byte, addr net.Addr) (int, error) {
-	return u.packetConn.WriteTo(b, addr)
+	n, err := u.packetConn.WriteTo(b, addr)
+
+	UDPBytesWritten += n
+	UDPMessagesSent++
+
+	return n, err
 }

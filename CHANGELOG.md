@@ -1,3 +1,13 @@
+v2.0.0-b7
+---------
+
+(The majority of this portion of the changelog will eventually be removed or added into the main v2.0.0 changelog)
+
+* Fixes an issue where reconnecting cars in a Race session may incorrectly report their total race time.
+* Adds packet monitoring for incoming/outgoing packets for each server run. You can see the monitoring output for each session in the server logs
+
+---
+
 v2.0.0-b6
 ---------
 

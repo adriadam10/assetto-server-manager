@@ -135,7 +135,11 @@ func (p *Packet) WriteTCP(w io.Writer) error {
 	binary.LittleEndian.PutUint16(out, uint16(len(b)))
 	out = append(out, b...)
 
-	_, err := w.Write(out)
+	n, err := w.Write(out)
+
+	TCPBytesWritten += n
+	TCPMessagesSent++
+
 	return err
 }
 
