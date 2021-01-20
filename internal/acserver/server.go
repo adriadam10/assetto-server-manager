@@ -179,7 +179,7 @@ func (s *Server) Stop(persistResults bool) (err error) {
 
 	s.state.Close()
 
-	printStatistics(s.logger)
+	printStatistics(s.logger, s.state.CurrentTimeMillisecond())
 
 	return nil
 }
