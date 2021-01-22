@@ -120,15 +120,16 @@ func (ss *ServerState) GenerateResults(sessionInfo SessionConfig) *SessionResult
 			}
 
 			events = append(events, &SessionEvent{
-				CarID:         carID,
-				Driver:        sessionDriver,
-				ImpactSpeed:   event.Speed,
-				OtherCarID:    otherCarID,
-				OtherDriver:   otherDriver,
-				RelPosition:   &event.RelativePosition,
-				Type:          typeString,
-				WorldPosition: &event.Position,
-				Timestamp:     int(event.TimeStamp.Unix()),
+				CarID:           carID,
+				Driver:          sessionDriver,
+				ImpactSpeed:     event.Speed,
+				OtherCarID:      otherCarID,
+				OtherDriver:     otherDriver,
+				RelPosition:     &event.RelativePosition,
+				Type:            typeString,
+				WorldPosition:   &event.Position,
+				Timestamp:       int(event.TimeStamp.Unix()),
+				AfterSessionEnd: event.AfterSessionEnd,
 			})
 		}
 	}
@@ -214,15 +215,16 @@ type SessionDriver struct {
 }
 
 type SessionEvent struct {
-	CarID         CarID          `json:"CarId"`
-	Driver        *SessionDriver `json:"Driver"`
-	ImpactSpeed   float32        `json:"ImpactSpeed"`
-	OtherCarID    CarID          `json:"OtherCarId"`
-	OtherDriver   *SessionDriver `json:"OtherDriver"`
-	RelPosition   *Vector3F      `json:"RelPosition"`
-	Type          string         `json:"Type"`
-	WorldPosition *Vector3F      `json:"WorldPosition"`
-	Timestamp     int            `json:"Timestamp"`
+	CarID           CarID          `json:"CarId"`
+	Driver          *SessionDriver `json:"Driver"`
+	ImpactSpeed     float32        `json:"ImpactSpeed"`
+	OtherCarID      CarID          `json:"OtherCarId"`
+	OtherDriver     *SessionDriver `json:"OtherDriver"`
+	RelPosition     *Vector3F      `json:"RelPosition"`
+	Type            string         `json:"Type"`
+	WorldPosition   *Vector3F      `json:"WorldPosition"`
+	Timestamp       int            `json:"Timestamp"`
+	AfterSessionEnd bool           `json:"AfterSessionEnd"`
 }
 
 type SessionLap struct {
