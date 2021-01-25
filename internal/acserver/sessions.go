@@ -366,6 +366,7 @@ func (sm *SessionManager) loop(ctx context.Context) {
 				for _, car := range sm.state.entryList {
 					if car.IsConnected() && !car.HasSentFirstUpdate() {
 						carsAreConnecting = true
+						sm.logger.Debugf("Stalling end session until: %s has connected", car.String())
 						break
 					}
 				}
@@ -385,6 +386,7 @@ func (sm *SessionManager) loop(ctx context.Context) {
 				for _, car := range sm.state.entryList {
 					if car.IsConnected() && !car.HasSentFirstUpdate() {
 						carsAreConnecting = true
+						sm.logger.Debugf("Stalling next session until: %s has connected", car.String())
 						break
 					}
 				}
