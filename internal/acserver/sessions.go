@@ -366,13 +366,14 @@ func (sm *SessionManager) loop(ctx context.Context) {
 				for _, car := range sm.state.entryList {
 					if car.IsConnected() && !car.HasSentFirstUpdate() {
 						carsAreConnecting = true
+						sm.logger.Infof("Stalling end session until: %s has connected", car.String())
 						break
 					}
 				}
 
 				if carsAreConnecting {
 					// don't advance sessions while cars are connecting.
-					sm.logger.Debugf("Stalling end session until all connecting cars are connected")
+					sm.logger.Infof("Stalling end session until all connecting cars are connected")
 					continue
 				}
 
@@ -385,13 +386,14 @@ func (sm *SessionManager) loop(ctx context.Context) {
 				for _, car := range sm.state.entryList {
 					if car.IsConnected() && !car.HasSentFirstUpdate() {
 						carsAreConnecting = true
+						sm.logger.Infof("Stalling next session until: %s has connected", car.String())
 						break
 					}
 				}
 
 				if carsAreConnecting {
 					// don't advance sessions while cars are connecting.
-					sm.logger.Debugf("Stalling next session until all connecting cars are connected")
+					sm.logger.Infof("Stalling next session until all connecting cars are connected")
 					continue
 				}
 
