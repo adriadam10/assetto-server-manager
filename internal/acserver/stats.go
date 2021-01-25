@@ -45,6 +45,10 @@ func printStatistics(logger Logger, currentTimeMilliseconds int64) {
 		TCPMessagesSent,
 	)
 
+	if UDPMessagesReceived == 0 || UDPMessagesSent == 0 || TCPMessagesReceived == 0 || TCPMessagesSent == 0 {
+		return // avoid dividing by zero
+	}
+
 	logger.Infof(
 		"Statistics: UDP: %d bytes avg receive size, %d bytes avg send size. TCP: %d bytes avg receive size, %d bytes avg send size",
 		UDPBytesRead/UDPMessagesReceived,
