@@ -87,7 +87,7 @@
 
                             {{ $crashesAfterSessionEnd := $sessionResults.GetCrashesAfterSessionEnd $result.DriverGUID $result.CarModel }}
 
-                            <td>{{ $sessionResults.GetCrashes $result.DriverGUID $result.CarModel }}{{ if ne 0 $crashesAfterSessionEnd }} ({{ $crashesAfterSessionEnd }} after session){{ end }}</td>
+                            <td>{{ $sessionResults.GetCrashes $result.DriverGUID $result.CarModel }}{{ if ne 0 $crashesAfterSessionEnd }} (+{{ $crashesAfterSessionEnd }} after session){{ end }}</td>
 
                             {{ if WriteAccess }}
                                 <td>
