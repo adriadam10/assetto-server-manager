@@ -190,6 +190,10 @@ var drivers = []udp.SessionCarInfo{
 
 type dummyServer struct{}
 
+func (d dummyServer) CarHasLoaded(id acserver.CarID) bool {
+	return false
+}
+
 func (d dummyServer) CarIsConnected(id acserver.CarID) bool {
 	return false
 }

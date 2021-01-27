@@ -303,6 +303,16 @@ func (s *Server) CarIsConnected(id CarID) bool {
 	return car.IsConnected()
 }
 
+func (s *Server) CarHasLoaded(id CarID) bool {
+	car, err := s.state.GetCarByID(id)
+
+	if err != nil {
+		return false
+	}
+
+	return car.HasSentFirstUpdate()
+}
+
 func (s *Server) GetSessionInfo(sessionIndex int) SessionInfo {
 	return s.sessionManager.BuildSessionInfo(sessionIndex)
 }
