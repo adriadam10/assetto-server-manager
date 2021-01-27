@@ -157,7 +157,7 @@ func (u *UDPPlugin) handleConnection(data []byte) error {
 		response.Write(EventCarInfo)
 		response.Write(car.CarID)
 
-		if u.server.CarIsConnected(car.CarID) {
+		if u.server.CarIsConnected(car.CarID) && u.server.CarHasLoaded(car.CarID) {
 			response.Write(uint8(1))
 		} else {
 			response.Write(uint8(0))

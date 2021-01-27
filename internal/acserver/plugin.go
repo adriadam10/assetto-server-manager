@@ -34,6 +34,7 @@ type Plugin interface {
 type ServerPlugin interface {
 	GetCarInfo(id CarID) (CarInfo, error)
 	CarIsConnected(id CarID) bool
+	CarHasLoaded(id CarID) bool
 	GetSessionInfo(sessionIndex int) SessionInfo
 	GetEventConfig() EventConfig
 
