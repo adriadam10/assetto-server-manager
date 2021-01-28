@@ -1,3 +1,12 @@
+v2.0.0-b8
+---------
+
+(The majority of this portion of the changelog will eventually be removed or added into the main v2.0.0 changelog)
+
+* UDP Plugins now only report cars as connected if they have loaded in also.
+
+---
+
 v2.0.0-b7
 ---------
 
