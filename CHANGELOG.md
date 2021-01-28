@@ -158,6 +158,7 @@ Fixed:
 * Duplicating a Championship now clears all registration requests.
 * Fixes a crash that could occur when concurrently reading weather configurations.
 * KissMyRank is now instructed to stop using a command in its console. This should hopefully prevent issues with data files corrupting on stop.
+* Fixes an issue where Race Weekend sessions could incorrectly sort splits out of order.
 
 Removed:
 
