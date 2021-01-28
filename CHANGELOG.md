@@ -1,105 +1,3 @@
-v2.0.0-b8
----------
-
-(The majority of this portion of the changelog will eventually be removed or added into the main v2.0.0 changelog)
-
-* UDP Plugins now only report cars as connected if they have loaded in also.
-
----
-
-v2.0.0-b7
----------
-
-(The majority of this portion of the changelog will eventually be removed or added into the main v2.0.0 changelog)
-
-* Fixes an issue where reconnecting cars in a Race session may incorrectly report their total race time.
-* Adds packet monitoring for incoming/outgoing packets for each server run. You can see the monitoring output for each session in the server logs
-
----
-
-v2.0.0-b6
----------
-
-(The majority of this portion of the changelog will eventually be removed or added into the main v2.0.0 changelog)
-
-* Fixes spectator mode showing cars in incorrect locations.
-* If two cars set an equal lap time, the car that set it first is sorted lower (i.e. closer to 1st) than the other.
-* If a car attempts to rejoin while the server already thinks it is connected, the old connection is forcibly closed and the new car is allowed to join. (Pickup mode only)
-
----
-
-v2.0.0-b5
----------
-
-(The majority of this portion of the changelog will eventually be removed or added into the main v2.0.0 changelog)
-
-Fixes:
-
-* ACServer lobby reregister issue
-
----
-
-v2.0.0-b4
----------
-
-(The majority of this portion of the changelog will eventually be removed or added into the main v2.0.0 changelog)
-
-Fixes:
-
-* ACServer HTTP endpoint now only displays DC if a driver is completely disconnected. Drivers loading in will show with a 
-  ping of 0 until their ping is calculated.
-* ACServer now sends a lobby registration request when the server loops.
-
----
-
-v2.0.0-b3
----------
-
-(The majority of this portion of the changelog will eventually be removed or added into the main v2.0.0 changelog)
-
-Fixes:
-
-* Fixes car selecting issues when joining a server.
-* Fixes issues with plugins accessing server HTML endpoint.
-
----
-
-v2.0.0-b2
----------
-
-(The majority of this portion of the changelog will eventually be removed or added into the main v2.0.0 changelog)
-
-Added:
-
-* Added a 'Delete Live Timings' button to the Server Options page.
-
-Fixed:
-
-* Fixes an issue where the server timetable endpoint would not load.
-* Fixes UDP Plugins.
-
----
-
-v2.0.0-b1
----------
-
-(The majority of this portion of the changelog will eventually be removed or added into the main v2.0.0 changelog)
-
-Beta Fixes:
-
-* Added description text about cut detection.
-* Fixes the format of the CarInfo (54) packet.
-* Stopped drivers from being added to no join list when kicked due to a checksum mismatch.
-* Cars that leave and rejoin on a Race grid will now be put into the correct position.
-* Added a settings button to live timings that allows viewers to hide the new collision popups.
-* Prevent laps from starting with a "-" character at the beginning of a lap.
-* The first lap set by a driver in a session is no longer considered to be valid to avoid outlaps on certain tracks being faster than the fastest possible normal lap (Bathurst, Spa etc.).
-* Fixes an issue where duplicating a Championship with Race Weekends inside it would result in the Race Weekends not copying across correctly.
-* Fixes # laps since pitstop sometimes being negative
-* ACServer HTTP endpoint ('/JSON|') no longer requires a GUID.
-
----
-
 v2.0.0
 ------
 
@@ -122,6 +20,7 @@ Kunos' acServer, and also provides the following advantages, exclusive to Server
 * New/improved chat commands! Commands that reference drivers can now use the car ID, name of the driver or GUID of the driver! Also added /pm command for direct messages and /next_weather command to manually cycle configured session weathers.
 * New Track Maps! When you upload a track, if possible, Server Manager will calculate its own track map, including the start finish line, pit lane, and DRS markings. You can also build track maps for all your tracks using the button on the Server Options page. This requires your tracks to be reuploaded, as it needs new track files to work!
 * The server will automatically truncate server names that are too long for the lobby to handle.
+* Adds packet monitoring for incoming/outgoing packets for each server run. You can see the monitoring output for each session in the server logs.
 
 We've also changed the following things in Server Manager itself:
 
@@ -142,6 +41,8 @@ We've also changed the following things in Server Manager itself:
 * Custom Analytics Tracking Code - you can now add your own custom analytics tracking code (e.g. from google/cloudflare, etc) to every page!
 * Improved the Track selection dropdowns in all Race Setup pages. You can now see more readable track names, and filter all tracks and layouts.
 * Adds missing Real Penalty 'APP_UDP_PORT' option.
+* Added a settings button to live timings that allows viewers to hide collision popups.
+* Added a 'Delete Live Timings' button to the Server Options page.
 
 Fixed:
 
@@ -159,6 +60,7 @@ Fixed:
 * Fixes a crash that could occur when concurrently reading weather configurations.
 * KissMyRank is now instructed to stop using a command in its console. This should hopefully prevent issues with data files corrupting on stop.
 * Fixes an issue where Race Weekend sessions could incorrectly sort splits out of order.
+* Fixes an issue where duplicating a Championship with Race Weekends inside it would result in the Race Weekends not copying across correctly.
 
 Removed:
 
