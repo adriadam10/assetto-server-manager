@@ -89,14 +89,14 @@ var (
 		addCorrectCarNameToLiveTimingsData,
 		addDefaultACSRGateOptionsToChampionships,
 		addSplitTypeToRaceWeekends,
+		fixCarDuplicationInRaceSetups,
+		addRealPenaltyAppUDPPort, // end of OSS server manager release
 		addDefaultCustomChecksums,
 		migrateBlacklistToBlockList,
 		addDefaultPenaltyOptionsToCustomRaces,
 		migrateChampionshipPracticeWeatherToSessions,
-		fixCarDuplicationInRaceSetups,
 		addDRSAndCollisionsDefaultPenaltyOptionsToCustomRaces,
 		addTyresDefaultPenaltyOptionsToCustomRaces,
-		addRealPenaltyAppUDPPort,
 	}
 )
 
