@@ -11,7 +11,7 @@ Kunos' acServer, and also provides the following advantages, exclusive to Server
 * Custom Plugin enforcement - use Server Manager's new checksum feature to require drivers to have plugins installed. If they don't have the plugins you need installed, they won't be allowed in the server!
 * Tighter integration into Server Manager. As our server and server manager share the same codebase, we have absolute control over the entire server.
 * Live Timings and the Live Map have been rewritten to utilise a direct connection to the server - so they're faster and more responsive than ever!
-* More platform support - run server manager on anything you like. We've been testing it on a Raspberry Pi!
+* More platform support - run server manager on anything you like. We've been testing it on a Raspberry Pi! If you want a different platform to the ones we offer, please contact us.
 * Active development - expect fixes for any issues, and further feature development!
 * Force Opponent Headlights - you can now force opponent drivers to always have their headlights on.
 * Race Weekend 'Warm Up' Sessions - add a timed Practice session to the beginning of any Race in a Race Weekend, so drivers can get connected and do a few laps. Their lap times in this practice session will not affect their starting grid position as defined in the Race Weekend Entrylist.
