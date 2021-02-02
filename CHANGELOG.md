@@ -1,9 +1,15 @@
 v2.0.1
 ------
 
+Added:
+
+* Added a button on the Server Logs page to download a "Debug Bundle". This is a zip file that we can use to help with any issues your server may be having.
+
 Fixed:
 
 * Fixed an issue that could cause a panic on event save in certain Entry List configurations
+
+---
 
 v2.0.0
 ------

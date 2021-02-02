@@ -119,6 +119,13 @@ func (d *Debugger) BuildDebugInfo(w io.Writer) (err error) {
 		return err
 	}
 
+	c := *config
+	c.Steam.Password = "_redacted_"
+
+	if err := d.addJSONFileToZip(z, "servermanager_config.json", c); err != nil {
+		return err
+	}
+
 	serverLogs := d.process.Logs()
 	managerLogs := logOutput.String()
 	pluginLogs := pluginsOutput.String()
