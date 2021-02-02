@@ -64,7 +64,7 @@ type HealthCheckResponse struct {
 	MaxClientsOverride  int
 }
 
-func (h *HealthCheck) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (h *HealthCheck) buildHealthCheckResponse() HealthCheckResponse {
 	event := h.process.Event()
 	opts, err := h.store.LoadServerOptions()
 
@@ -74,7 +74,7 @@ func (h *HealthCheck) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		serverName = opts.Name
 	}
 
-	_ = json.NewEncoder(w).Encode(HealthCheckResponse{
+	return HealthCheckResponse{
 		OK:       true,
 		OS:       runtime.GOOS + "/" + runtime.GOARCH,
 		Version:  BuildVersion,
@@ -105,7 +105,11 @@ func (h *HealthCheck) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		WeatherDirectoryIsWritable: IsDirWriteable(filepath.Join(ServerInstallPath, "content", "weather")) == nil,
 		SetupsDirectoryIsWritable:  IsDirWriteable(filepath.Join(ServerInstallPath, "setups")) == nil,
 		ResultsDirectoryIsWritable: IsDirWriteable(filepath.Join(ServerInstallPath, "results")) == nil,
-	})
+	}
+}
+
+func (h *HealthCheck) ServeHTTP(w http.ResponseWriter, _ *http.Request) {
+	_ = json.NewEncoder(w).Encode(h.buildHealthCheckResponse())
 }
 
 func IsDirWriteable(dir string) error {
