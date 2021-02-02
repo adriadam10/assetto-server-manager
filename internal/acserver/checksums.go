@@ -93,6 +93,7 @@ func (cm *ChecksumManager) init() error {
 					for _, checkSummableFile := range checkSummableCarFiles {
 						if file.Name() == checkSummableFile {
 							filesToChecksum = append(filesToChecksum, filepath.Join(dataPath, file.Name()))
+							break
 						}
 					}
 				}
