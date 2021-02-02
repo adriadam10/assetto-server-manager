@@ -44,6 +44,23 @@ func NewChecksumManager(baseDirectory string, state *ServerState, logger Logger,
 
 var systemDataSurfacesPath = filepath.Join("system", "data", "surfaces.ini")
 
+var checkSummableCarFiles = []string{
+	"aero.ini",
+	"ai.ini",
+	"ambient_shadows.ini",
+	"blurred_objects.ini",
+	"brakes.ini",
+	"cameras.ini",
+	"car.ini",
+	"colliders.ini",
+	"damage.ini",
+	"dash_cam.ini",
+	"digital_instruments.ini",
+	"driver3d.ini",
+	"drivetrain.ini",
+	"drs.ini",
+}
+
 func (cm *ChecksumManager) init() error {
 	var trackSurfacesPath string
 	var trackModelsPath string
@@ -73,7 +90,11 @@ func (cm *ChecksumManager) init() error {
 
 			if err == nil {
 				for _, file := range files {
-					filesToChecksum = append(filesToChecksum, filepath.Join(dataPath, file.Name()))
+					for _, checkSummableFile := range checkSummableCarFiles {
+						if file.Name() == checkSummableFile {
+							filesToChecksum = append(filesToChecksum, filepath.Join(dataPath, file.Name()))
+						}
+					}
 				}
 			} else if os.IsNotExist(err) {
 				cm.logger.Warnf("Could not find data.acd or data folder for car: %s. Continuing without checksums", car)

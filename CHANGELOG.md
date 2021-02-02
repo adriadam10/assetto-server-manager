@@ -9,6 +9,7 @@ Added:
 Fixed:
 
 * Fixed an issue that could cause a panic on event save in certain Entry List configurations
+* Fixed an issue where the server could try to checksum too many files for cars with data folders, resulting in a TCP packet bigger than 2046 error.
 
 ---
 
