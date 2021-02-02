@@ -27,6 +27,7 @@ type Resolver struct {
 	contentManagerWrapper *ContentManagerWrapper
 	acsrClient            *ACSRClient
 	udpPluginAdapter      *UDPPluginAdapter
+	debugger              *Debugger
 
 	// handlers
 	baseHandler                 *BaseHandler
@@ -569,7 +570,18 @@ func (r *Resolver) ResolveRouter(fs http.FileSystem) http.Handler {
 		r.resolveHealthCheck(),
 		r.resolveKissMyRankHandler(),
 		r.resolveRealPenaltyHandler(),
+		r.resolveDebugger(),
 	)
+}
+
+func (r *Resolver) resolveDebugger() *Debugger {
+	if r.debugger != nil {
+		return r.debugger
+	}
+
+	r.debugger = NewDebugger(r.ResolveStore(), r.resolveServerProcess(), r.resolveHealthCheck())
+
+	return r.debugger
 }
 
 type BaseHandler struct {

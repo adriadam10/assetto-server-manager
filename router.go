@@ -66,6 +66,7 @@ func Router(
 	healthCheck *HealthCheck,
 	kissMyRankHandler *KissMyRankHandler,
 	realPenaltyHandler *RealPenaltyHandler,
+	debugger *Debugger,
 ) http.Handler {
 	r := chi.NewRouter()
 
@@ -299,6 +300,8 @@ func Router(
 		r.Post("/race-weekend/import", raceWeekendHandler.importRaceWeekend)
 		r.Post("/race-weekend/{raceWeekendID}/session/{sessionID}/schedule", raceWeekendHandler.scheduleSession)
 		r.Get("/race-weekend/{raceWeekendID}/session/{sessionID}/schedule/remove", raceWeekendHandler.removeSessionSchedule)
+
+		r.Get("/debug/bundle", debugger.ServeHTTP)
 	})
 
 	// deleters
