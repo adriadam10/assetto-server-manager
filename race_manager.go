@@ -459,6 +459,8 @@ func formValueAsFloat(val string) float64 {
 	return i
 }
 
+var errEntryListFormatError = errors.New("acsm: Entry List is not formatted correctly, please check your event setup")
+
 func (rm *RaceManager) BuildEntryList(r *http.Request, start, length int) (EntryList, error) {
 	entryList := EntryList{}
 
@@ -471,6 +473,10 @@ func (rm *RaceManager) BuildEntryList(r *http.Request, start, length int) (Entry
 	carMap := allCars.AsMap()
 
 	for i := start; i < start+length; i++ {
+		if i == len(r.Form["EntryList.Car"]) || i == len(r.Form["EntryList.Skin"]) {
+			return nil, errEntryListFormatError
+		}
+
 		model := r.Form["EntryList.Car"][i]
 		skin := r.Form["EntryList.Skin"][i]
 
