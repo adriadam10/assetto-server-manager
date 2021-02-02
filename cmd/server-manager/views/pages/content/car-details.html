@@ -135,11 +135,29 @@
                     </table>
 
                     {{ if WriteAccess }}
-                        <p>You can upload setups for this car using the form below.</p>
+                        <p>You can upload setups for this car using the form below. <a href="#" data-toggle="modal" data-target=".fixed-setup-help">Help on adding Fixed Setups.</a></p>
                     {{ end }}
                 {{ else }}
-                    <p>There are no setups for this car.{{ if WriteAccess }} You can upload one below.{{ end }}</p>
+                    <p>There are no setups for this car.{{ if WriteAccess }} You can upload one below. <a href="#" data-toggle="modal" data-target=".fixed-setup-help">Help on adding Fixed Setups.</a>{{ end }}</p>
                 {{ end }}
+
+                <div class="modal fade fixed-setup-help" tabindex="-1" role="dialog" aria-labelledby="fixedSetupHelpLabel" aria-hidden="true">
+                    <div class="modal-dialog modal-lg">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title" id="exampleModalLabel">Fixed Setup Help</h5>
+
+                                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                                    <span aria-hidden="true">&times;</span>
+                                </button>
+                            </div>
+
+                            <div class="modal-body">
+                                {{ template "fixed-setup-help" }}
+                            </div>
+                        </div>
+                    </div>
+                </div>
 
 
                 {{ if WriteAccess }}

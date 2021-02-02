@@ -4,6 +4,7 @@ v2.0.1
 Added:
 
 * Added a button on the Server Logs page to download a "Debug Bundle". This is a zip file that we can use to help with any issues your server may be having.
+* Added a handy guide about creating and enabling Fixed Setups, available on car pages and just beneath the entrant list in an event setup.
 
 Fixed:
 
