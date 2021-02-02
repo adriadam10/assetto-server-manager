@@ -1,3 +1,10 @@
+v2.0.1
+------
+
+Fixed:
+
+* Fixed an issue that could cause a panic on event save in certain Entry List configurations
+
 v2.0.0
 ------
 
