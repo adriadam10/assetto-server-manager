@@ -198,6 +198,7 @@ type GlobalServerConfig struct {
 	AdminPassword             string               `ini:"ADMIN_PASSWORD" type:"password" help:"The password needed to be recognized as server administrator: you can join the server using it to be recognized automatically. Type /help in the game's chat to see the command list."`
 	SpectatorPassword         string               `ini:"SPECTATOR_PASSWORD" type:"password" help:"The password needed to be recognized as a spectator: you can join the server using it to be recognized automatically. Spectator cars can use commands to view other cars in Solo Qualifying, and will always be shown in the pits. Type /help in the game's chat to see the command list."`
 	SpectatorIsAdmin          bool                 `help:"Spectators will also be treated as administrators if this option is enabled."`
+	UPnP                      bool                 `name:"UPnP" help:"Universal Plug and Play. If enabled, Server Manager will try to register port forwards automatically with your router's UPnP service. This can fail, so you may still need to manually set up the port forwards."`
 	UDPPort                   int                  `ini:"UDP_PORT" show:"open" min:"0" max:"65535" help:"UDP port number: open this port on your server's firewall"`
 	TCPPort                   int                  `ini:"TCP_PORT" show:"open" min:"0" max:"65535" help:"TCP port number: open this port on your server's firewall"`
 	HTTPPort                  int                  `ini:"HTTP_PORT" show:"open" min:"0" max:"65535" help:"Lobby port number: open these ports (both UDP and TCP) on your server's firewall"`
@@ -285,6 +286,7 @@ func (gsc GlobalServerConfig) ToACServerConfig() *acserver.ServerConfig {
 		AdminPassword:             gsc.AdminPassword,
 		SpectatorPassword:         gsc.SpectatorPassword,
 		SpectatorIsAdmin:          gsc.SpectatorIsAdmin,
+		UPnP:                      gsc.UPnP,
 		UDPPort:                   uint16(gsc.UDPPort),
 		TCPPort:                   uint16(gsc.TCPPort),
 		HTTPPort:                  uint16(gsc.HTTPPort),

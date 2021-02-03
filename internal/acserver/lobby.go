@@ -183,6 +183,7 @@ func (l *Lobby) UpdateSessionDetails(currentSession SessionType, timeLeft int) e
 			return err
 		}
 		l.mutex.Lock()
+		return nil
 	}
 
 	defer l.mutex.Unlock()

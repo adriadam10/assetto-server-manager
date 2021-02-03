@@ -3,6 +3,7 @@ v2.0.1
 
 Added:
 
+* Universal Plug and Play (UPnP) - a new option in the Server Options page that will attempt to do port forwarding for you. It works by contacting your router and requesting that it forward the ports for HTTP, TCP, UDP and Content Manager Wrapper (if enabled) to the machine that the server is running on. This is not guaranteed, as some routers may not work with it.
 * Added a button on the Server Logs page to download a "Debug Bundle". This is a zip file that we can use to help with any issues your server may be having.
 * Added a handy guide about creating and enabling Fixed Setups, available on car pages and just beneath the entrant list in an event setup.
 
