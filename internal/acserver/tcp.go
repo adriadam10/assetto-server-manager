@@ -37,7 +37,7 @@ func (t *TCP) initMessageHandlers(server *Server) {
 	messageHandlers := []TCPMessageHandler{
 		NewHandshakeMessageHandler(server.state, server.sessionManager, server.entryListManager, server.weatherManager, server.checksumManager, server.dynamicTrack, server.plugin, server.logger),
 		NewEntryListMessageHandler(server.state, server.logger),
-		NewCarIDMessageHandler(server.state, server.logger),
+		NewPushToPassMessageHandler(server.state, server.logger),
 		NewChecksumMessageHandler(server.state, server.checksumManager, server.logger),
 		NewTyreChangeMessageHandler(server.state),
 		NewLapCompletedMessageHandler(server.state, server.sessionManager),

@@ -143,6 +143,7 @@ func NewSessionManager(state *ServerState, weatherManager *WeatherManager, lobby
 func (sm *SessionManager) SaveResultsAndBuildLeaderboard(forceAdvance bool) (previousSessionLeaderboard []*LeaderboardLine, resultsFileName string) {
 	sm.mutex.Lock()
 	defer sm.mutex.Unlock()
+	defer sm.ClearSessionData()
 
 	if sm.currentSession.IsZero() {
 		return
@@ -203,8 +204,6 @@ func (sm *SessionManager) SaveResultsAndBuildLeaderboard(forceAdvance bool) (pre
 			}
 		}
 	}
-
-	sm.ClearSessionData()
 
 	return previousSessionLeaderboard, resultsFileName
 }

@@ -20,7 +20,7 @@ const (
 	// Receive
 	TCPHandshakeBegin     MessageType = 0x3D
 	TCPMessageEntryList   MessageType = 0x3F
-	TCPMessageCarID       MessageType = 0x0D
+	TCPMessagePushToPass  MessageType = 0x0D
 	UDPMessageSessionInfo MessageType = 0x4F
 	TCPMessageDisconnect  MessageType = 0x43
 

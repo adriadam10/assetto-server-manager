@@ -17,9 +17,9 @@ func NewSessionInfoHandler(state *ServerState, sessionManager *SessionManager) *
 }
 
 func (s SessionInfoHandler) OnMessage(_ net.PacketConn, addr net.Addr, p *Packet) error {
-	entrant := s.state.GetCarByUDPAddress(addr)
+	car := s.state.GetCarByUDPAddress(addr)
 
-	if entrant == nil {
+	if car == nil {
 		return nil
 	}
 
@@ -30,7 +30,7 @@ func (s SessionInfoHandler) OnMessage(_ net.PacketConn, addr net.Addr, p *Packet
 		return nil
 	}
 
-	s.sessionManager.SendSessionInfo(entrant, nil)
+	s.sessionManager.SendSessionInfo(car, nil)
 
 	return nil
 }
