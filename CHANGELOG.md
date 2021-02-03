@@ -11,6 +11,10 @@ Fixed:
 
 * Fixed an issue that could cause a panic on event save in certain Entry List configurations
 * Fixed an issue with Push to Pass allocation in some sessions.
+* Fixed an issue that could cause a panic on event save in certain Entry List configurations.
+* Fixed an issue where the server could try to checksum too many files for cars with data folders, resulting in a TCP packet bigger than 2046 error.
+* Fixed an issue where creating an entrant with a GUID but no Name would result in drivers connecting with no name, now the server will fall back to the name defined by the driver locally.
+* Fixed an issue where a track with an empty ai file could cause a panic on track upload.
 
 ---
 
