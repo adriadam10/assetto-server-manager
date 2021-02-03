@@ -896,6 +896,16 @@ func (tm *TrackManager) BuildTrackMap(track, layout string) error {
 		return err
 	}
 
+	if len(fastLaneSpline.Points) == 0 {
+		logrus.Debugf("Cannot build track map for %s (%s), fast_lane.ai exists, but has no points", track, layout)
+		return nil
+	}
+
+	if len(fullPitLane.Points) == 0 {
+		logrus.Debugf("Cannot build track map for %s (%s), pit_lane.ai exists, but has no points", track, layout)
+		return nil
+	}
+
 	drsZones, _ := acserver.LoadDRSZones(filepath.Join(trackPath, "data", drsZonesFilename))
 
 	renderer := ai.NewTrackMapRenderer(fastLaneSpline, fullPitLane, drsZones)
