@@ -145,7 +145,7 @@ func (pm *PositionMessageHandler) SendFirstUpdate(car *Car) error {
 
 		bw = NewPacket(nil)
 
-		bw.Write(TCPMessageCarID)
+		bw.Write(TCPMessagePushToPass)
 		bw.Write(otherEntrant.CarID)
 		bw.Write(otherEntrant.SessionData.P2PCount)
 		bw.Write(uint8(0))

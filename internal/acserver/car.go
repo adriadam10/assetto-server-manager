@@ -575,7 +575,9 @@ func (c *Car) ClearSessionData() {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
-	c.SessionData = SessionData{}
+	c.SessionData = SessionData{
+		P2PCount: -1,
+	}
 }
 
 func (c *Car) SetStatus(carUpdate CarUpdate) {

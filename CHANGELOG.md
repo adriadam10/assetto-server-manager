@@ -10,6 +10,7 @@ Added:
 Fixed:
 
 * Fixed an issue that could cause a panic on event save in certain Entry List configurations
+* Fixed an issue with Push to Pass allocation in some sessions.
 
 ---
 
