@@ -44,7 +44,7 @@ func main() {
 		}
 	}
 
-	server, err := acserver.NewServer(context.Background(), ".", config.ServerConfig, config.RaceConfig, config.EntryList, config.CustomChecksums, logger, plugin)
+	server, err := acserver.NewServer(context.Background(), ".", config.ServerConfig, config.RaceConfig, config.EntryList, config.CustomChecksums, logger, plugin, 0)
 
 	if err != nil {
 		logger.WithError(err).Fatal("Could not initialise server")

@@ -24,6 +24,7 @@ type Server struct {
 	tcp  *TCP
 	udp  *UDP
 	http *HTTP
+	upnp *UPnP
 
 	cfn context.CancelFunc
 	ctx context.Context
@@ -35,7 +36,17 @@ type Server struct {
 	carUpdateOnce               sync.Once
 }
 
-func NewServer(ctx context.Context, baseDirectory string, serverConfig *ServerConfig, raceConfig *EventConfig, entryList EntryList, checksums []CustomChecksumFile, logger Logger, plugin Plugin) (*Server, error) {
+func NewServer(
+	ctx context.Context,
+	baseDirectory string,
+	serverConfig *ServerConfig,
+	raceConfig *EventConfig,
+	entryList EntryList,
+	checksums []CustomChecksumFile,
+	logger Logger,
+	plugin Plugin,
+	contentManagerWrapperPort uint16, // @TODO remove when content manager wrapper integration is in server
+) (*Server, error) {
 	logger.Infof("Initialising acServer with compatibility for server version %d", CurrentProtocolVersion)
 
 	if plugin == nil {
@@ -82,6 +93,7 @@ func NewServer(ctx context.Context, baseDirectory string, serverConfig *ServerCo
 		logger:               logger,
 		baseDirectory:        baseDirectory,
 		pluginUpdateInterval: make(chan time.Duration),
+		upnp:                 NewUPnP(serverConfig.HTTPPort, serverConfig.TCPPort, serverConfig.UDPPort, contentManagerWrapperPort),
 	}
 
 	server.checksumManager, err = NewChecksumManager(baseDirectory, state, logger, checksums)
@@ -115,6 +127,14 @@ func (s *Server) Start() error {
 	go func() {
 		s.udpError <- s.udp.Listen(s.ctx)
 	}()
+
+	if s.state.serverConfig.UPnP {
+		if err := s.upnp.SetUp(s.ctx); err != nil {
+			s.logger.WithError(err).Errorf("UPnP set up failed. Please manually register your port forwards")
+		} else {
+			s.logger.Infof("UPnP set up successful")
+		}
+	}
 
 	if err := s.plugin.Init(s, s.logger); err != nil {
 		return err
@@ -178,6 +198,14 @@ func (s *Server) Stop(persistResults bool) (err error) {
 	}
 
 	s.state.Close()
+
+	if s.state.serverConfig.UPnP {
+		if err := s.upnp.Teardown(); err != nil {
+			s.logger.WithError(err).Errorf("UPnP tear down failed")
+		} else {
+			s.logger.Infof("UPnP tear down successful")
+		}
+	}
 
 	printStatistics(s.logger, s.state.CurrentTimeMillisecond())
 

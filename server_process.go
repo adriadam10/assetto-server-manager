@@ -321,6 +321,7 @@ func (sp *AssettoServerProcess) startRaceEvent(raceEvent RaceEvent, serverOption
 		checksums,
 		logger,
 		acserver.MultiPlugin(activePlugins...),
+		uint16(serverOptions.ContentManagerWrapperPort), // @TODO remove me when content manager wrapper integrated into HTTP server
 	)
 
 	if err != nil {

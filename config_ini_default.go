@@ -12,6 +12,7 @@ func ConfigDefault() ServerConfig {
 			Name:                              "Assetto Corsa Server",
 			Password:                          "",
 			AdminPassword:                     "",
+			UPnP:                              true,
 			UDPPort:                           9600,
 			TCPPort:                           9600,
 			HTTPPort:                          8081,

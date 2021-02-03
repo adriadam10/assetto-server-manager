@@ -6,6 +6,7 @@ type ServerConfig struct {
 	AdminPassword             string        `json:"admin_password" yaml:"admin_password"`
 	SpectatorPassword         string        `json:"spectator_password" yaml:"spectator_password"`
 	SpectatorIsAdmin          bool          `json:"spectator_is_admin" yaml:"spectator_is_admin"`
+	UPnP                      bool          `json:"upnp" yaml:"upnp"`
 	UDPPort                   uint16        `json:"udp_port" yaml:"udp_port"`
 	TCPPort                   uint16        `json:"tcp_port" yaml:"tcp_port"`
 	HTTPPort                  uint16        `json:"http_port" yaml:"http_port"`
