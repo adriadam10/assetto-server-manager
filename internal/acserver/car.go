@@ -311,6 +311,11 @@ func (c *Car) SwapDrivers(newDriver Driver, conn Connection, isAdmin, isSpectato
 
 	if newDriver.GUID == c.Driver.GUID {
 		// the current driver was the last driver
+		if c.Driver.Name == "" {
+			// if a guid is in the entry list with no name defined
+			c.Driver.Name = newDriver.Name
+		}
+
 		return
 	}
 
