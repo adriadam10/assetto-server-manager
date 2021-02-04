@@ -15,6 +15,7 @@ Fixed:
 * Fixed an issue where the server could try to checksum too many files for cars with data folders, resulting in a TCP packet bigger than 2046 error.
 * Fixed an issue where creating an entrant with a GUID but no Name would result in drivers connecting with no name, now the server will fall back to the name defined by the driver locally.
 * Fixed an issue where a track with an empty ai file could cause a panic on track upload.
+* Updated handling of checksums to only checksum cars in the entrylist in pickup mode.
 
 ---
 
