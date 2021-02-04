@@ -1,4 +1,4 @@
-package servermanager
+package acsm
 
 import (
 	"encoding/csv"
@@ -9,7 +9,6 @@ import (
 	"strconv"
 	"time"
 
-	"4d63.com/tz"
 	"github.com/go-chi/chi"
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
@@ -122,6 +121,7 @@ type championshipViewTemplateVars struct {
 	Account         *Account
 	RaceWeekends    map[uuid.UUID]*RaceWeekend
 	DriverRatings   map[string]*ACSRDriverRating
+	AccountRating   *ACSRDriverRating
 }
 
 // view shows details of a given Championship
@@ -163,13 +163,82 @@ func (ch *ChampionshipsHandler) view(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	var rating *ACSRDriverRating
+	account := AccountFromRequest(r)
+
+	if account.GUID != "" {
+		rating, err = ch.championshipManager.LoadACSRRating(account.GUID)
+
+		if err != nil {
+			logrus.WithError(err).Errorf("Couldn't load ACSR rating for guid: %s", account.GUID)
+		}
+	}
+
 	ch.viewRenderer.MustLoadTemplate(w, r, "championships/view.html", &championshipViewTemplateVars{
 		Championship:    championship,
 		EventInProgress: eventInProgress,
-		Account:         AccountFromRequest(r),
+		Account:         account,
 		RaceWeekends:    raceWeekends,
 		DriverRatings:   ratings,
+		AccountRating:   rating,
 	})
+}
+
+type ACSRRatingGateMet struct {
+	ACSRDriverRating *ACSRDriverRating `json:"acsr_driver_rating"`
+	GateMet          bool              `json:"gate_met"`
+	ACSREnabled      bool              `json:"acsr_enabled"`
+}
+
+func (ch *ChampionshipsHandler) acsrRating(w http.ResponseWriter, r *http.Request) {
+	serverOptions, err := ch.championshipManager.store.LoadServerOptions()
+
+	if err != nil {
+		logrus.WithError(err).Error("acsr rating: couldn't load server options")
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		return
+	}
+
+	if !serverOptions.EnableACSR {
+		ratingGateMet := &ACSRRatingGateMet{
+			ACSRDriverRating: &ACSRDriverRating{},
+			GateMet:          true,
+			ACSREnabled:      false,
+		}
+
+		_ = json.NewEncoder(w).Encode(ratingGateMet)
+
+		return
+	}
+
+	guid := chi.URLParam(r, "guid")
+	championshipID := chi.URLParam(r, "championshipID")
+
+	championship, err := ch.championshipManager.LoadChampionship(championshipID)
+
+	if err != nil {
+		logrus.WithError(err).Errorf("acsr rating: couldn't load championship for ID: %s", championshipID)
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		return
+	}
+
+	rating, err := ch.championshipManager.LoadACSRRating(guid)
+
+	if err != nil {
+		logrus.WithError(err).Errorf("Couldn't load ACSR rating for guid: %s", guid)
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		return
+	}
+
+	gateMet := championship.DriverMeetsACSRGates(rating)
+
+	ratingGateMet := &ACSRRatingGateMet{
+		ACSRDriverRating: rating,
+		GateMet:          gateMet,
+		ACSREnabled:      true,
+	}
+
+	_ = json.NewEncoder(w).Encode(ratingGateMet)
 }
 
 // export returns all known data about a Championship in JSON format.
@@ -409,7 +478,7 @@ func (ch *ChampionshipsHandler) scheduleEvent(w http.ResponseWriter, r *http.Req
 	timeString := r.FormValue("event-schedule-time")
 	timezone := r.FormValue("event-schedule-timezone")
 
-	location, err := tz.LoadLocation(timezone)
+	location, err := time.LoadLocation(timezone)
 
 	if err != nil {
 		logrus.WithError(err).Errorf("could not find location: %s", location)

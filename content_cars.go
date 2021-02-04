@@ -1,4 +1,4 @@
-package servermanager
+package acsm
 
 import (
 	"context"
@@ -331,7 +331,7 @@ func (cm *CarManager) watchForCarChanges() error {
 		return err
 	}
 
-	w.SetMaxEvents(1)
+	w.SetMaxEvents(0)
 	w.FilterOps(watcher.Create, watcher.Remove)
 	w.AddFilterHook(func(info os.FileInfo, fullPath string) error {
 		if info.IsDir() && info.Name() != "cars" {
@@ -623,7 +623,7 @@ func (cm *CarManager) UpdateTyres(car *Car) error {
 func (cm *CarManager) IndexCar(car *Car) error {
 	carNameCache.add(car)
 
-	if err := cm.UpdateTyres(car); err != nil {
+	if err := cm.UpdateTyres(car); err != nil && !os.IsNotExist(err) {
 		logrus.WithError(err).Errorf("Could not update tyres for car: %s", car.Name)
 	}
 
@@ -988,7 +988,7 @@ func (ch *CarsHandler) delete(w http.ResponseWriter, r *http.Request) {
 	}
 
 	AddFlash(w, r, fmt.Sprintf("Car %s successfully deleted!", carName))
-	http.Redirect(w, r, "/cars", http.StatusFound)
+	http.Redirect(w, r, r.Referer(), http.StatusFound)
 }
 
 const defaultSkinURL = "/static/img/no-preview-car.png"

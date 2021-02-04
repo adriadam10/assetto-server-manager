@@ -1,10 +1,16 @@
-package servermanager
+package acsm
 
 import (
+	"archive/zip"
+	"fmt"
+	"html/template"
+	"io"
+	"io/ioutil"
 	"net/http"
 	"os"
 	"path/filepath"
 	"runtime"
+	"time"
 
 	"github.com/sirupsen/logrus"
 )
@@ -37,6 +43,10 @@ func RealPenaltyFolderPath() string {
 }
 
 func IsRealPenaltyInstalled() bool {
+	if config.Server.DisablePlugins {
+		return false
+	}
+
 	if _, err := os.Stat(RealPenaltyExecutablePath()); os.IsNotExist(err) {
 		return false
 	} else if err != nil {
@@ -60,8 +70,9 @@ func NewRealPenaltyHandler(baseHandler *BaseHandler, store Store) *RealPenaltyHa
 type realPenaltyConfigurationTemplateVars struct {
 	BaseTemplateVars
 
-	Form                   *Form
-	IsRealPenaltyInstalled bool
+	Form                        template.HTML
+	IsRealPenaltyInstalled      bool
+	RealPenaltySupportedVersion string
 }
 
 func (rph *RealPenaltyHandler) options(w http.ResponseWriter, r *http.Request) {
@@ -73,10 +84,8 @@ func (rph *RealPenaltyHandler) options(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	form := NewForm(realPenaltyOptions, nil, "", AccountFromRequest(r).Name == "admin")
-
 	if r.Method == http.MethodPost {
-		err := form.Submit(r)
+		err := DecodeFormData(realPenaltyOptions, r)
 
 		if err != nil {
 			logrus.WithError(err).Errorf("couldn't submit form")
@@ -94,8 +103,67 @@ func (rph *RealPenaltyHandler) options(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	form, err := EncodeFormData(realPenaltyOptions, r)
+
+	if err != nil {
+		logrus.WithError(err).Errorf("Couldn't encode form data")
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		return
+	}
+
 	rph.viewRenderer.MustLoadTemplate(w, r, "server/realpenalty-options.html", &realPenaltyConfigurationTemplateVars{
-		Form:                   form,
-		IsRealPenaltyInstalled: IsRealPenaltyInstalled(),
+		Form:                        form,
+		IsRealPenaltyInstalled:      IsRealPenaltyInstalled(),
+		RealPenaltySupportedVersion: RealPenaltySupportedVersion,
 	})
+}
+
+func (rph *RealPenaltyHandler) downloadLogs(w http.ResponseWriter, r *http.Request) {
+	w.Header().Add("Content-Disposition", fmt.Sprintf(`attachment;filename="realpenalty_logs_%s.zip"`, time.Now().Format("2006-01-02_15_04")))
+	w.Header().Set("Content-Type", "application/zip")
+
+	if err := rph.buildLogZip(w); err != nil {
+		logrus.WithError(err).Errorf("Could not create real penalty log zip")
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		return
+	}
+}
+
+func (rph *RealPenaltyHandler) buildLogZip(w io.Writer) error {
+	z := zip.NewWriter(w)
+	defer z.Close()
+
+	logFiles, err := ioutil.ReadDir(filepath.Join(RealPenaltyFolderPath(), "logs"))
+
+	if err != nil {
+		return err
+	}
+
+	for _, file := range logFiles {
+		if err := rph.writeRealPenaltyLogFileToZip(z, file); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (rph *RealPenaltyHandler) writeRealPenaltyLogFileToZip(z *zip.Writer, info os.FileInfo) error {
+	zf, err := z.Create(info.Name())
+
+	if err != nil {
+		return err
+	}
+
+	f, err := os.Open(filepath.Join(filepath.Join(RealPenaltyFolderPath(), "logs"), info.Name()))
+
+	if err != nil {
+		return err
+	}
+
+	defer f.Close()
+
+	_, err = io.Copy(zf, f)
+
+	return err
 }

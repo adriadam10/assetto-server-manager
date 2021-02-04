@@ -1,4 +1,4 @@
-package servermanager
+package acsm
 
 import (
 	"encoding/json"
@@ -20,6 +20,7 @@ const (
 	frameLinksFile         = "frame_links.json"
 	serverMetaDir          = "meta"
 	auditFile              = "audit.json"
+	customChecksumFile     = "custom_checksums.json"
 	strackerOptionsFile    = "stracker_options.json"
 	kissMyRankOptionsFile  = "kissmyrank_options.json"
 	realPenaltyOptionsFile = "realpenalty_options.json"
@@ -294,7 +295,7 @@ func (rs *JSONStore) LoadServerOptions() (*GlobalServerConfig, error) {
 	err := rs.decodeFile(rs.base, serverOptionsFile, &out)
 
 	if os.IsNotExist(err) {
-		defaultConfig := ConfigIniDefault()
+		defaultConfig := ConfigDefault()
 
 		return &defaultConfig.GlobalServerConfig, rs.UpsertServerOptions(&defaultConfig.GlobalServerConfig)
 	} else if err != nil {
@@ -552,6 +553,24 @@ func (rs *JSONStore) DeleteRaceWeekend(id string) error {
 	return rs.UpsertRaceWeekend(rw)
 }
 
+func (rs *JSONStore) UpsertCustomChecksums(customChecksums *CustomChecksums) error {
+	return rs.encodeFile(rs.base, customChecksumFile, customChecksums)
+}
+
+func (rs *JSONStore) LoadCustomChecksums() (*CustomChecksums, error) {
+	var out *CustomChecksums
+
+	err := rs.decodeFile(rs.base, customChecksumFile, &out)
+
+	if os.IsNotExist(err) {
+		return DefaultCustomChecksums(), nil
+	} else if err != nil {
+		return nil, err
+	}
+
+	return out, err
+}
+
 func (rs *JSONStore) UpsertStrackerOptions(sto *StrackerConfiguration) error {
 	return rs.encodeFile(rs.base, strackerOptionsFile, sto)
 }
@@ -626,6 +645,10 @@ func (rs *JSONStore) LoadLiveTimingsData() (*LiveTimingsPersistedData, error) {
 	}
 
 	return lt, err
+}
+
+func (rs *JSONStore) DeleteLiveTimingsData() error {
+	return rs.deleteFile(rs.base, liveTimingsDataFile)
 }
 
 func (rs *JSONStore) UpsertLastRaceEvent(r RaceEvent) error {

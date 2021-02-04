@@ -1,4 +1,4 @@
-package servermanager
+package acsm
 
 import (
 	"errors"
@@ -81,6 +81,7 @@ func NewChampionship(name string) *Championship {
 		Created:             time.Now(),
 		OpenEntrants:        false,
 		PersistOpenEntrants: true,
+		DefaultTab:          ChampionshipTabDriverStandings,
 	}
 }
 
@@ -96,7 +97,11 @@ type Championship struct {
 	ReplacementPassword string
 
 	// acsr integration - sends the championship to acsr on save and event complete
-	ACSR bool
+	ACSR                 bool
+	ACSRSkillGate        string
+	ACSRSafetyGate       int
+	EnableACSRSafetyGate bool
+	EnableACSRSkillGate  bool
 
 	// Raw html can be attached to championships, used to share tracks/cars etc.
 	Info template.HTML
@@ -125,10 +130,95 @@ type Championship struct {
 	// of every event in the Championship.
 	SpectatorCar        Entrant
 	SpectatorCarEnabled bool
+
+	DefaultTab ChampionshipTab
 }
 
 func (c *Championship) HasSpectatorCar() bool {
 	return !c.OpenEntrants && c.SpectatorCarEnabled && c.SpectatorCar.GUID != "" && c.SpectatorCar.Model != ""
+}
+
+func (c *ChampionshipClass) HadBetterFinishingPositions(guidA, guidB string, inEvents []*ChampionshipEvent, numPositions int) bool {
+	for i := 1; i <= numPositions; i++ {
+		countDriverA := c.CountPositionsForDriver(i, guidA, inEvents)
+		countDriverB := c.CountPositionsForDriver(i, guidB, inEvents)
+
+		if countDriverA == countDriverB {
+			continue
+		}
+
+		return countDriverA > countDriverB
+	}
+
+	return false
+}
+
+func (c *ChampionshipClass) CountPositionsForDriver(i int, guid string, inEvents []*ChampionshipEvent) int {
+	count := 0
+
+	for _, event := range inEvents {
+		for sessionType, session := range event.Sessions {
+			if session.Completed() && (sessionType == SessionTypeRace || sessionType == SessionTypeSecondRace) {
+				pos := 0
+
+				for _, result := range session.Results.Result {
+					if result.ClassID == c.ID {
+						pos++
+
+						if guid == result.DriverGUID && pos == i {
+							count++
+						}
+					}
+				}
+			}
+		}
+	}
+
+	return count
+}
+
+func (c *ChampionshipClass) TeamHadBetterFinishingPositions(teamA, teamB string, inEvents []*ChampionshipEvent, numPositions int) bool {
+	for i := 1; i <= numPositions; i++ {
+		countTeamA := c.CountPositionsForTeam(i, teamA, inEvents)
+		countTeamB := c.CountPositionsForTeam(i, teamB, inEvents)
+
+		if countTeamA == countTeamB {
+			continue
+		}
+
+		return countTeamA > countTeamB
+	}
+
+	return teamA < teamB
+}
+
+func (c *ChampionshipClass) CountPositionsForTeam(i int, team string, inEvents []*ChampionshipEvent) int {
+	count := 0
+
+	for _, event := range inEvents {
+		for sessionType, session := range event.Sessions {
+			if session.Completed() && (sessionType == SessionTypeRace || sessionType == SessionTypeSecondRace) {
+				pos := 0
+
+				for _, result := range session.Results.Result {
+					for _, car := range session.Results.Cars {
+						if car.Driver.GUID == result.DriverGUID && car.Driver.ClassID == result.ClassID {
+
+							pos++
+
+							if team == car.Driver.Team && pos == i {
+								count++
+							}
+
+							break
+						}
+					}
+				}
+			}
+		}
+	}
+
+	return count
 }
 
 func (c *Championship) FindLastResultForDriver(guid string) (out *SessionResult, teamName string) {
@@ -275,6 +365,55 @@ func (c *Championship) SignUpAvailable() bool {
 	}
 
 	return c.SignUpForm.Enabled && c.Progress() < 100.0 && numFilledSlots < numTotalEntrants
+}
+
+func (c *Championship) DriverMeetsACSRGates(rating *ACSRDriverRating) bool {
+	if rating == nil {
+		return true
+	}
+
+	if c.EnableACSRSafetyGate && rating.SafetyRating < c.ACSRSafetyGate {
+		return false
+	}
+
+	if !c.EnableACSRSkillGate {
+		return true
+	}
+
+	switch c.ACSRSkillGate {
+	case "":
+		return true
+	case "E":
+		return true
+	case "D":
+		if rating.SkillRatingGrade != "E" {
+			return true
+		}
+	case "C":
+		if rating.SkillRatingGrade != "E" && rating.SkillRatingGrade != "D" {
+			return true
+		}
+	case "B":
+		if rating.SkillRatingGrade != "E" && rating.SkillRatingGrade != "D" && rating.SkillRatingGrade != "C" {
+			return true
+		}
+	case "A":
+		if rating.SkillRatingGrade == "A" || rating.SkillRatingGrade == "A+" || rating.SkillRatingGrade == "A*" {
+			return true
+		}
+	case "A+":
+		if rating.SkillRatingGrade == "A+" || rating.SkillRatingGrade == "A*" {
+			return true
+		}
+	case "A*":
+		if rating.SkillRatingGrade == "A*" {
+			return true
+		}
+	default:
+		return true
+	}
+
+	return false
 }
 
 func (c *Championship) HasTeamNames() bool {
@@ -904,7 +1043,7 @@ func (c *Championship) AttachClassIDToResults(results *SessionResults) {
 
 func (c *ChampionshipClass) ResultsForClass(results []*SessionResult, championship *Championship) (filtered []*SessionResult) {
 	for _, result := range results {
-		if c.DriverInClass(result) && result.TotalTime > 0 && result.DriverGUID != championship.SpectatorCar.GUID {
+		if c.DriverInClass(result) && result.TotalTime > 0 && (!championship.SpectatorCarEnabled || result.DriverGUID != championship.SpectatorCar.GUID) {
 			filtered = append(filtered, result)
 		}
 	}
@@ -1128,9 +1267,16 @@ func (c *ChampionshipClass) Standings(championship *Championship, inEvents []*Ch
 		out = append(out, standing)
 	}
 
+	numPositions := len(out)
+
 	sort.Slice(out, func(i, j int) bool {
 		if out[i].Points == out[j].Points {
-			return out[i].Car.Driver.Name < out[j].Car.Driver.Name
+			// sort by number of wins
+			if len(inEvents) > 1 {
+				return c.HadBetterFinishingPositions(out[i].Car.Driver.GUID, out[j].Car.Driver.GUID, inEvents, numPositions)
+			}
+
+			return out[i].Car.GetName() < out[j].Car.GetName()
 		}
 
 		return out[i].Points > out[j].Points
@@ -1276,11 +1422,18 @@ func (c *ChampionshipClass) TeamStandings(championship *Championship, inEvents [
 		})
 	}
 
-	sort.Slice(out, func(i, j int) bool {
-		return out[i].Team < out[j].Team
-	})
+	numPositions := len(out)
 
 	sort.Slice(out, func(i, j int) bool {
+		if out[i].Points == out[j].Points {
+			// sort by number of wins
+			if len(inEvents) > 1 {
+				return c.TeamHadBetterFinishingPositions(out[i].Team, out[j].Team, inEvents, numPositions)
+			}
+
+			return out[i].Team < out[j].Team
+		}
+
 		return out[i].Points > out[j].Points
 	})
 
@@ -1351,8 +1504,20 @@ func (cr *ChampionshipEvent) GetID() uuid.UUID {
 	return cr.ID
 }
 
+func (cr *ChampionshipEvent) GetScheduledServerID() ServerID {
+	return cr.ScheduledServerID
+}
+
 func (cr *ChampionshipEvent) GetRaceSetup() CurrentRaceConfig {
 	return cr.RaceSetup
+}
+
+func (cr *ChampionshipEvent) HasSoloQualifying() bool {
+	if event, ok := cr.RaceSetup.Sessions[SessionTypeQualifying]; ok {
+		return event.IsSolo
+	}
+
+	return false
 }
 
 func (cr *ChampionshipEvent) Cars(c *Championship) []string {
@@ -1615,4 +1780,22 @@ func (a *ActiveChampionship) GetForceStopWithDrivers() bool {
 
 func ChampionshipClassColor(i int) string {
 	return ChampionshipClassColors[i%len(ChampionshipClassColors)]
+}
+
+type ChampionshipTab string
+
+const (
+	ChampionshipTabDriverStandings ChampionshipTab = "Driver Standings"
+	ChampionshipTabTeamStandings   ChampionshipTab = "Team Standings"
+	ChampionshipTabOverview        ChampionshipTab = "Overview"
+	ChampionshipTabEntrants        ChampionshipTab = "Entrants"
+	ChampionshipTabPointsReference ChampionshipTab = "Points Reference"
+)
+
+var AvailableChampionshipTabs = []ChampionshipTab{
+	ChampionshipTabDriverStandings,
+	ChampionshipTabTeamStandings,
+	ChampionshipTabOverview,
+	ChampionshipTabEntrants,
+	ChampionshipTabPointsReference,
 }

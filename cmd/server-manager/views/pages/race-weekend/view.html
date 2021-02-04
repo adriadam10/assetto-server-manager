@@ -1,4 +1,4 @@
-{{/* gotype: github.com/JustaPenguin/assetto-server-manager.raceWeekendViewTemplateVars */}}
+{{/* gotype: justapengu.in/acsm.raceWeekendViewTemplateVars */}}
 
 {{ define "title" }}{{ $.RaceWeekend.Name }} Race Weekend{{ end }}
 
@@ -24,8 +24,6 @@
                 <div class="progress-bar bg-success progress-bar-striped" id="progress-bar" role="progressbar" style="width: {{ int $.RaceWeekend.Progress }}%;" aria-valuenow="{{ int $.RaceWeekend.Progress }}" aria-valuemin="0" aria-valuemax="100">{{ int $.RaceWeekend.Progress }}%</div>
             </div>
         {{ end }}
-
-        {{ template "raceweekend-premium" dict "IsPremium" $.IsPremium }}
 
         {{ if not $.RaceWeekend.HasLinkedChampionship }}
             <h2>Entrants</h2>
@@ -122,7 +120,7 @@
                     <div class="card-header">
                         {{ $acSession := $session.SessionInfo }}
 
-                        <strong>{{ $acSession.Name }}</strong>
+                        <strong>{{ $acSession.Name }} {{ if $session.IsSoloQualifying }}(Solo){{ end }}</strong>
 
                         <div class="float-right">
                             {{ if ne $acSession.Time 0 }}
@@ -164,6 +162,11 @@
 
                                 <br>
 
+                                {{ if $session.HasWarmUp }}
+                                    <small>Warm Up Session: {{ $session.WarmUpSessionTime }} minutes</small>
+                                    <br>
+                                {{ end }}
+
                                 {{ if isBefore $session.ScheduledTime }}
                                     <span class="text-warning">
                                         Scheduled
@@ -193,57 +196,45 @@
 
                         {{ if WriteAccess }}
                             {{ if not (or $session.InProgress $session.Completed) }}
-                                {{ if $.IsPremium }}
-                                    {{ if $.RaceWeekend.SessionCanBeRun $session }}
-                                        <div class="btn-group btn-group-sm">
-                                            <a class="btn btn-success btn-sm"
-                                               onClick="return confirm('I have checked all Entry List configurations and the starting grid is correct');"
-                                               href="/race-weekend/{{ $.RaceWeekend.ID.String }}/session/{{ $session.ID.String }}/start"
-                                            >
-                                                Start Session
-                                            </a>
-
-                                            <button type="button" class="btn btn-success btn-sm dropdown-toggle dropdown-toggle-split" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-                                                <span class="sr-only">Toggle Dropdown</span>
-                                            </button>
-                                            <div class="dropdown-menu">
-                                                <a class="dropdown-item"
-                                                   href="/race-weekend/{{ $.RaceWeekend.ID.String }}/session/{{ $session.ID.String }}/practice"
-                                                   data-toggle="tooltip"
-                                                   title="Loads the configured session onto the server as a 2 hour looping practice, but doesn't track its progress as a Race Weekend session."
-                                                >
-                                                    Start Practice Session
-                                                </a>
-                                            </div>
-                                        </div>
-                                    {{ else }}
+                                {{ if $.RaceWeekend.SessionCanBeRun $session }}
+                                    <div class="btn-group btn-group-sm">
                                         <a class="btn btn-success btn-sm"
-                                           href="/race-weekend/{{ $.RaceWeekend.ID.String }}/session/{{ $session.ID.String }}/practice"
-                                           data-toggle="tooltip"
-                                           title="Loads the configured session onto the server as a 2 hour looping practice, but doesn't track its progress as a Race Weekend session."
-                                        >
-                                            Start Practice Session
-                                        </a>
-                                    {{ end }}
-
-                                    <button type="button" class="btn btn-info btn-sm dropdown-toggle popover-external-html" data-placement="bottom"
-                                            data-toggle="popover" title="Schedule Session" data-html="true"
-                                            id="schedule-{{ $session.ID.String }}"
-                                    >
-                                        Schedule Session
-                                    </button>
-                                {{ else }}
-                                    {{ if $.RaceWeekend.SessionCanBeRun $session }}
-                                        <a class="btn btn-success btn-sm"
-                                           data-toggle="tooltip"
-                                           title="Upgrade to Server Manager Premium to start Race Weekend Sessions!"
-                                           href="#"
-                                           onClick="return false;"
+                                           onClick="return confirm('I have checked all Entry List configurations and the starting grid is correct');"
+                                           href="/race-weekend/{{ $.RaceWeekend.ID.String }}/session/{{ $session.ID.String }}/start"
                                         >
                                             Start Session
                                         </a>
-                                    {{ end }}
+
+                                        <button type="button" class="btn btn-success btn-sm dropdown-toggle dropdown-toggle-split" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                                            <span class="sr-only">Toggle Dropdown</span>
+                                        </button>
+                                        <div class="dropdown-menu">
+                                            <a class="dropdown-item"
+                                               href="/race-weekend/{{ $.RaceWeekend.ID.String }}/session/{{ $session.ID.String }}/practice"
+                                               data-toggle="tooltip"
+                                               title="Loads the configured session onto the server as a 2 hour looping practice, but doesn't track its progress as a Race Weekend session."
+                                            >
+                                                Start Practice Session
+                                            </a>
+                                        </div>
+                                    </div>
+                                {{ else }}
+                                    <a class="btn btn-success btn-sm"
+                                       href="/race-weekend/{{ $.RaceWeekend.ID.String }}/session/{{ $session.ID.String }}/practice"
+                                       data-toggle="tooltip"
+                                       title="Loads the configured session onto the server as a 2 hour looping practice, but doesn't track its progress as a Race Weekend session."
+                                    >
+                                        Start Practice Session
+                                    </a>
                                 {{ end }}
+
+                                <button type="button" class="btn btn-info btn-sm dropdown-toggle popover-external-html" data-placement="bottom"
+                                        data-toggle="popover" title="Schedule Session" data-html="true"
+                                        id="schedule-{{ $session.ID.String }}"
+                                >
+                                    Schedule Session
+                                </button>
+
 
                                 <div id="popover-content-schedule-{{ $session.ID.String }}" style="display: none;">
                                     <form action="/race-weekend/{{ $.RaceWeekend.ID.String }}/session/{{ $session.ID.String }}/schedule" method="POST">
@@ -298,11 +289,9 @@
                                         Edit
                                     </a>
 
-                                    {{ if $.IsPremium }}
-                                        <a class="dropdown-item" href="/race-weekend/{{ $.RaceWeekend.ID.String }}/session/{{ $session.ID.String }}/import">
-                                            Import Results
-                                        </a>
-                                    {{ end }}
+                                    <a class="dropdown-item" href="/race-weekend/{{ $.RaceWeekend.ID.String }}/session/{{ $session.ID.String }}/import">
+                                        Import Results
+                                    </a>
 
                                     {{ if $.ShowEventDetailsPopup }}
                                         <a class="dropdown-item race-weekend-session-details"
@@ -351,7 +340,7 @@
                             {{ $trackInfo := trackInfo $session.RaceConfig.Track $session.RaceConfig.TrackLayout }}
 
                             <strong>
-                                {{ $acSession.Name }}
+                                {{ $acSession.Name }} {{ if $session.IsSoloQualifying }}(Solo){{ end }}
                             </strong>
 
                             at

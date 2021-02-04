@@ -1,4 +1,4 @@
-{{/* gotype:github.com/JustaPenguin/assetto-server-manager.raceWeekendFilterTemplateVars */}}
+{{/* gotype:justapengu.in/acsm.raceWeekendFilterTemplateVars */}}
 
 {{ define "partial" }}
     <div class="modal-dialog modal-lg" role="document">
@@ -140,16 +140,25 @@
                                     {{ end }}
 
                                     <div class="form-group row">
-                                        <label for="ManualDriverSelection" class="col-sm-8 col-form-label">Manually Choose Drivers</label>
+                                        <label for="SplitType" class="col-sm-4 col-form-label">Split Type</label>
 
-                                        <div class="col-sm-4 text-right">
-                                            <input type="checkbox" id="ManualDriverSelection" name="ManualDriverSelection" {{ if $.Filter.ManualDriverSelection }}checked="checked"{{ end }}>
+                                        <div class="col-sm-8">
+                                            {{ if WriteAccess }}
+                                                <select name="SplitType" id="SplitType" class="form-control">
+                                                    {{ range $index, $splitType := $.RaceWeekend.GetAvailableSplitTypes }}
+                                                        <option value="{{ $splitType }}" {{ if eq $.Filter.SplitType $splitType }}selected="selected"{{ end }}>{{ $splitType }}</option>
+                                                    {{ end }}
+                                                </select>
+                                            {{ else }}
+                                                <label class="col-form-label">{{ $.Filter.SplitType }}</label>
+                                                <input type="hidden" name="SplitType" id="SplitType" value="{{ $.Filter.SplitType }}">
+                                            {{ end }}
                                         </div>
                                     </div>
 
                                     <div class="form-group row" style="display: none;" id="DriverSelectionForm">
                                         <div class="col-sm-12">
-                                            <select multiple id="Drivers" class="form-control" name="Drivers" style="min-height: 200px;">
+                                            <select multiple id="Drivers" class="form-control" {{ if not WriteAccess }}disabled{{ end }} name="Drivers" style="min-height: 200px;">
                                                 {{ range $index, $result := $.ParentSessionResults }}
                                                     {{ $driverSelected := false }}
 
@@ -160,6 +169,18 @@
                                                     {{ end }}
 
                                                     <option value="{{ $result.Car.Driver.GUID }}" {{ if $driverSelected }}selected="selected"{{ end }}>{{ $result.Car.Driver.Name }}</option>
+                                                {{ end }}
+                                            </select>
+                                        </div>
+                                    </div>
+
+                                    <div class="form-group row" style="display: none;" id="ClassSelectionForm">
+                                        <div class="col-sm-12">
+                                            <select multiple name="Classes" id="Classes" class="form-control" {{ if not WriteAccess }}disabled{{ end }}>
+                                                {{ range $classID, $class := $.ChampionshipClasses }}
+                                                    <option value="{{ $classID}}" {{ with (index $.Filter.SelectedChampionshipClassIDs $classID) }}selected="selected"{{ end }}>
+                                                        {{ $class.Name }}
+                                                    </option>
                                                 {{ end }}
                                             </select>
                                         </div>

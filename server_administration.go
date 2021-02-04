@@ -1,19 +1,31 @@
-package servermanager
+package acsm
 
 import (
+	"bytes"
 	"encoding/json"
 	"html/template"
 	"io/ioutil"
 	"net/http"
 	"os"
 	"path/filepath"
-	"strings"
 	"time"
 
+	"github.com/alecthomas/chroma/formatters"
+	"github.com/alecthomas/chroma/formatters/html"
+	"github.com/alecthomas/chroma/quick"
 	"github.com/go-chi/chi"
+	"github.com/google/uuid"
 	"github.com/mitchellh/go-wordwrap"
 	"github.com/sirupsen/logrus"
+
+	"justapengu.in/acsm/internal/acknowledgements"
+	"justapengu.in/acsm/internal/acserver"
+	"justapengu.in/acsm/pkg/license"
 )
+
+func init() {
+	formatters.Register("htmlshort", html.New(html.Standalone(false), html.WithClasses(false)))
+}
 
 type ServerAdministrationHandler struct {
 	*BaseHandler
@@ -22,6 +34,7 @@ type ServerAdministrationHandler struct {
 	raceManager         *RaceManager
 	championshipManager *ChampionshipManager
 	raceWeekendManager  *RaceWeekendManager
+	blockListManager    *BlockListManager
 	process             ServerProcess
 	acsrClient          *ACSRClient
 }
@@ -32,6 +45,7 @@ func NewServerAdministrationHandler(
 	raceManager *RaceManager,
 	championshipManager *ChampionshipManager,
 	raceWeekendManager *RaceWeekendManager,
+	blockListManager *BlockListManager,
 	process ServerProcess,
 	acsrClient *ACSRClient,
 ) *ServerAdministrationHandler {
@@ -41,6 +55,7 @@ func NewServerAdministrationHandler(
 		raceManager:         raceManager,
 		championshipManager: championshipManager,
 		raceWeekendManager:  raceWeekendManager,
+		blockListManager:    blockListManager,
 		process:             process,
 		acsrClient:          acsrClient,
 	}
@@ -67,10 +82,6 @@ func (sah *ServerAdministrationHandler) home(w http.ResponseWriter, r *http.Requ
 		RaceDetails:     customRace,
 		PerformanceMode: config.Server.PerformanceMode,
 	})
-}
-
-func (sah *ServerAdministrationHandler) premium(w http.ResponseWriter, r *http.Request) {
-	sah.viewRenderer.MustLoadTemplate(w, r, "premium.html", nil)
 }
 
 const MOTDFilename = "motd.txt"
@@ -132,10 +143,58 @@ func (sah *ServerAdministrationHandler) motd(w http.ResponseWriter, r *http.Requ
 	})
 }
 
+type currentCFGTemplateVars struct {
+	BaseTemplateVars
+
+	EventConfigText  template.HTML
+	ServerConfigText template.HTML
+	EntryListText    template.HTML
+}
+
+func (sah *ServerAdministrationHandler) encodeConfigFile(file interface{}) template.HTML {
+	buf := new(bytes.Buffer)
+	e := json.NewEncoder(buf)
+	e.SetIndent("", "    ")
+
+	if err := e.Encode(file); err != nil {
+		logrus.WithError(err).Errorf("Could not JSON encode config file")
+		return ""
+	}
+
+	out := new(bytes.Buffer)
+
+	err := quick.Highlight(out, buf.String(), "json", "htmlshort", "friendly")
+
+	if err != nil {
+		logrus.WithError(err).Errorf("Could not syntax highlight config file")
+		return template.HTML(buf.String())
+	}
+
+	return template.HTML(out.String())
+}
+
+func (sah *ServerAdministrationHandler) currentConfig(w http.ResponseWriter, r *http.Request) {
+	event := sah.process.Event()
+
+	entryList := event.GetEntryList().ToACServerConfig()
+	eventConfig := event.GetRaceConfig().ToACConfig()
+	var serverConfig *acserver.ServerConfig
+
+	if cfg := sah.process.CurrentServerConfig(); cfg != nil {
+		serverConfig = cfg.ToACServerConfig()
+	}
+
+	sah.viewRenderer.MustLoadTemplate(w, r, "server/current-config.html", &currentCFGTemplateVars{
+		EventConfigText:  sah.encodeConfigFile(eventConfig),
+		EntryListText:    sah.encodeConfigFile(entryList),
+		ServerConfigText: sah.encodeConfigFile(serverConfig),
+	})
+}
+
 type serverOptionsTemplateVars struct {
 	BaseTemplateVars
 
-	Form *Form
+	Form template.HTML
 }
 
 func (sah *ServerAdministrationHandler) options(w http.ResponseWriter, r *http.Request) {
@@ -143,15 +202,17 @@ func (sah *ServerAdministrationHandler) options(w http.ResponseWriter, r *http.R
 
 	if err != nil {
 		logrus.WithError(err).Errorf("couldn't load server options")
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		return
 	}
 
-	form := NewForm(serverOpts, nil, "", AccountFromRequest(r).Name == "admin")
-
 	if r.Method == http.MethodPost {
-		err := form.Submit(r)
+		err := DecodeFormData(serverOpts, r)
 
 		if err != nil {
 			logrus.WithError(err).Errorf("couldn't submit form")
+			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+			return
 		}
 
 		UseShortenedDriverNames = serverOpts.UseShortenedDriverNames == 1
@@ -173,57 +234,57 @@ func (sah *ServerAdministrationHandler) options(w http.ResponseWriter, r *http.R
 		sah.acsrClient.Enabled = serverOpts.EnableACSR
 	}
 
+	form, err := EncodeFormData(serverOpts, r)
+
+	if err != nil {
+		logrus.WithError(err).Errorf("Couldn't encode form data")
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		return
+	}
+
 	sah.viewRenderer.MustLoadTemplate(w, r, "server/options.html", &serverOptionsTemplateVars{
 		Form: form,
 	})
 }
 
-type serverBlacklistTemplateVars struct {
+type serverBlocklistTemplateVars struct {
 	BaseTemplateVars
 
-	Text string
+	GUIDs []string
 }
 
-func (sah *ServerAdministrationHandler) blacklist(w http.ResponseWriter, r *http.Request) {
-	if r.Method == http.MethodPost {
-		// save to blacklist.txt
-		var text string
-
-		if r.FormValue("type") == "single" {
-			// we're adding a single GUID, load the existing blacklist list then append
-			b, err := ioutil.ReadFile(filepath.Join(ServerInstallPath, "blacklist.txt"))
-			if err != nil {
-				logrus.WithError(err).Error("couldn't find blacklist.txt")
-			}
-
-			text = string(b) + r.FormValue("blacklist")
-		} else {
-			text = r.FormValue("blacklist")
+func (sah *ServerAdministrationHandler) blockList(w http.ResponseWriter, r *http.Request) {
+	switch r.URL.Query().Get("action") {
+	case "add":
+		if err := sah.blockListManager.AddToBlockList(r.URL.Query().Get("guid")); err != nil {
+			logrus.WithError(err).Errorf("Could not add GUID to block list")
+			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+			return
 		}
 
-		if !strings.HasSuffix(text, "\n") {
-			text += "\n"
+		http.Redirect(w, r, "/blocklist", http.StatusFound)
+		return
+	case "remove":
+		if err := sah.blockListManager.RemoveFromBlockList(r.URL.Query().Get("guid")); err != nil {
+			logrus.WithError(err).Errorf("Could not remove GUID from block list")
+			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+			return
 		}
 
-		err := ioutil.WriteFile(filepath.Join(ServerInstallPath, "blacklist.txt"), []byte(text), 0644)
-
-		if err != nil {
-			logrus.WithError(err).Error("couldn't save blacklist")
-			AddErrorFlash(w, r, "Failed to save Server blacklist changes")
-		} else {
-			AddFlash(w, r, "Server blacklist successfully changed!")
-		}
+		http.Redirect(w, r, "/blocklist", http.StatusFound)
+		return
 	}
 
-	// load blacklist.txt
-	b, err := ioutil.ReadFile(filepath.Join(ServerInstallPath, "blacklist.txt")) // just pass the file name
+	blockList, err := sah.blockListManager.LoadBlockList()
+
 	if err != nil {
-		logrus.WithError(err).Error("couldn't find blacklist.txt")
+		logrus.WithError(err).Errorf("Could not load block list")
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		return
 	}
 
-	// render blacklist edit page
-	sah.viewRenderer.MustLoadTemplate(w, r, "server/blacklist.html", &serverBlacklistTemplateVars{
-		Text: string(b),
+	sah.viewRenderer.MustLoadTemplate(w, r, "server/blocklist.html", &serverBlocklistTemplateVars{
+		GUIDs: blockList,
 	})
 }
 
@@ -367,6 +428,29 @@ type changelogTemplateVars struct {
 func (sah *ServerAdministrationHandler) changelog(w http.ResponseWriter, r *http.Request) {
 	sah.viewRenderer.MustLoadTemplate(w, r, "changelog.html", &changelogTemplateVars{
 		Changelog: Changelog,
+	})
+}
+
+type aboutTemplateVars struct {
+	BaseTemplateVars
+
+	Acknowledgements string
+	Version          string
+	IsLicensed       bool
+	LicenseID        uuid.UUID
+	LicenseDate      time.Time
+	LicenseExpires   time.Time
+}
+
+func (sah *ServerAdministrationHandler) about(w http.ResponseWriter, r *http.Request) {
+	l := license.GetLicense()
+
+	sah.viewRenderer.MustLoadTemplate(w, r, "about.html", &aboutTemplateVars{
+		Acknowledgements: acknowledgements.Acknowledgements,
+		Version:          BuildVersion,
+		LicenseID:        l.ID,
+		LicenseDate:      l.Provisioned,
+		LicenseExpires:   l.Expires,
 	})
 }
 

@@ -1,8 +1,146 @@
+v2.0.1
+------
+
+Added:
+
+* Universal Plug and Play (UPnP) - a new option in the Server Options page that will attempt to do port forwarding for you. It works by contacting your router and requesting that it forward the ports for HTTP, TCP, UDP and Content Manager Wrapper (if enabled) to the machine that the server is running on. This is not guaranteed, as some routers may not work with it.
+* Added a button on the Server Logs page to download a "Debug Bundle". This is a zip file that we can use to help with any issues your server may be having.
+* Added a handy guide about creating and enabling Fixed Setups, available on car pages and just beneath the entrant list in an event setup.
+
+Fixed:
+
+* Fixed an issue that could cause a panic on event save in certain Entry List configurations
+* Fixed an issue with Push to Pass allocation in some sessions.
+* Fixed an issue that could cause a panic on event save in certain Entry List configurations.
+* Fixed an issue where the server could try to checksum too many files for cars with data folders, resulting in a TCP packet bigger than 2046 error.
+* Fixed an issue where creating an entrant with a GUID but no Name would result in drivers connecting with no name, now the server will fall back to the name defined by the driver locally.
+* Fixed an issue where a track with an empty ai file could cause a panic on track upload.
+* Updated handling of checksums to only checksum cars in the entrylist in pickup mode.
+
+---
+
+v2.0.0
+------
+
+Added:
+
+v2.0.0 of Server Manager now has its own version of the acServer built into it. Our server is completely compatible with
+Kunos' acServer, and also provides the following advantages, exclusive to Server Manager owners:
+
+* Improved weather - You can now specify different weather setups for different sessions, or even multiple weathers for one session!
+* Solo Qualifying - turn on Solo Qualifying for any event, and each driver will be able to set their qualifying time without seeing any other cars on track!
+* Custom Plugin enforcement - use Server Manager's new checksum feature to require drivers to have plugins installed. If they don't have the plugins you need installed, they won't be allowed in the server!
+* Tighter integration into Server Manager. As our server and server manager share the same codebase, we have absolute control over the entire server.
+* Live Timings and the Live Map have been rewritten to utilise a direct connection to the server - so they're faster and more responsive than ever!
+* More platform support - run server manager on anything you like. We've been testing it on a Raspberry Pi! If you want a different platform to the ones we offer, please contact us.
+* Active development - expect fixes for any issues, and further feature development!
+* Force Opponent Headlights - you can now force opponent drivers to always have their headlights on.
+* Race Weekend 'Warm Up' Sessions - add a timed Practice session to the beginning of any Race in a Race Weekend, so drivers can get connected and do a few laps. Their lap times in this practice session will not affect their starting grid position as defined in the Race Weekend Entrylist.
+* Server only penalty system! You can now set custom penalties (drive through, kick, warning and ballast/restrictor) for track cuts, collisions, tyre usage and incorrect DRS usage in race sessions! We're hoping to expand this system further in the future.
+* Drift detection/points system! In sessions you can now enable Drift Mode, currently this tracks drift points for each driver over a lap and announces the total via chat, with feedback we hope to expand this system for all the drifters out there!
+* New/improved chat commands! Commands that reference drivers can now use the car ID, name of the driver or GUID of the driver! Also added /pm command for direct messages and /next_weather command to manually cycle configured session weathers.
+* New Track Maps! When you upload a track, if possible, Server Manager will calculate its own track map, including the start finish line, pit lane, and DRS markings. You can also build track maps for all your tracks using the button on the Server Options page. This requires your tracks to be reuploaded, as it needs new track files to work!
+* The server will automatically truncate server names that are too long for the lobby to handle.
+* Adds packet monitoring for incoming/outgoing packets for each server run. You can see the monitoring output for each session in the server logs.
+
+We've also changed the following things in Server Manager itself:
+
+* Significantly improved startup times - we've optimised some of Server Manager's startup logic.
+* Added split information to the Current Lap column of the Live Timings page.
+* Added tyre information to Live Timings.
+* Pitlane detection! We've made it so that Live Timings knows when cars are in the pits. To use this new functionality, please reupload your tracks, as they need new files for this to work!
+* Blue Flag detection! Live Timings now displays a blue flag indicator for cars that are being approached by drivers who have completed more laps in a race session.
+* DRS detection! Live Timings now displays an icon when a driver activates DRS.
+* Live Timings will now accurately show driver order even mid lap in Race Sessions. If one driver overtakes another, you should see their positions change in the Live Timings table!
+* Live Timings now shows live gaps between cars in race sessions.
+* Live Timings collision speed detection is now a lot more accurate.
+* Live Timings will now show the number of laps a driver has completed since their last pit stop.
+* If a new entrant signs up to a Championship whilst a practice session is in progress they are now added to the entry list live and will be able to join the server without a restart!
+* Driver Swaps: you can now separate names by ';', in the same order as the GUIDs, so e.g. Driver Name 1;Driver Name 2;Driver Name 3 would match GUID1;GUID2;GUID3, and drivers names will then show correctly in Live Timings and results files.
+* Spectator Password - you can now connect to the server using a Spectator Password, and access commands to help spectating events!
+* Custom Favicon - you can now change the favicon for Server Manager in the Server Options!
+* Custom Analytics Tracking Code - you can now add your own custom analytics tracking code (e.g. from google/cloudflare, etc) to every page!
+* Improved the Track selection dropdowns in all Race Setup pages. You can now see more readable track names, and filter all tracks and layouts.
+* Adds missing Real Penalty 'APP_UDP_PORT' option.
+* Added a settings button to live timings that allows viewers to hide collision popups.
+* Added a 'Delete Live Timings' button to the Server Options page.
+
+Fixed:
+
+* Fixes an issue where Live Timings lap counts could reset if a driver does not cleanly disconnect from the Assetto Corsa Server.
+* Fixes an issue where Real Penalty config values for Jump Start would not be assigned correctly.
+* The Spectator Car will only be filtered out from Championship Points calculations if Spectator Car is enabled in the Championship settings.
+* Fixes an issue where cars could be duplicated in race setups
+* Fixes a crash that could occur when displaying information about a track.
+* Fixes an issue where multiservers could omit scanning new cars if they were added in groups, rather than one at once. If your server is missing cars in the car list, please "Rebuild Search Index" on the Server Options page!
+* Fixes incorrect date/time of Sol weathers in the Event Details popup
+* Fixes an issue where track names would not update when a track was reuploaded.
+* Fixes an issue where pitboxes could not be loaded for a track with an invalid JSON file.
+* Improved process management for plugins and acServer itself. Thanks to @mayfield for this one!
+* Duplicating a Championship now clears all registration requests.
+* Fixes a crash that could occur when concurrently reading weather configurations.
+* KissMyRank is now instructed to stop using a command in its console. This should hopefully prevent issues with data files corrupting on stop.
+* Fixes an issue where Race Weekend sessions could incorrectly sort splits out of order.
+* Fixes an issue where duplicating a Championship with Race Weekends inside it would result in the Race Weekends not copying across correctly.
+
+Removed:
+
+* Support for starting plugins using the old 'run_on_start' method in config.yml has been removed.
+  Please use the 'plugins' directive (detailed in config.yml) instead.
+
+---
+
+v1.7.8
+------
+
+Added:
+
+* Added the ability to toggle on/off the ACSR skill gate for ACSR exported championships.
+* Added compatibility with Real Penalty v3.00.02
+* You can now specify which tab in a Championship is active by default on page load.
+* Added a page that allows admins to view a read-only copy of the server_cfg.ini and entry_list.ini currently applied to the server.
+* You can now add tags to a group of cars before uploading them on the car list page!
+* Drivers/Teams in a Championship with equal points will now be automatically sorted by their number of top finishes (the highest number of 1st place finishes, if equal then highest number of 2nd place finishes etc.)
+* Added new "Split Type" functionality to Race Weekend filters, allowing you to split entire sessions by Championship Class.
+* We've redesigned the Custom Races page! Hopefully it's easier to find things in it!
+* Track images now show the track map in the bottom right corner.
+* New lua plugin file (race-control.lua) containing onChat function which is called whenever a chat message is sent in-game, from the live timings page or from a lua script
+* (Multiserver) Events across all servers will now be shown on the Calendar, events on other servers will be marked as so. 
+* Events using "Any Available Car" now split the car types evenly between the number of entrants.
+* Added a "Download Logs" button to the Real Penalty Options page. You can use this to view logs from your previous Real Penalty sessions, including the penalties applied by the tool.
+
+Fixed:
+
+* Added a check for "Session Openness" when starting events. If the first event of a session is set to "No Join", Server Manager will correct it to "Free Join" (for Practice/Qualifying) and "Free join until 20 seconds to the Green Light" for Race sessions. This fixes an issue where the acServer will constantly loop sessions if the first session is not joinable.
+* Race Weekends now correctly handle entrants which have their car choice set to "Any Available Car"
+* Chat messages displayed on the Live Timings page will now show the correct timestamp for messages sent by drivers on the server.
+* Race session wait time should now be included in live timings session time
+* Fixes an issue where signed up Championship Entrants would show as 'Unranked' in ACSR.
+* Commands (anything starting with a /) will no longer be displayed in the Live Timings chat window.
+* The Live Timings timer will now show the number of days remaining in an event if it is longer than a day.
+* Fixes an issue where duplicating a Race Weekend in a Championship could cause Server Manager to crash.
+* Fixes an issue where decimal values could not be modified in Real Penalty Options.
+* Fixes an issue where scheduled Championship Race Weekends could cause excessive CPU load when rendering the calendar.
+* Race Weekend sessions with multiple parents now filter out any duplicate entrants, keeping the entrant with the lowest sort position.
+
+---
+
+v1.7.7
+------
+
+Fixed:
+
+* Sign Up Forms should now work as intended for non-ACSR enabled events.
+
+---
+
 v1.7.6
 ------
 
 Added:
 
+* Added the ability to gate ACSR exported events based on ACSR skill and safety ratings!
+* Added a chat box to Live Timings, showing the in-game chat and messages broadcast from the server!
 * Added a "combine results" button to the results index page, allowing you to manually combine any results (you should probably only combine results of the same type and track, but there is no hard restriction in place)
 * Added functionality that aims to persist results information for sessions that do not complete fully. This works by sending a "Next Session" message to the acServer to tell it to write out results files for the current session. This feature is disabled by default - look for the `persist_mid_session_results` option in the config.example.yml included with this release.
 * Server Logs and Audit Logs now display using the full width of the browser window.
@@ -18,6 +156,11 @@ Fixed:
 * The race details popup now shows details about a second race (if configured).
 * Fixes pitbox numbers being incorrect when initially setting up an event.
 * Improved handling of results files with non-standard names.
+* Time Attack events should now be moved to the top of the results list each time they are updated.
+* Read users are no longer able to access the UI controls for the Manually Choose Drivers option in Race Weekends.
+* Improved some help text on the Real Penalty options page.
+* Championship and Race Weekend looping practice sessions now force the Result Screen Time to 30 seconds, rather than using the event's Result Screen Time.
+* Fixes an issue where lua plugins running concurrently may cause a server crash.
 
 ---
 

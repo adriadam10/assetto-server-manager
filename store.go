@@ -1,4 +1,4 @@
-package servermanager
+package acsm
 
 type Store interface {
 	// Custom Races
@@ -25,6 +25,7 @@ type Store interface {
 	// Live Timings
 	UpsertLiveTimingsData(*LiveTimingsPersistedData) error
 	LoadLiveTimingsData() (*LiveTimingsPersistedData, error)
+	DeleteLiveTimingsData() error
 
 	UpsertLastRaceEvent(r RaceEvent) error
 	LoadLastRaceEvent() (RaceEvent, error)
@@ -53,6 +54,10 @@ type Store interface {
 	UpsertRaceWeekend(rw *RaceWeekend) error
 	LoadRaceWeekend(id string) (*RaceWeekend, error)
 	DeleteRaceWeekend(id string) error
+
+	// Custom Checksums
+	LoadCustomChecksums() (*CustomChecksums, error)
+	UpsertCustomChecksums(customChecksums *CustomChecksums) error
 
 	// Stracker Options
 	UpsertStrackerOptions(sto *StrackerConfiguration) error

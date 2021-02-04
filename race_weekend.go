@@ -1,4 +1,4 @@
-package servermanager
+package acsm
 
 import (
 	"bytes"
@@ -73,9 +73,13 @@ func (rw *RaceWeekend) CompletedTime() time.Time {
 func (rw *RaceWeekend) Duplicate() (*RaceWeekend, error) {
 	buf := new(bytes.Buffer)
 
+	x := *rw
+	// make the championship nil so we don't get an infinite loop calling gob.Encode
+	x.Championship = nil
+
 	var newRaceWeekend RaceWeekend
 
-	if err := gob.NewEncoder(buf).Encode(rw); err != nil {
+	if err := gob.NewEncoder(buf).Encode(x); err != nil {
 		return nil, err
 	}
 
@@ -207,6 +211,7 @@ func (rw *RaceWeekend) GetFilterOrUseDefault(parentID, childID string) (*RaceWee
 		// filter not found, load defaults
 		if parentSession.Completed() && parentSession.Results != nil && !parentSession.IsBase() {
 			filter = &RaceWeekendSessionToSessionFilter{
+				SplitType:            SplitTypeNumeric,
 				ResultStart:          1,
 				ResultEnd:            len(parentSession.Results.Cars),
 				NumEntrantsToReverse: 0,
@@ -214,6 +219,7 @@ func (rw *RaceWeekend) GetFilterOrUseDefault(parentID, childID string) (*RaceWee
 			}
 		} else {
 			filter = &RaceWeekendSessionToSessionFilter{
+				SplitType:            SplitTypeNumeric,
 				ResultStart:          1,
 				ResultEnd:            len(rw.GetEntryList()),
 				NumEntrantsToReverse: 0,
@@ -492,6 +498,19 @@ func (rw *RaceWeekend) MostRecentScheduledDateFormat(format string) string {
 	return scheduledDate.Format(format)
 }
 
+func (rw *RaceWeekend) GetAvailableSplitTypes() []RaceWeekendFilterSplitType {
+	splitTypes := []RaceWeekendFilterSplitType{
+		SplitTypeNumeric,
+		SplitTypeManualDriverSelection,
+	}
+
+	if rw.HasLinkedChampionship() {
+		splitTypes = append(splitTypes, SplitTypeChampionshipClass)
+	}
+
+	return splitTypes
+}
+
 // A RaceWeekendSessionEntrant is someone who has entered at least one RaceWeekend event.
 type RaceWeekendSessionEntrant struct {
 	// SessionID is the last session the Entrant participated in
@@ -558,6 +577,7 @@ type RaceWeekendSession struct {
 	ParentIDs            []uuid.UUID
 	SortType             string
 	NumEntrantsToReverse int
+	WarmUpSessionTime    int
 
 	RaceConfig          CurrentRaceConfig
 	OverridePassword    bool
@@ -582,6 +602,10 @@ func (rws *RaceWeekendSession) GetID() uuid.UUID {
 	return rws.ID
 }
 
+func (rws *RaceWeekendSession) GetScheduledServerID() ServerID {
+	return rws.ScheduledServerID
+}
+
 func (rws *RaceWeekendSession) GetRaceSetup() CurrentRaceConfig {
 	return rws.RaceConfig
 }
@@ -599,6 +623,14 @@ func (rws *RaceWeekendSession) GetURL() string {
 }
 
 func (rws *RaceWeekendSession) HasSignUpForm() bool {
+	return false
+}
+
+func (rws *RaceWeekendSession) IsSoloQualifying() bool {
+	if s, ok := rws.RaceConfig.Sessions[SessionTypeQualifying]; ok {
+		return s.IsSolo
+	}
+
 	return false
 }
 
@@ -627,6 +659,10 @@ func (rws *RaceWeekendSession) SetRecurrenceRule(input string) error {
 
 func (rws *RaceWeekendSession) ClearRecurrenceRule() {
 	// no-op
+}
+
+func (rws *RaceWeekendSession) HasWarmUp() bool {
+	return rws.SessionType() == SessionTypeRace && rws.WarmUpSessionTime > 0
 }
 
 // NewRaceWeekendSession creates an empty RaceWeekendSession
@@ -846,6 +882,11 @@ func (rws *RaceWeekendSession) GetRaceWeekendEntryList(rw *RaceWeekend, override
 		}
 	}
 
+	// do an initial sort of the entrylist by pitboxes, as sessions may add drivers out of order.
+	sort.Slice(entryList, func(i, j int) bool {
+		return entryList[i].PitBox < entryList[j].PitBox
+	})
+
 	if rw.SessionCanBeRun(rws) {
 		// sorting can only be run if a session is ready to be run.
 		sorter := GetRaceWeekendEntryListSort(rws.SortType)
@@ -854,10 +895,25 @@ func (rws *RaceWeekendSession) GetRaceWeekendEntryList(rw *RaceWeekend, override
 			return nil, err
 		}
 
+		var finalEntryList RaceWeekendEntryList
+		existingGUIDs := make(map[string]bool)
+
+		// filter out duplicate entrants, keeping their highest ranking in the entry list
+		for _, entrant := range entryList {
+			if _, guidAlreadyInEntryList := existingGUIDs[entrant.Car.GetGUID()]; guidAlreadyInEntryList {
+				continue
+			}
+
+			finalEntryList = append(finalEntryList, entrant)
+			existingGUIDs[entrant.Car.GetGUID()] = true
+		}
+
 		// amend pitboxes post-sort
-		for i, entrant := range entryList {
+		for i, entrant := range finalEntryList {
 			entrant.PitBox = i
 		}
+
+		entryList = finalEntryList
 	}
 
 	return entryList, nil
@@ -949,6 +1005,7 @@ type ActiveRaceWeekend struct {
 	IsPracticeSession                        bool
 	RaceConfig                               CurrentRaceConfig
 	EntryList                                EntryList
+	HasWarmUpSession                         bool
 }
 
 func (a ActiveRaceWeekend) GetRaceConfig() CurrentRaceConfig {

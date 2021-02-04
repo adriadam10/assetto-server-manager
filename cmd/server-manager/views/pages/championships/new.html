@@ -1,4 +1,4 @@
-{{/* gotype: github.com/JustaPenguin/assetto-server-manager.ChampionshipTemplateVars */}}
+{{/* gotype: justapengu.in/acsm.ChampionshipTemplateVars */}}
 
 {{ define "title" }}
     {{ if .IsEditing }}
@@ -76,9 +76,6 @@
                             <input type="checkbox"
                                    id="ACSR"
                                    name="ACSR"
-                                {{ if not $.RaceTemplateVars.BaseTemplateVars.IsPremium }}
-                                    disabled="disabled"
-                                {{ end }}
                                 {{ if $f.ACSR }}
                                     checked="checked"
                                 {{ end }}
@@ -86,17 +83,6 @@
 
                             <br><br>
 
-                            {{ if not $.RaceTemplateVars.BaseTemplateVars.IsPremium }}
-                                <small class="text-warning">
-                                    Exporting to <a href="https://acsr.assettocorsaservers.com">ACSR</a> is a premium feature! You can access premium features by
-                                    <a href="https://assettocorsaservers.com">renting a server</a> or
-                                    <a href="https://paypal.me/JustaPenguinUK">going premium</a> with a minimum $10 donation,
-                                    thanks very much!
-                                </small>
-
-                                <br>
-                                <br>
-                            {{ end }}
 
                             <small>
                                 If enabled then entrants in this championship will be (anonymously) tracked by our skill and safety
@@ -109,6 +95,116 @@
                             <small>
                                 <strong>Forces Sign Up Form on and Password off</strong>.
                             </small>
+                        </div>
+                    </div>
+
+                    <div id="acsr-options" {{ if not $f.ACSR }}class="d-none"{{ end }}>
+                        <div class="form-group row">
+                            <label for="EnableACSRSkillGate" class="col-sm-3 col-form-label">Enable Skill Gate</label>
+
+                            <div class="col-sm-9">
+                                <input type="checkbox"
+                                       id="EnableACSRSkillGate"
+                                       name="EnableACSRSkillGate"
+                                        {{ if $f.EnableACSRSkillGate }}
+                                            checked="checked"
+                                        {{ end }}
+                                >
+
+                                <br>
+
+                                <small>
+                                    If enabled then the skill gate will be activated.
+                                </small>
+                            </div>
+                        </div>
+
+                        <div class="form-group row">
+                            <label for="SkillGate" class="col-sm-3 col-form-label">Skill Gate</label>
+
+                            <div class="col-sm-9">
+                                <select id="SkillGate" name="SkillGate" class="form-control">
+                                    <option value="A" {{ if eq $f.ACSRSkillGate "A" }}selected{{ end }}>A</option>
+                                    <option value="B" {{ if eq $f.ACSRSkillGate "B" }}selected{{ end }}>B</option>
+                                    <option value="C" {{ if eq $f.ACSRSkillGate "C" }}selected{{ end }}>C</option>
+                                    <option value="D" {{ if eq $f.ACSRSkillGate "D" }}selected{{ end }}>D</option>
+                                    <option value="E" {{ if or (eq $f.ACSRSkillGate "E") (eq $f.ACSRSkillGate "") }}selected{{ end }}>E</option>
+                                </select>
+
+                                <small>
+                                    Only allows driver with the selected skill rating and up from joining the Championship. You
+                                    can see a graphical representation of the current skill spread of drivers below.
+                                </small>
+
+                                {{ with $.ACSRRanges }}
+                                    <div id="acsr-skill-range-container" class="mt-2">
+                                        {{ range $index, $ratingRange := $.ACSRRanges.Ranges }}
+                                            {{ if eq $ratingRange.RatingType "skill" }}
+                                                <div class="acsr-range d-inline-block">
+                                                    <div class="acsr-graph-wrapper">
+                                                        <div class="acsr-graph" style="height: {{ percentage $ratingRange.Count $.ACSRRanges.HighestSkillCount }}%"></div>
+                                                    </div>
+
+                                                    <div class="acsr-label">
+                                                        {{ $ratingRange.Name }}
+                                                    </div>
+                                                </div>
+                                            {{ end }}
+                                        {{ end }}
+                                    </div>
+                                {{ end }}
+                            </div>
+                        </div>
+
+                        <div class="form-group row">
+                            <label for="EnableACSRSafetyGate" class="col-sm-3 col-form-label">Enable Safety Gate</label>
+
+                            <div class="col-sm-9">
+                                <input type="checkbox"
+                                       id="EnableACSRSafetyGate"
+                                       name="EnableACSRSafetyGate"
+                                        {{ if $f.EnableACSRSafetyGate }}
+                                            checked="checked"
+                                        {{ end }}
+                                >
+
+                                <br>
+
+                                <small>
+                                    If enabled then the safety gate will be activated.
+                                </small>
+                            </div>
+                        </div>
+
+                        <div class="form-group row">
+                            <label for="SafetyGate" class="col-sm-3 col-form-label">Safety Gate</label>
+
+                            <div class="col-sm-9">
+                                <input type="number" id="SafetyGate" name="SafetyGate" class="form-control" {{ with $f.ACSRSafetyGate }} value="{{.}}" {{ end }}>
+
+                                <small>
+                                    Only allows driver with the inputted safety rating and up from joining the Championship. You
+                                    can see a graphical representation of the current safety spread of drivers below.
+                                </small>
+
+                                {{ with $.ACSRRanges }}
+                                    <div id="acsr-safety-range-container" class="mt-2">
+                                        {{ range $index, $ratingRange := $.ACSRRanges.Ranges }}
+                                            {{ if eq $ratingRange.RatingType "safety" }}
+                                                <div class="acsr-safety-range d-inline-block">
+                                                    <div class="acsr-graph-wrapper">
+                                                        <div class="acsr-graph" style="height: {{ percentage $ratingRange.Count $.ACSRRanges.HighestSafetyCount }}%"></div>
+                                                    </div>
+
+                                                    <div class="acsr-label">
+                                                        {{ $ratingRange.Name }}
+                                                    </div>
+                                                </div>
+                                            {{ end }}
+                                        {{ end }}
+                                    </div>
+                                {{ end }}
+                            </div>
                         </div>
                     </div>
                 {{ end }}
@@ -192,67 +288,77 @@
 
                 </div>
 
-                {{ if $.RaceTemplateVars.BaseTemplateVars.IsPremium }}
-                    <div class="form-group row">
-                        <label for="ChampionshipOGImage" class="col-sm-3 col-form-label">Championship Open Graph Image</label>
+                <div class="form-group row">
+                    <label for="ChampionshipOGImage" class="col-sm-3 col-form-label">Championship Open Graph Image</label>
 
-                        <div class="col-sm-9">
-                            <input type="text" class="form-control" id="ChampionshipOGImage" name="ChampionshipOGImage"
-                                   placeholder="Any image URL" {{ with $f.OGImage }} value="{{.}}" {{ end }}>
+                    <div class="col-sm-9">
+                        <input type="text" class="form-control" id="ChampionshipOGImage" name="ChampionshipOGImage"
+                               placeholder="Any image URL" {{ with $f.OGImage }} value="{{.}}" {{ end }}>
 
-                            <small>The URL of an image to be shown in any link to this championship.</small>
-                        </div>
+                        <small>The URL of an image to be shown in any link to this championship.</small>
                     </div>
-                {{ end }}
+                </div>
+
+                <div class="form-group row">
+                    <label for="ChampionshipDefaultTab" class="col-sm-3 col-form-label">Default Tab</label>
+
+                    <div class="col-sm-9">
+                        <select name="ChampionshipDefaultTab" id="ChampionshipDefaultTab" class="form-control">
+                            {{ range $index, $tab := $.AvailableChampionshipTabs }}
+                                <option value="{{ $tab }}" {{ if eq $tab $f.DefaultTab }}selected="selected"{{ end }}>{{ $tab }}</option>
+                            {{ end }}
+                        </select>
+
+                        <small>The default tab shown when the Championship information page is loaded.</small>
+                    </div>
+                </div>
             </div>
         </div>
 
-        {{ if $.IsPremium }}
-            <div class="card mt-3 border-secondary race-setup hidden-open-championship">
-                <div class="card-header">
-                    <strong>Spectator Car</strong>
-                </div>
+        <div class="card mt-3 border-secondary race-setup hidden-open-championship">
+            <div class="card-header">
+                <strong>Spectator Car</strong>
+            </div>
 
-                <div class="d-none">
-                    {{ template "cars" dict "CarOpts" $.CarOpts "Current" nil "SelectAllCars" true }}
+            <div class="d-none">
+                {{ template "cars" dict "CarOpts" $.CarOpts "Current" nil "SelectAllCars" true }}
 
-                    <input type="hidden" name="NumAvailableSpectatorCars" value="{{ len $.CarOpts }}">
-                </div>
+                <input type="hidden" name="NumAvailableSpectatorCars" value="{{ len $.CarOpts }}">
+            </div>
 
-                <div class="card-body" id="entrants">
-                    <p>
-                        You can configure a Spectator Car for this Championship. Spectator Cars are automatically
-                        added to the back of the Entry List for each Championship Event, and ignored when calculating Championship Points.
-                    </p>
+            <div class="card-body" id="entrants">
+                <p>
+                    You can configure a Spectator Car for this Championship. Spectator Cars are automatically
+                    added to the back of the Entry List for each Championship Event, and ignored when calculating Championship Points.
+                </p>
 
-                    {{ if $.IsHosted }}
-                        <p class="text-danger">Please note that the Spectator Car uses 1 slot on your hosted server. Events may fail to start if you have too many slots in use!</p>
-                    {{ end }}
+                {{ if $.IsHosted }}
+                    <p class="text-danger">Please note that the Spectator Car uses 1 slot on your hosted server. Events may fail to start if you have too many slots in use!</p>
+                {{ end }}
 
-                    <div class="form-group row">
-                        <label for="Championship.SpectatorCar.Enabled" class="col-sm-3 col-form-label">Enabled</label>
+                <div class="form-group row">
+                    <label for="Championship.SpectatorCar.Enabled" class="col-sm-3 col-form-label">Enabled</label>
 
-                        <div class="col-sm-9">
-                            <input type="checkbox"
-                                   class="spectator-toggle"
-                                   id="ChampionshipSpectatorCarEnabled"
-                                   name="Championship.SpectatorCar.Enabled"
-                                    {{ if $.Championship.HasSpectatorCar }}
-                                        checked="checked"
-                                    {{ end }}
-                            ><br><br>
-                        </div>
+                    <div class="col-sm-9">
+                        <input type="checkbox"
+                               class="spectator-toggle"
+                               id="ChampionshipSpectatorCarEnabled"
+                               name="Championship.SpectatorCar.Enabled"
+                                {{ if $.Championship.HasSpectatorCar }}
+                                    checked="checked"
+                                {{ end }}
+                        ><br><br>
                     </div>
+                </div>
 
 
-                    <div class="visible-spectator-enabled" {{ if not $.Championship.HasSpectatorCar }} style="display: none" {{ end }}>
-                        <div class="entrant">
-                            {{ template "entrant" dict "Entrant" $.Championship.SpectatorCar "IsChampionshipEvent" false "IsEditing" $.IsEditing "IsChampionship" true "IsSpectatorCar" true }}
-                        </div>
+                <div class="visible-spectator-enabled" {{ if not $.Championship.HasSpectatorCar }} style="display: none" {{ end }}>
+                    <div class="entrant">
+                        {{ template "entrant" dict "Entrant" $.Championship.SpectatorCar "IsChampionshipEvent" false "IsEditing" $.IsEditing "IsChampionship" true "IsSpectatorCar" true }}
                     </div>
                 </div>
             </div>
-        {{ end }}
+        </div>
 
         <div class="card mt-3 border-secondary">
             <div class="card-header">

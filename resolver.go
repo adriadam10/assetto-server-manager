@@ -1,9 +1,7 @@
-package servermanager
+package acsm
 
 import (
 	"net/http"
-
-	"github.com/JustaPenguin/assetto-server-manager/pkg/udp"
 )
 
 type Resolver struct {
@@ -20,6 +18,7 @@ type Resolver struct {
 	notificationManager   *NotificationManager
 	scheduledRacesManager *ScheduledRacesManager
 	raceWeekendManager    *RaceWeekendManager
+	blockListManager      *BlockListManager
 
 	viewRenderer          *Renderer
 	serverProcess         ServerProcess
@@ -27,6 +26,8 @@ type Resolver struct {
 	raceControlHub        *RaceControlHub
 	contentManagerWrapper *ContentManagerWrapper
 	acsrClient            *ACSRClient
+	udpPluginAdapter      *UDPPluginAdapter
+	debugger              *Debugger
 
 	// handlers
 	baseHandler                 *BaseHandler
@@ -46,6 +47,7 @@ type Resolver struct {
 	raceControlHandler          *RaceControlHandler
 	serverAdministrationHandler *ServerAdministrationHandler
 	raceWeekendHandler          *RaceWeekendHandler
+	customChecksumHandler       *CustomChecksumHandler
 	strackerHandler             *StrackerHandler
 	healthCheck                 *HealthCheck
 	kissMyRankHandler           *KissMyRankHandler
@@ -59,28 +61,15 @@ func NewResolver(templateLoader TemplateLoader, reloadTemplates bool, store Stor
 		store:           store,
 	}
 
-	if err := r.initViewRenderer(); err != nil {
-		return nil, err
-	}
-
 	if err := r.initACSRClient(); err != nil {
 		return nil, err
 	}
 
+	if err := r.initViewRenderer(); err != nil {
+		return nil, err
+	}
+
 	return r, nil
-}
-
-func (r *Resolver) UDPCallback(message udp.Message) {
-	if !config.Server.PerformanceMode {
-		r.ResolveRaceControl().UDPCallback(message)
-	}
-
-	if message.Event() != udp.EventCarUpdate {
-		r.resolveChampionshipManager().ChampionshipEventCallback(message)
-		r.resolveRaceWeekendManager().UDPCallback(message)
-		r.resolveRaceManager().LoopCallback(message)
-		r.resolveContentManagerWrapper().UDPCallback(message)
-	}
 }
 
 func (r *Resolver) initViewRenderer() error {
@@ -120,9 +109,26 @@ func (r *Resolver) resolveServerProcess() ServerProcess {
 		return r.serverProcess
 	}
 
-	r.serverProcess = NewAssettoServerProcess(r.UDPCallback, r.ResolveStore(), r.resolveContentManagerWrapper())
+	r.serverProcess = NewAssettoServerProcess(r.ResolveStore(), r.resolveContentManagerWrapper())
+	r.serverProcess.SetPlugin(r.resolveUDPPluginAdapter())
 
 	return r.serverProcess
+}
+
+func (r *Resolver) resolveUDPPluginAdapter() *UDPPluginAdapter {
+	if r.udpPluginAdapter != nil {
+		return r.udpPluginAdapter
+	}
+
+	r.udpPluginAdapter = NewUDPPluginAdapter(
+		r.resolveRaceManager(),
+		r.ResolveRaceControl(),
+		r.resolveChampionshipManager(),
+		r.resolveRaceWeekendManager(),
+		r.resolveContentManagerWrapper(),
+	)
+
+	return r.udpPluginAdapter
 }
 
 func (r *Resolver) resolveContentManagerWrapper() *ContentManagerWrapper {
@@ -360,6 +366,7 @@ func (r *Resolver) resolveServerAdministrationHandler() *ServerAdministrationHan
 		r.resolveRaceManager(),
 		r.resolveChampionshipManager(),
 		r.resolveRaceWeekendManager(),
+		r.resolveBlockListManager(),
 		r.resolveServerProcess(),
 		r.acsrClient,
 	)
@@ -367,12 +374,22 @@ func (r *Resolver) resolveServerAdministrationHandler() *ServerAdministrationHan
 	return r.serverAdministrationHandler
 }
 
+func (r *Resolver) resolveBlockListManager() *BlockListManager {
+	if r.blockListManager != nil {
+		return r.blockListManager
+	}
+
+	r.blockListManager = NewBlockListManager()
+
+	return r.blockListManager
+}
+
 func (r *Resolver) resolveContentUploadHandler() *ContentUploadHandler {
 	if r.contentUploadHandler != nil {
 		return r.contentUploadHandler
 	}
 
-	r.contentUploadHandler = NewContentUploadHandler(r.resolveBaseHandler(), r.resolveCarManager())
+	r.contentUploadHandler = NewContentUploadHandler(r.resolveBaseHandler(), r.resolveCarManager(), r.resolveTrackManager())
 
 	return r.contentUploadHandler
 }
@@ -437,6 +454,7 @@ func (r *Resolver) resolveRaceWeekendManager() *RaceWeekendManager {
 		r.resolveServerProcess(),
 		r.resolveNotificationManager(),
 		r.acsrClient,
+		r.resolveCarManager(),
 	)
 
 	return r.raceWeekendManager
@@ -450,6 +468,16 @@ func (r *Resolver) resolveRaceWeekendHandler() *RaceWeekendHandler {
 	r.raceWeekendHandler = NewRaceWeekendHandler(r.resolveBaseHandler(), r.resolveRaceWeekendManager())
 
 	return r.raceWeekendHandler
+}
+
+func (r *Resolver) resolveCustomChecksumHandler() *CustomChecksumHandler {
+	if r.customChecksumHandler != nil {
+		return r.customChecksumHandler
+	}
+
+	r.customChecksumHandler = NewCustomChecksumHandler(r.resolveBaseHandler(), r.ResolveStore())
+
+	return r.customChecksumHandler
 }
 
 func (r *Resolver) resolveDiscordManager() *DiscordManager {
@@ -537,11 +565,23 @@ func (r *Resolver) ResolveRouter(fs http.FileSystem) http.Handler {
 		r.resolveRaceControlHandler(),
 		r.resolveScheduledRacesHandler(),
 		r.resolveRaceWeekendHandler(),
+		r.resolveCustomChecksumHandler(),
 		r.resolveStrackerHandler(),
 		r.resolveHealthCheck(),
 		r.resolveKissMyRankHandler(),
 		r.resolveRealPenaltyHandler(),
+		r.resolveDebugger(),
 	)
+}
+
+func (r *Resolver) resolveDebugger() *Debugger {
+	if r.debugger != nil {
+		return r.debugger
+	}
+
+	r.debugger = NewDebugger(r.ResolveStore(), r.resolveServerProcess(), r.resolveHealthCheck())
+
+	return r.debugger
 }
 
 type BaseHandler struct {

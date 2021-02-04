@@ -5,7 +5,7 @@
     <div class="race-info">
         <strong>
             {{ with $trackInfo }}
-                {{- /*gotype: github.com/JustaPenguin/assetto-server-manager.TrackInfo*/ -}}
+                {{- /*gotype: justapengu.in/acsm.TrackInfo*/ -}}
                 {{ .Name }}
             {{ else }}
                 {{ prettify .RaceConfig.Track false }} {{ with .RaceConfig.TrackLayout }}({{ prettify . true }}){{ end }}
@@ -13,14 +13,6 @@
         </strong>
 
         {{ with $trackInfo }} {{ $trackInfo.City }}, {{ $trackInfo.Country }}{{ end }}
-
-        <strong>
-            {{if isBefore .Scheduled }} - Scheduled for {{ localFormat .Scheduled }}{{ end }}
-        </strong>
-        {{if .HasRecurrenceRule }}
-            <span class="font-italic">Recurring: </span>
-            <span class="rrule-text font-italic" data-rrule="{{ .Recurrence }}"></span>
-        {{ end }}
 
         <div class="float-right text-right">
             {{ range $sessionName, $session := .RaceConfig.Sessions }}

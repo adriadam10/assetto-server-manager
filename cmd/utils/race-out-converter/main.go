@@ -8,7 +8,7 @@ import (
 	"sort"
 	"time"
 
-	servermanager "github.com/JustaPenguin/assetto-server-manager"
+	"justapengu.in/acsm"
 
 	"github.com/sirupsen/logrus"
 )
@@ -46,18 +46,18 @@ func main() {
 	for _, session := range raceOut.Sessions {
 		playerToCarIDMap := make(map[string]int)
 
-		var sessionType servermanager.SessionType
+		var sessionType acsm.SessionType
 
 		switch session.Type {
 		case 1:
-			sessionType = servermanager.SessionTypePractice
+			sessionType = acsm.SessionTypePractice
 		case 2:
-			sessionType = servermanager.SessionTypeQualifying
+			sessionType = acsm.SessionTypeQualifying
 		case 3:
-			sessionType = servermanager.SessionTypeRace
+			sessionType = acsm.SessionTypeRace
 		}
 
-		results := &servermanager.SessionResults{
+		results := &acsm.SessionResults{
 			TrackName:   raceOut.Track,
 			TrackConfig: "", // no way to know afaik?
 			Type:        sessionType,
@@ -67,10 +67,10 @@ func main() {
 		for carID, player := range raceOut.Players {
 			playerToCarIDMap[player.Name] = carID
 
-			results.Cars = append(results.Cars, &servermanager.SessionCar{
+			results.Cars = append(results.Cars, &acsm.SessionCar{
 				BallastKG: 0,
 				CarID:     carID,
-				Driver: servermanager.SessionDriver{
+				Driver: acsm.SessionDriver{
 					GUID:      nameToGUIDMap[player.Name],
 					GuidsList: []string{nameToGUIDMap[player.Name]},
 					Name:      player.Name,
@@ -92,7 +92,7 @@ func main() {
 
 			lapTimeStamp[lap.Car] += lap.Time
 
-			results.Laps = append(results.Laps, &servermanager.SessionLap{
+			results.Laps = append(results.Laps, &acsm.SessionLap{
 				BallastKG:  0,
 				CarID:      lap.Car,
 				CarModel:   results.Cars[lap.Car].Model,
@@ -128,7 +128,7 @@ func main() {
 				}
 			}
 
-			results.Result = append(results.Result, &servermanager.SessionResult{
+			results.Result = append(results.Result, &acsm.SessionResult{
 				BallastKG:  0,
 				BestLap:    bestLap,
 				CarID:      carID,
@@ -153,7 +153,7 @@ func checkError(what string, err error) {
 	logrus.WithError(err).Fatalf("could not: %s", what)
 }
 
-func saveResults(r *servermanager.SessionResults) error {
+func saveResults(r *acsm.SessionResults) error {
 	f, err := os.Create(fmt.Sprintf("%d_%d_%d_%d_%d_%s.json", r.Date.Year(), r.Date.Month(), r.Date.Day(), r.Date.Hour(), r.Date.Minute(), r.Type.OriginalString()))
 
 	if err != nil {

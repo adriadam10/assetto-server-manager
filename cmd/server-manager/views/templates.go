@@ -2,10 +2,14 @@ package views
 
 import (
 	"bytes"
+	"context"
 	"html/template"
 	"io"
 	"path/filepath"
 	"strings"
+	"sync"
+
+	"golang.org/x/sync/errgroup"
 )
 
 type TemplateLoader struct {
@@ -67,24 +71,39 @@ func (t *TemplateLoader) Templates(funcs template.FuncMap) (map[string]*template
 		templateData += contents
 	}
 
+	errGroup, _ := errgroup.WithContext(context.Background())
+	var mutex sync.Mutex
+
 	for _, page := range t.pages {
-		pageData := templateData
+		page := page
 
-		pageText, err := t.fileContents(page)
+		errGroup.Go(func() error {
+			pageData := templateData
 
-		if err != nil {
-			return nil, err
-		}
+			pageText, err := t.fileContents(page)
 
-		pageData += pageText
+			if err != nil {
+				return err
+			}
 
-		t, err := template.New(page).Funcs(funcs).Parse(pageData)
+			pageData += pageText
 
-		if err != nil {
-			return nil, err
-		}
+			t, err := template.New(page).Funcs(funcs).Parse(pageData)
 
-		templates[strings.TrimPrefix(filepath.ToSlash(page), "/pages/")] = t
+			if err != nil {
+				return err
+			}
+
+			mutex.Lock()
+			templates[strings.TrimPrefix(filepath.ToSlash(page), "/pages/")] = t
+			mutex.Unlock()
+
+			return nil
+		})
+	}
+
+	if err := errGroup.Wait(); err != nil {
+		return nil, err
 	}
 
 	return templates, nil

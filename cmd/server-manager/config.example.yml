@@ -38,9 +38,6 @@ steam:
   # where to install assetto corsa server
   install_path: assetto
 
-  # the path to the executable to run. relative to the install_path by default
-  executable_path: acServer
-
   # set this to true to force an install every time the server manager is loaded
   force_update: false
 
@@ -56,12 +53,14 @@ http:
   hostname: 0.0.0.0:8772
 
   # session key is used to encrypt the http session
+  # You MUST change this. You can use a website such
+  # as https://passwordsgenerator.net/ to generate a value for it.
   session_key: RANDOMLY_GENERATE_THIS
 
   # server manager base URL is the URL that the server manager is accessible on
   # used for ACSR integration and links in championship welcome message in game
   # you can leave this blank if not required
-  # example: https://opengt3.assettocorsaservers.com <-- requires https:// or
+  # example: https://opengt3.emperorservers.com <-- requires https:// or
   # http://, no closing / at the end
   server_manager_base_URL:
 
@@ -184,7 +183,7 @@ live_map:
 
 ################################################################################
 #
-#  server config - configure plugins, e.g. kissmyrank here.
+#  server config
 #
 ################################################################################
 server:
@@ -192,6 +191,17 @@ server:
   # Only Admins can access the logs, they are intended for tracking if users
   # have deleted content, started/stopped events when they shouldn't have etc.
   audit_logging: true
+
+  # Server Manager has built in support for some plugins (sTracker, KissMyRank
+  # and Real Penalty). If you want to use these plugins you can enable them
+  # here, then use the Server Manager UI to activate and configure them.
+  #
+  # note: If you are using any of these plugins please do not contact us for
+  # support with them. If you are experiencing any issues with stability etc.
+  # the first thing we will always suggest is disabling plugins. If you are
+  # experiencing issues with the plugins themselves we cannot provide
+  # support as we do not have access to the source code of the plugins.
+  disable_plugins: true
 
   # performance mode disables live timing entirely, and prioritises low cpu
   # usage.
@@ -284,5 +294,4 @@ lua:
   # lua plugins allow you to run custom lua scripts through hooks with server
   # manager! If you're interested have a look at the server-manager/plugins
   # folder to see some examples!
-  # Lua plugins are a premium feature, they won't run without the premium build!
   enabled: false

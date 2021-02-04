@@ -1,14 +1,16 @@
-package servermanager
+package acsm
 
 import (
 	"encoding/json"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
 
-	defaultcontent "github.com/JustaPenguin/assetto-server-manager/fixtures/default-content"
+	defaultcontent "justapengu.in/acsm/fixtures/default-content"
+	"justapengu.in/acsm/internal/acserver"
 
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
@@ -85,6 +87,16 @@ var (
 		forceLoggingWith5LogsKeptForHosted,
 		showEventDetailsPopupOn,
 		addCorrectCarNameToLiveTimingsData,
+		addDefaultACSRGateOptionsToChampionships,
+		addSplitTypeToRaceWeekends,
+		fixCarDuplicationInRaceSetups,
+		addRealPenaltyAppUDPPort, // end of OSS server manager release
+		addDefaultCustomChecksums,
+		migrateBlacklistToBlockList,
+		addDefaultPenaltyOptionsToCustomRaces,
+		migrateChampionshipPracticeWeatherToSessions,
+		addDRSAndCollisionsDefaultPenaltyOptionsToCustomRaces,
+		addTyresDefaultPenaltyOptionsToCustomRaces,
 	}
 )
 
@@ -536,20 +548,16 @@ func addAvailableCarsToChampionshipClass(s Store) error {
 	return nil
 }
 
-const IERP13c = "ier_p13c"
-
-var IERP13cTyres = []string{"S1", "S2", "S3", "S4", "S5", "S6", "S7", "S8"}
-
 func addTyresForP13c(s Store) error {
 	logrus.Debugf("Running migration: add tyres for IER P13c")
 
 	tyres := make(map[string]string)
 
-	for _, tyre := range IERP13cTyres {
+	for _, tyre := range acserver.IERP13cTyres {
 		tyres[tyre] = tyre
 	}
 
-	return addTyresToModTyres(IERP13c, tyres)
+	return addTyresToModTyres(acserver.IERP13c, tyres)
 }
 
 func addContentExamples(s Store) error {
@@ -1007,4 +1015,665 @@ func addCorrectCarNameToLiveTimingsData(s Store) error {
 	}
 
 	return nil
+}
+
+func addDefaultACSRGateOptionsToChampionships(s Store) error {
+	logrus.Infof("Running migration: Add Default ACSR Gate Options to Championships")
+
+	championships, err := s.ListChampionships()
+
+	if err != nil {
+		return err
+	}
+
+	for _, championship := range championships {
+		championship.ACSRSkillGate = "E"
+
+		err := s.UpsertChampionship(championship)
+
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func addSplitTypeToRaceWeekends(s Store) error {
+	logrus.Infof("Running migration: Add Split Type to Race Weekends")
+
+	raceWeekends, err := s.ListRaceWeekends()
+
+	if err != nil {
+		return err
+	}
+
+	for _, raceWeekend := range raceWeekends {
+		for _, childSessionFilters := range raceWeekend.Filters {
+			for _, filter := range childSessionFilters {
+				if filter.ManualDriverSelection {
+					filter.SplitType = SplitTypeManualDriverSelection
+				} else {
+					filter.SplitType = SplitTypeNumeric
+				}
+			}
+		}
+
+		if err := s.UpsertRaceWeekend(raceWeekend); err != nil {
+			return err
+		}
+	}
+
+	championships, err := s.ListChampionships()
+
+	if err != nil {
+		return err
+	}
+
+	for _, championship := range championships {
+		for _, event := range championship.Events {
+			if event.IsRaceWeekend() {
+				raceWeekend, err := s.LoadRaceWeekend(event.RaceWeekendID.String())
+
+				if err != nil {
+					return err
+				}
+
+				for _, childSessionFilters := range raceWeekend.Filters {
+					for _, filter := range childSessionFilters {
+						if filter.ManualDriverSelection {
+							filter.SplitType = SplitTypeManualDriverSelection
+						} else {
+							filter.SplitType = SplitTypeNumeric
+						}
+					}
+				}
+
+				if err := s.UpsertRaceWeekend(raceWeekend); err != nil {
+					return err
+				}
+			}
+		}
+	}
+
+	return nil
+}
+
+func addDefaultCustomChecksums(s Store) error {
+	logrus.Info("Running migration: Add Default Custom Checksums")
+
+	customChecksums := &CustomChecksums{Entries: []CustomChecksumEntries{
+		{
+			ID:       uuid.New(),
+			Name:     "Helicorsa",
+			Filepath: "apps/python/helicorsa/helicorsa.py",
+			Checksum: "",
+		},
+		{
+			ID:       uuid.New(),
+			Name:     "Custom Shaders Patch",
+			Filepath: "dwrite.dll",
+			Checksum: "",
+		},
+		{
+			ID:       uuid.New(),
+			Name:     "Sol",
+			Filepath: "apps/python/sol_weather/sol_weather.py",
+			Checksum: "",
+		},
+		{
+			ID:       uuid.New(),
+			Name:     "Crew Chief",
+			Filepath: "apps/python/CrewChiefEx/CrewChiefEx.py",
+			Checksum: "",
+		},
+	}}
+
+	return s.UpsertCustomChecksums(customChecksums)
+}
+
+func migrateBlacklistToBlockList(s Store) error {
+	logrus.Infof("Running migration: Migrate to Block List")
+
+	data, err := ioutil.ReadFile(filepath.Join(ServerInstallPath, "blacklist.txt"))
+
+	if os.IsNotExist(err) {
+		return nil
+	} else if err != nil {
+		return err
+	}
+
+	if len(data) == 0 {
+		return nil
+	}
+
+	blockListManager := NewBlockListManager()
+
+	for _, guid := range strings.Split(string(data), "\n") {
+		if guid == "" {
+			continue
+		}
+
+		if err := blockListManager.AddToBlockList(guid); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func addDefaultPenaltyOptionsToCustomRaces(s Store) error {
+	logrus.Infof("Running migration: Add default cut penalty options to Custom Races")
+
+	customRaces, err := s.ListCustomRaces()
+
+	if err != nil {
+		return err
+	}
+
+	sort.Slice(customRaces, func(i, j int) bool {
+		return customRaces[i].Updated.Before(customRaces[j].Updated)
+	})
+
+	for _, customRace := range customRaces {
+		customRace.RaceConfig.CustomCutsEnabled = false
+		customRace.RaceConfig.CustomCutsPenaltyType = acserver.PenaltyKick
+		customRace.RaceConfig.CustomCutsBoPNumLaps = 2
+		customRace.RaceConfig.CustomCutsNumWarnings = 4
+		customRace.RaceConfig.CustomCutsBoPAmount = 50
+		customRace.RaceConfig.CustomCutsDriveThroughNumLaps = 2
+		customRace.RaceConfig.CustomCutsOnlyIfCleanSet = true
+
+		err := s.UpsertCustomRace(customRace)
+
+		if err != nil {
+			return err
+		}
+	}
+
+	championships, err := s.ListChampionships()
+
+	if err != nil {
+		return err
+	}
+
+	sort.Slice(championships, func(i, j int) bool {
+		return championships[i].Updated.Before(championships[j].Updated)
+	})
+
+	for _, championship := range championships {
+		for _, event := range championship.Events {
+			if event.IsRaceWeekend() {
+				raceWeekend, err := s.LoadRaceWeekend(event.RaceWeekendID.String())
+
+				if err != nil {
+					return err
+				}
+
+				for _, event := range raceWeekend.Sessions {
+					event.RaceConfig.CustomCutsEnabled = false
+					event.RaceConfig.CustomCutsPenaltyType = acserver.PenaltyKick
+					event.RaceConfig.CustomCutsBoPNumLaps = 2
+					event.RaceConfig.CustomCutsNumWarnings = 4
+					event.RaceConfig.CustomCutsBoPAmount = 50
+					event.RaceConfig.CustomCutsDriveThroughNumLaps = 2
+					event.RaceConfig.CustomCutsOnlyIfCleanSet = true
+				}
+
+				if err := s.UpsertRaceWeekend(raceWeekend); err != nil {
+					return err
+				}
+			}
+
+			event.RaceSetup.CustomCutsEnabled = false
+			event.RaceSetup.CustomCutsPenaltyType = acserver.PenaltyKick
+			event.RaceSetup.CustomCutsBoPNumLaps = 2
+			event.RaceSetup.CustomCutsNumWarnings = 4
+			event.RaceSetup.CustomCutsBoPAmount = 50
+			event.RaceSetup.CustomCutsDriveThroughNumLaps = 2
+			event.RaceSetup.CustomCutsOnlyIfCleanSet = true
+		}
+
+		err := s.UpsertChampionship(championship)
+
+		if err != nil {
+			return err
+		}
+	}
+
+	raceWeekends, err := s.ListRaceWeekends()
+
+	if err != nil {
+		return err
+	}
+
+	sort.Slice(raceWeekends, func(i, j int) bool {
+		return raceWeekends[i].Updated.Before(raceWeekends[j].Updated)
+	})
+
+	for _, raceWeekend := range raceWeekends {
+		for _, event := range raceWeekend.Sessions {
+			event.RaceConfig.CustomCutsEnabled = false
+			event.RaceConfig.CustomCutsPenaltyType = acserver.PenaltyKick
+			event.RaceConfig.CustomCutsBoPNumLaps = 2
+			event.RaceConfig.CustomCutsNumWarnings = 4
+			event.RaceConfig.CustomCutsBoPAmount = 50
+			event.RaceConfig.CustomCutsDriveThroughNumLaps = 2
+			event.RaceConfig.CustomCutsOnlyIfCleanSet = true
+		}
+
+		if err := s.UpsertRaceWeekend(raceWeekend); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func migrateChampionshipPracticeWeatherToSessions(s Store) error {
+	logrus.Infof("Running migration: Migrate Championship Practice Weather to Sessions")
+
+	championships, err := s.ListChampionships()
+
+	if err != nil {
+		return err
+	}
+
+	sort.Slice(championships, func(i, j int) bool {
+		return championships[i].Updated.Before(championships[j].Updated)
+	})
+
+	for _, championship := range championships {
+		for _, event := range championship.Events {
+			eventSetup := event.GetRaceSetup()
+
+			for _, weather := range eventSetup.Weather {
+				weather.Sessions = []SessionType{}
+
+				if weather.ChampionshipPracticeWeather == weatherPractice {
+					weather.Sessions = append(weather.Sessions, SessionTypeChampionshipPractice)
+				} else if weather.ChampionshipPracticeWeather == weatherEvent {
+					for session := range eventSetup.Sessions {
+						weather.Sessions = append(weather.Sessions, session)
+					}
+				} else {
+					for session := range eventSetup.Sessions {
+						weather.Sessions = append(weather.Sessions, session)
+					}
+
+					weather.Sessions = append(weather.Sessions, SessionTypeChampionshipPractice)
+				}
+			}
+		}
+
+		err := s.UpsertChampionship(championship)
+
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func fixCarDuplicationInRaceSetups(s Store) error {
+	uniq := func(s []string) []string {
+		filtered := make(map[string]bool)
+
+		for _, x := range s {
+			filtered[x] = true
+		}
+
+		var out []string
+
+		for x := range filtered {
+			out = append(out, x)
+		}
+
+		return out
+	}
+
+	fix := func(cars string) string {
+		return strings.Join(uniq(strings.Split(cars, ";")), ";")
+	}
+
+	logrus.Infof("Running migration: Fix duplicate cars in race setups")
+
+	customRaces, err := s.ListCustomRaces()
+
+	if err != nil {
+		return err
+	}
+
+	sort.Slice(customRaces, func(i, j int) bool {
+		return customRaces[i].Updated.Before(customRaces[j].Updated)
+	})
+
+	for _, race := range customRaces {
+		race.RaceConfig.Cars = fix(race.RaceConfig.Cars)
+
+		if err := s.UpsertCustomRace(race); err != nil {
+			return err
+		}
+	}
+
+	championships, err := s.ListChampionships()
+
+	if err != nil {
+		return err
+	}
+
+	sort.Slice(championships, func(i, j int) bool {
+		return championships[i].Updated.Before(championships[j].Updated)
+	})
+
+	for _, championship := range championships {
+		for _, event := range championship.Events {
+			if event.IsRaceWeekend() {
+				continue
+			}
+
+			event.RaceSetup.Cars = fix(event.RaceSetup.Cars)
+		}
+
+		if err := s.UpsertChampionship(championship); err != nil {
+			return err
+		}
+	}
+
+	raceWeekends, err := s.ListRaceWeekends()
+
+	if err != nil {
+		return err
+	}
+
+	sort.Slice(raceWeekends, func(i, j int) bool {
+		return raceWeekends[i].Updated.Before(raceWeekends[j].Updated)
+	})
+
+	for _, raceWeekend := range raceWeekends {
+		for _, session := range raceWeekend.Sessions {
+			session.RaceConfig.Cars = fix(session.RaceConfig.Cars)
+		}
+
+		if err := s.UpsertRaceWeekend(raceWeekend); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func addDRSAndCollisionsDefaultPenaltyOptionsToCustomRaces(s Store) error {
+	logrus.Infof("Running migration: Add default collision and drs penalty options to Custom Races")
+
+	customRaces, err := s.ListCustomRaces()
+
+	if err != nil {
+		return err
+	}
+
+	sort.Slice(customRaces, func(i, j int) bool {
+		return customRaces[i].Updated.Before(customRaces[j].Updated)
+	})
+
+	for _, customRace := range customRaces {
+		customRace.RaceConfig.DRSPenaltiesEnabled = false
+		customRace.RaceConfig.DRSPenaltiesWindow = 1
+		customRace.RaceConfig.DRSPenaltiesEnableOnLap = 3
+		customRace.RaceConfig.DRSPenaltiesNumWarnings = 2
+		customRace.RaceConfig.CustomCutsPenaltyType = acserver.PenaltyBallast
+		customRace.RaceConfig.DRSPenaltiesBoPAmount = 50
+		customRace.RaceConfig.DRSPenaltiesBoPNumLaps = 2
+		customRace.RaceConfig.DRSPenaltiesDriveThroughNumLaps = 2
+
+		customRace.RaceConfig.CollisionPenaltiesEnabled = false
+		customRace.RaceConfig.CollisionPenaltiesIgnoreFirstLap = true
+		customRace.RaceConfig.CollisionPenaltiesOnlyOverSpeed = 40
+		customRace.RaceConfig.CollisionPenaltiesNumWarnings = 4
+		customRace.RaceConfig.CollisionPenaltiesPenaltyType = acserver.PenaltyDriveThrough
+		customRace.RaceConfig.CollisionPenaltiesBoPAmount = 50
+		customRace.RaceConfig.CollisionPenaltiesBoPNumLaps = 2
+		customRace.RaceConfig.CollisionPenaltiesDriveThroughNumLaps = 2
+
+		err := s.UpsertCustomRace(customRace)
+
+		if err != nil {
+			return err
+		}
+	}
+
+	championships, err := s.ListChampionships()
+
+	if err != nil {
+		return err
+	}
+
+	sort.Slice(championships, func(i, j int) bool {
+		return championships[i].Updated.Before(championships[j].Updated)
+	})
+
+	for _, championship := range championships {
+		for _, event := range championship.Events {
+			if event.IsRaceWeekend() {
+				raceWeekend, err := s.LoadRaceWeekend(event.RaceWeekendID.String())
+
+				if err != nil {
+					return err
+				}
+
+				for _, event := range raceWeekend.Sessions {
+					event.RaceConfig.DRSPenaltiesEnabled = false
+					event.RaceConfig.DRSPenaltiesWindow = 1
+					event.RaceConfig.DRSPenaltiesEnableOnLap = 3
+					event.RaceConfig.DRSPenaltiesNumWarnings = 2
+					event.RaceConfig.CustomCutsPenaltyType = acserver.PenaltyBallast
+					event.RaceConfig.DRSPenaltiesBoPAmount = 50
+					event.RaceConfig.DRSPenaltiesBoPNumLaps = 2
+					event.RaceConfig.DRSPenaltiesDriveThroughNumLaps = 2
+
+					event.RaceConfig.CollisionPenaltiesEnabled = false
+					event.RaceConfig.CollisionPenaltiesIgnoreFirstLap = true
+					event.RaceConfig.CollisionPenaltiesOnlyOverSpeed = 40
+					event.RaceConfig.CollisionPenaltiesNumWarnings = 4
+					event.RaceConfig.CollisionPenaltiesPenaltyType = acserver.PenaltyDriveThrough
+					event.RaceConfig.CollisionPenaltiesBoPAmount = 50
+					event.RaceConfig.CollisionPenaltiesBoPNumLaps = 2
+					event.RaceConfig.CollisionPenaltiesDriveThroughNumLaps = 2
+				}
+
+				if err := s.UpsertRaceWeekend(raceWeekend); err != nil {
+					return err
+				}
+			}
+
+			event.RaceSetup.DRSPenaltiesEnabled = false
+			event.RaceSetup.DRSPenaltiesWindow = 1
+			event.RaceSetup.DRSPenaltiesEnableOnLap = 3
+			event.RaceSetup.DRSPenaltiesNumWarnings = 2
+			event.RaceSetup.CustomCutsPenaltyType = acserver.PenaltyBallast
+			event.RaceSetup.DRSPenaltiesBoPAmount = 50
+			event.RaceSetup.DRSPenaltiesBoPNumLaps = 2
+			event.RaceSetup.DRSPenaltiesDriveThroughNumLaps = 2
+
+			event.RaceSetup.CollisionPenaltiesEnabled = false
+			event.RaceSetup.CollisionPenaltiesIgnoreFirstLap = true
+			event.RaceSetup.CollisionPenaltiesOnlyOverSpeed = 40
+			event.RaceSetup.CollisionPenaltiesNumWarnings = 4
+			event.RaceSetup.CollisionPenaltiesPenaltyType = acserver.PenaltyDriveThrough
+			event.RaceSetup.CollisionPenaltiesBoPAmount = 50
+			event.RaceSetup.CollisionPenaltiesBoPNumLaps = 2
+			event.RaceSetup.CollisionPenaltiesDriveThroughNumLaps = 2
+		}
+
+		err := s.UpsertChampionship(championship)
+
+		if err != nil {
+			return err
+		}
+	}
+
+	raceWeekends, err := s.ListRaceWeekends()
+
+	if err != nil {
+		return err
+	}
+
+	sort.Slice(raceWeekends, func(i, j int) bool {
+		return raceWeekends[i].Updated.Before(raceWeekends[j].Updated)
+	})
+
+	for _, raceWeekend := range raceWeekends {
+		for _, event := range raceWeekend.Sessions {
+			event.RaceConfig.DRSPenaltiesEnabled = false
+			event.RaceConfig.DRSPenaltiesWindow = 1
+			event.RaceConfig.DRSPenaltiesEnableOnLap = 3
+			event.RaceConfig.DRSPenaltiesNumWarnings = 2
+			event.RaceConfig.CustomCutsPenaltyType = acserver.PenaltyBallast
+			event.RaceConfig.DRSPenaltiesBoPAmount = 50
+			event.RaceConfig.DRSPenaltiesBoPNumLaps = 2
+			event.RaceConfig.DRSPenaltiesDriveThroughNumLaps = 2
+
+			event.RaceConfig.CollisionPenaltiesEnabled = false
+			event.RaceConfig.CollisionPenaltiesIgnoreFirstLap = true
+			event.RaceConfig.CollisionPenaltiesOnlyOverSpeed = 40
+			event.RaceConfig.CollisionPenaltiesNumWarnings = 4
+			event.RaceConfig.CollisionPenaltiesPenaltyType = acserver.PenaltyDriveThrough
+			event.RaceConfig.CollisionPenaltiesBoPAmount = 50
+			event.RaceConfig.CollisionPenaltiesBoPNumLaps = 2
+			event.RaceConfig.CollisionPenaltiesDriveThroughNumLaps = 2
+		}
+
+		if err := s.UpsertRaceWeekend(raceWeekend); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func addTyresDefaultPenaltyOptionsToCustomRaces(s Store) error {
+	logrus.Infof("Running migration: Add default tyre penalty options to Custom Races")
+
+	customRaces, err := s.ListCustomRaces()
+
+	if err != nil {
+		return err
+	}
+
+	sort.Slice(customRaces, func(i, j int) bool {
+		return customRaces[i].Updated.Before(customRaces[j].Updated)
+	})
+
+	for _, customRace := range customRaces {
+		customRace.RaceConfig.TyrePenaltiesEnabled = false
+		customRace.RaceConfig.TyrePenaltiesMinimumCompounds = 2
+		customRace.RaceConfig.TyrePenaltiesMinimumCompoundsPenalty = 0
+		customRace.RaceConfig.TyrePenaltiesMustStartOnBestQualifying = false
+		customRace.RaceConfig.TyrePenaltiesPenaltyType = acserver.PenaltyDriveThrough
+		customRace.RaceConfig.TyrePenaltiesBoPAmount = 50
+		customRace.RaceConfig.TyrePenaltiesBoPNumLaps = 2
+		customRace.RaceConfig.TyrePenaltiesDriveThroughNumLaps = 2
+
+		err := s.UpsertCustomRace(customRace)
+
+		if err != nil {
+			return err
+		}
+	}
+
+	championships, err := s.ListChampionships()
+
+	if err != nil {
+		return err
+	}
+
+	sort.Slice(championships, func(i, j int) bool {
+		return championships[i].Updated.Before(championships[j].Updated)
+	})
+
+	for _, championship := range championships {
+		for _, event := range championship.Events {
+			if event.IsRaceWeekend() {
+				raceWeekend, err := s.LoadRaceWeekend(event.RaceWeekendID.String())
+
+				if err != nil {
+					return err
+				}
+
+				for _, event := range raceWeekend.Sessions {
+					event.RaceConfig.TyrePenaltiesEnabled = false
+					event.RaceConfig.TyrePenaltiesMinimumCompounds = 2
+					event.RaceConfig.TyrePenaltiesMinimumCompoundsPenalty = 0
+					event.RaceConfig.TyrePenaltiesMustStartOnBestQualifying = false
+					event.RaceConfig.TyrePenaltiesPenaltyType = acserver.PenaltyDriveThrough
+					event.RaceConfig.TyrePenaltiesBoPAmount = 50
+					event.RaceConfig.TyrePenaltiesBoPNumLaps = 2
+					event.RaceConfig.TyrePenaltiesDriveThroughNumLaps = 2
+				}
+
+				if err := s.UpsertRaceWeekend(raceWeekend); err != nil {
+					return err
+				}
+			}
+
+			event.RaceSetup.TyrePenaltiesEnabled = false
+			event.RaceSetup.TyrePenaltiesMinimumCompounds = 2
+			event.RaceSetup.TyrePenaltiesMinimumCompoundsPenalty = 0
+			event.RaceSetup.TyrePenaltiesMustStartOnBestQualifying = false
+			event.RaceSetup.TyrePenaltiesPenaltyType = acserver.PenaltyDriveThrough
+			event.RaceSetup.TyrePenaltiesBoPAmount = 50
+			event.RaceSetup.TyrePenaltiesBoPNumLaps = 2
+			event.RaceSetup.TyrePenaltiesDriveThroughNumLaps = 2
+		}
+
+		err := s.UpsertChampionship(championship)
+
+		if err != nil {
+			return err
+		}
+	}
+
+	raceWeekends, err := s.ListRaceWeekends()
+
+	if err != nil {
+		return err
+	}
+
+	sort.Slice(raceWeekends, func(i, j int) bool {
+		return raceWeekends[i].Updated.Before(raceWeekends[j].Updated)
+	})
+
+	for _, raceWeekend := range raceWeekends {
+		for _, event := range raceWeekend.Sessions {
+			event.RaceConfig.TyrePenaltiesEnabled = false
+			event.RaceConfig.TyrePenaltiesMinimumCompounds = 2
+			event.RaceConfig.TyrePenaltiesMinimumCompoundsPenalty = 0
+			event.RaceConfig.TyrePenaltiesMustStartOnBestQualifying = false
+			event.RaceConfig.TyrePenaltiesPenaltyType = acserver.PenaltyDriveThrough
+			event.RaceConfig.TyrePenaltiesBoPAmount = 50
+			event.RaceConfig.TyrePenaltiesBoPNumLaps = 2
+			event.RaceConfig.TyrePenaltiesDriveThroughNumLaps = 2
+		}
+
+		if err := s.UpsertRaceWeekend(raceWeekend); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func addRealPenaltyAppUDPPort(s Store) error {
+	logrus.Infof("Running migration: Add Real Penalty App UDP Port")
+
+	rpOpts, err := s.LoadRealPenaltyOptions()
+
+	if err != nil {
+		return err
+	}
+
+	rpOpts.RealPenaltyAppConfig.General.AppUDPPort = rpOpts.RealPenaltyAppConfig.General.AppTCPPort
+
+	return s.UpsertRealPenaltyOptions(rpOpts)
 }

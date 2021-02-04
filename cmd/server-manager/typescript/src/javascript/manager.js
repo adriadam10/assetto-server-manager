@@ -1,13 +1,14 @@
 "use strict";
 
 import {CarSearch} from "../CarSearch";
+import {Form} from "../Form";
 
 let $document;
 
 let moment = require("moment");
 
 // entry-point
-$(document).ready(function () {
+export function EntryPoint() {
     console.log("initialising server manager javascript");
 
     $document = $(document);
@@ -45,6 +46,12 @@ $(document).ready(function () {
     initUploaders();
 
     $document.find('[data-toggle="tooltip"]').tooltip();
+    $document.find('[data-toggle="tooltip-div"]').tooltip({
+        html: true,
+        title: function() {
+            return $("#"+$(this).data("tooltip-content")).html();
+        }
+    });
 
     $("[data-toggle=popover]").each(function (i, obj) {
         $(this).popover({
@@ -150,7 +157,7 @@ $(document).ready(function () {
             $document.find("#save-race-button").val("justSave");
         }
     });
-});
+}
 
 const nameRegex = /^[A-Za-z]{0,5}[0-9]+/;
 
@@ -219,6 +226,7 @@ class RaceSetup {
     $carsDropdown;
     $tyresDropdown;
     $addWeatherButton;
+    $weatherSessionsSelectTemplate;
 
     // the current layout as specified by the server
     currentLayout;
@@ -238,6 +246,8 @@ class RaceSetup {
         this.$trackLayoutDropdownParent = this.$trackLayoutDropdown.closest(".form-group");
 
         this.$addWeatherButton = $parent.find("#addWeather");
+        this.$weatherSessionsSelectTemplate = $parent.find(".WeatherSessions-template");
+        this.$weatherSessionsSelectTemplate.hide();
 
         if (this.$carsDropdown) {
             initMultiSelect(this.$carsDropdown);
@@ -252,23 +262,55 @@ class RaceSetup {
             }
         }
 
+        $parent.find("#ForcedApps").multiSelect();
+
         this.$addWeatherButton.click(this.addWeather.bind(this));
 
+        let that = this;
+
         $parent.find(".weather-delete").click(function (e) {
+            that.deleteWeather(e, $(this).closest(".weather"));
+        });
+
+        $parent.find(".weather-graphics").click(function (e) {
             e.preventDefault();
             let $this = $(this);
 
-            $this.closest(".weather").remove();
-
-            // go through all .weather divs and update their numbers
-            $parent.find(".weather").each(function (index, elem) {
-                $(elem).find(".weather-num").text(index);
-            });
+            that.updateWeatherGraphics($this.closest(".weather"), $this.val());
         });
 
-        $parent.find(".weather-graphics").change(this.updateWeatherGraphics);
+        $parent.find(".collapser").click(function (e) {
+            let $this = $(this);
 
-        let that = this;
+            $this.toggleClass("rotate-180");
+        });
+
+        this.$weatherSessionsSelectTemplate.change(function (e) {
+            that.updateWeatherSessionHeader($(this));
+        });
+
+        let weatherNum = $parent.find(".weather").length;
+
+        for (let i = 0; i < weatherNum; i++) {
+            let $onLoadWeatherSessionSelects = this.$weatherSessionsSelectTemplate.clone(true, true);
+
+            $onLoadWeatherSessionSelects.removeClass("WeatherSessions-template");
+            $onLoadWeatherSessionSelects.addClass("WeatherSessions");
+            $onLoadWeatherSessionSelects.attr("name", "WeatherSessions-"+i);
+            $onLoadWeatherSessionSelects.attr("id", "WeatherSessions-"+i);
+
+            let $sessionsWrapper = $parent.find(".sessionsWrapper-WEATHER_"+i);
+            let sessionsForWeather = $sessionsWrapper.find(".SessionsForWeather").text();
+
+            $sessionsWrapper.append($onLoadWeatherSessionSelects);
+            $onLoadWeatherSessionSelects.find('option').prop('selected', false);
+            $onLoadWeatherSessionSelects.multiSelect();
+
+            // only select sessions in sessionsForWeather
+            sessionsForWeather.split(", ").forEach(function (weather, index) {
+                $onLoadWeatherSessionSelects.multiSelect("select", weather);
+            });
+        }
 
         // restrict loading track layouts to pages which have track dropdown and layout dropdown on them.
         if (this.$trackDropdown.length && this.$trackLayoutDropdown.length) {
@@ -279,10 +321,10 @@ class RaceSetup {
                 let trackLayout = $optValSplit[1];
 
                 if (!that.trackLayoutOpts[trackName]) {
-                    that.trackLayoutOpts[trackName] = [];
+                    that.trackLayoutOpts[trackName] = {};
                 }
 
-                that.trackLayoutOpts[trackName].push(trackLayout);
+                that.trackLayoutOpts[trackName][trackLayout] = $(opt).text();
 
                 if ($optValSplit.length > 2) {
                     that.currentLayout = trackLayout;
@@ -290,11 +332,14 @@ class RaceSetup {
             });
 
             that.$trackLayoutDropdownParent.hide();
+
+            Form.initialiseSelect2OnElement(that.$trackDropdown);
+            Form.initialiseSelect2OnElement(that.$trackLayoutDropdown);
+
             that.loadTrackLayouts();
 
             that.$trackDropdown.change(that.loadTrackLayouts.bind(this));
             that.$trackLayoutDropdown.change(that.showTrackDetails.bind(this));
-
         }
 
         this.raceLaps();
@@ -447,13 +492,13 @@ class RaceSetup {
         }
     }
 
-    updateWeatherGraphics() {
-        let $this = $(this);
-
-        $this.closest(".weather").find(".weather-preview").attr({
-            'src': '/content/weather/' + $this.val() + '/preview.jpg',
-            'alt': $this.val(),
+    updateWeatherGraphics($weather, val) {
+        $weather.find(".weather-preview").attr({
+            'src': '/content/weather/' + val + '/preview.jpg',
+            'alt': val,
         });
+
+        $weather.find(".header-weather-graphics").text(prettifyName(val, false));
     }
 
     /**
@@ -462,13 +507,85 @@ class RaceSetup {
     addWeather(e) {
         e.preventDefault();
 
-        let $oldWeather = this.$parent.find(".weather").last();
+        let $weathers = this.$parent.find(".weather");
 
-        let $newWeather = $oldWeather.clone(true, true);
+        let $oldWeather = $weathers.last();
+        let weatherNum = $weathers.length;
+
+        let $newWeather = $oldWeather.clone(true, false);
         $newWeather.find(".weather-num").text(this.$parent.find(".weather").length);
         $newWeather.find(".weather-delete").show();
 
+        $newWeather.find(".weather-delete").click(function (e) {
+            that.deleteWeather(e, $newWeather);
+        });
+
+        $newWeather.find(".weather-graphics").change(function (e) {
+            e.preventDefault();
+            let $this = $(this);
+
+            that.updateWeatherGraphics($this.closest(".weather"), $this.val());
+        });
+
+        let $newSessionsWrapper = $newWeather.find(".sessionsWrapper");
+
+        $newSessionsWrapper.removeClass("sessionsWrapper-WEATHER_"+(weatherNum-1));
+        $newSessionsWrapper.addClass("sessionsWrapper-WEATHER_"+weatherNum);
+
+        let $newCollapser = $newWeather.find(".collapser");
+
+        $newCollapser.attr("href", "#collapse-weather-"+weatherNum);
+        $newCollapser.attr("aria-controls", "collapse-weather-"+weatherNum);
+        $newWeather.find(".collapse").attr("id", "collapse-weather-"+weatherNum);
+
+        $newWeather.find(".ms-container").remove();
+        $newWeather.find(".WeatherSessions").remove();
+
+        $newCollapser.click(function (e) {
+            let $this = $(this);
+
+            if ($this.hasClass("rotate-180")) {
+                $this.removeClass("rotate-180");
+            } else {
+                $this.addClass("rotate-180");
+            }
+        });
+
+        let $weatherSessionSelector = this.$weatherSessionsSelectTemplate.clone(true, true);
+
+        $weatherSessionSelector.removeClass("WeatherSessions-template");
+        $weatherSessionSelector.addClass("WeatherSessions");
+        $weatherSessionSelector.attr("name", "WeatherSessions-"+weatherNum);
+        $weatherSessionSelector.attr("id", "WeatherSessions-"+weatherNum);
+        $weatherSessionSelector.show();
+
+        let $weatherSessions = $weathers.find(".WeatherSessions");
+
+        if ($weatherSessions.find(".weather-session-Race").length === 0) {
+            $weatherSessionSelector.find(".weather-session-Race").remove();
+        }
+
+        if ($weatherSessions.find(".weather-session-Qualifying").length === 0) {
+            $weatherSessionSelector.find(".weather-session-Qualifying").remove();
+        }
+
+        if ($weatherSessions.find(".weather-session-Practice").length === 0) {
+            $weatherSessionSelector.find(".weather-session-Practice").remove();
+        }
+
+        let that = this;
+
+        $weatherSessionSelector.change(function (e) {
+            that.updateWeatherSessionHeader($(this));
+        });
+
+        $newWeather.find(".sessionsWrapper").append($weatherSessionSelector);
+        $weatherSessionSelector.multiSelect();
+
         $oldWeather.after($newWeather);
+
+        this.updateWeatherGraphics($newWeather, $newWeather.find(".weather-graphics").val());
+        this.updateWeatherSessionHeader($weatherSessionSelector);
     }
 
     /**
@@ -476,7 +593,6 @@ class RaceSetup {
      */
     showEnabledSessions() {
         let that = this;
-
 
         let $hiddenWhenBookingEnabled = that.$parent.find(".hidden-booking-enabled");
         let $visibleWhenBookingEnabled = that.$parent.find(".visible-booking-enabled");
@@ -497,7 +613,13 @@ class RaceSetup {
                     let $elem = $this.closest(".tab-pane").find(".session-details");
                     let $panelLabel = that.$parent.find("#" + $this.closest(".tab-pane").attr("aria-labelledby"));
 
-                    let isBooking = $(elem).attr("name") === "Booking.Enabled";
+                    let switchName = $(elem).attr("name");
+                    let isBooking = switchName === "Booking.Enabled";
+
+                    let sessionType = switchName.replace(".Enabled", "");
+
+                    let $weatherSessions = that.$parent.find(".WeatherSessions");
+                    let $weatherSessionOption = $weatherSessions.find(".weather-session-" + sessionType);
 
                     if (state) {
                         $elem.show();
@@ -507,6 +629,12 @@ class RaceSetup {
                             $hiddenWhenBookingEnabled.hide();
                             $visibleWhenBookingEnabled.show();
                         }
+
+                        if ($weatherSessionOption.length === 0) {
+                            $weatherSessions.append($("<option value='"+sessionType+"' class='weather-session-"+sessionType+"'>"+sessionType+"</option>"));
+
+                            $weatherSessions.multiSelect("refresh");
+                        }
                     } else {
                         $elem.hide();
                         $panelLabel.removeClass("text-success");
@@ -515,10 +643,47 @@ class RaceSetup {
                             $hiddenWhenBookingEnabled.show();
                             $visibleWhenBookingEnabled.hide();
                         }
+
+                        if ($weatherSessionOption.length > 0) {
+                            $weatherSessionOption.remove();
+                            $weatherSessions.multiSelect("refresh");
+                        }
                     }
+
+                    $weatherSessions.each(function (index, weatherSession) {
+                        that.updateWeatherSessionHeader($(weatherSession));
+                    });
                 });
             });
         }
+    }
+
+    deleteWeather(e, $weather) {
+        e.preventDefault();
+
+        $weather.remove();
+
+        // go through all .weather divs and update their numbers
+        this.$parent.find(".weather").each(function (index, elem) {
+            $(elem).find(".weather-num").text(index);
+        });
+    }
+
+    updateWeatherSessionHeader($weatherSession) {
+        if ($weatherSession.length === 0) {
+            return;
+        }
+
+        let sessions = $weatherSession.val();
+        let sessionText;
+
+        if (sessions.length > 0) {
+            sessionText = prettifyName(sessions, false);
+        } else {
+            sessionText = "Any Session";
+        }
+
+        $weatherSession.closest(".weather").find(".header-weather-sessions").text(sessionText);
     }
 
     /**
@@ -751,10 +916,9 @@ class RaceSetup {
                 $maxClients.attr("max", overrideAmount);
                 $maxClients.val(overrideAmount);
             }
-        })
-            .fail(function () {
-                $pitBoxes.closest(".row").hide()
-            })
+        }).fail(function () {
+            $pitBoxes.closest(".row").hide()
+        });
     }
 
     /**
@@ -766,19 +930,21 @@ class RaceSetup {
 
         let selectedTrack = this.$trackDropdown.find("option:selected").val();
         let availableLayouts = this.trackLayoutOpts[selectedTrack];
+        let availableLayoutKeys = Object.keys(availableLayouts);
 
-        if (availableLayouts && !(availableLayouts.length === 1 && availableLayouts[0] === "<default>")) {
-            for (let i = 0; i < availableLayouts.length; i++) {
-                this.$trackLayoutDropdown.append(this.buildTrackLayoutOption(availableLayouts[i]));
+        if (availableLayouts && !(availableLayoutKeys.length === 1 && availableLayoutKeys[0] === "<default>")) {
+            for (const [layout, name] of Object.entries(availableLayouts)) {
+                this.$trackLayoutDropdown.append(this.buildTrackLayoutOption(layout, name));
             }
 
             this.$trackLayoutDropdownParent.show();
         } else {
             // add an option with an empty value
-            this.$trackLayoutDropdown.append(this.buildTrackLayoutOption(""));
+            this.$trackLayoutDropdown.append(this.buildTrackLayoutOption("", ""));
             this.$trackLayoutDropdownParent.hide();
         }
 
+        Form.initialiseSelect2OnElement(this.$trackLayoutDropdown);
 
         this.showTrackDetails();
     }
@@ -786,12 +952,14 @@ class RaceSetup {
     /**
      * buildTrackLayoutOption: builds an <option> containing track layout information
      * @param layout
+     * @param name
      * @returns {HTMLElement}
      */
-    buildTrackLayoutOption(layout) {
+    buildTrackLayoutOption(layout, name) {
         let $opt = $("<option/>");
         $opt.attr({'value': layout});
-        $opt.text(prettifyName(layout, true));
+        $opt.text(name);
+        $opt.data("track-name", layout);
 
         if (layout === this.currentLayout) {
             $opt.prop("selected", true);
@@ -1327,23 +1495,38 @@ let serverLogs = {
             return node.scrollTop + node.offsetHeight >= node.scrollHeight - 40;
         }
 
+        function coloriseLogOutput(data) {
+            let lines = data.split("\n");
+
+            for (let i = 0; i < lines.length; i++) {
+                if (lines[i].indexOf("level=debug") !== -1) {
+                    lines[i] = '<span class="text-muted">' + lines[i] + '</span>';
+                } else if (lines[i].indexOf("level=error") !== -1) {
+                    lines[i] = '<span class="text-danger">' + lines[i] + '</span>';
+                } else if (lines[i].indexOf("level=warn") !== -1) {
+                    lines[i] = '<span class="text-warning">' + lines[i] + '</span>';
+                }
+            }
+
+            return lines.join("\n");
+        }
+
         if ($serverLog.length && $managerLog.length && $pluginLog.length) {
             setInterval(function () {
                 $.get("/api/logs", function (data) {
                     if (!window.getSelection().toString()) {
-
                         if (isAtBottom($serverLog) && !disableServerLogRefresh) {
-                            $serverLog.text(data.ServerLog);
+                            $serverLog.html(coloriseLogOutput(data.ServerLog));
                             $serverLog.scrollTop(1E10);
                         }
 
                         if (isAtBottom($managerLog) && !disableManagerLogRefresh) {
-                            $managerLog.text(data.ManagerLog);
+                            $managerLog.html(coloriseLogOutput(data.ManagerLog));
                             $managerLog.scrollTop(1E10);
                         }
 
                         if (isAtBottom($pluginLog) && !disablePluginLogRefresh) {
-                            $pluginLog.text(data.PluginsLog);
+                            $pluginLog.html(coloriseLogOutput(data.PluginsLog));
                             $pluginLog.scrollTop(1E10);
                         }
                     }
@@ -1425,8 +1608,25 @@ let filesToUpload = [];
 
 function submitFiles(path) {
     //JSON encode filestoUpload, JQUERY post request to api endpoint (/api/track/car/upload)
-    let newFiles = [];
+    let uploadPayload = {
+        GenerateTrackMaps: !!$("#GenerateTrackMaps").is(":checked"),
+        Files: [],
+    };
+
     let count = 0;
+
+    let tags = $("#tags");
+
+    if (tags) {
+        let val = tags.val();
+
+        if (val !== "") {
+            uploadPayload.Files.push({
+                'name': "tags",
+                'dataBase64': val
+            });
+        }
+    }
 
     for (let x = 0; x < filesToUpload.length; x++) {
         // Encode and upload, don't post until all files are read
@@ -1435,7 +1635,7 @@ function submitFiles(path) {
         reader.readAsDataURL(filesToUpload[x]);
 
         reader.addEventListener("load", function () {
-            newFiles.push({
+            uploadPayload.Files.push({
                 'name': filesToUpload[x].name,
                 'size': filesToUpload[x].size,
                 'type': filesToUpload[x].type,
@@ -1446,7 +1646,7 @@ function submitFiles(path) {
             count++;
 
             if (count === filesToUpload.length) {
-                postWithProgressBar(path, JSON.stringify(newFiles), onSuccess, onFail, $("#progress-bar"));
+                postWithProgressBar(path, JSON.stringify(uploadPayload), onSuccess, onFail, $("#progress-bar"));
             }
         });
     }
@@ -1903,7 +2103,8 @@ function handleTrackFilesLoop(fileList) {
         // get model/surfaces and drs zones and ui folder
         if ((fileList[x].name.startsWith("models") && fileList[x].name.endsWith(".ini")) ||
             (fileList[x].name === "surfaces.ini" || fileList[x].name === "drs_zones.ini") ||
-            (fileList[x].filepath.includes("/ui/") || fileList[x].name === "map.png" || fileList[x].name === "map.ini")) {
+            (fileList[x].filepath.includes("/ui/") || fileList[x].name === "map.png" || fileList[x].name === "map.ini") ||
+            (fileList[x].filepath.includes("/ai/"))) {
 
             filesToUploadLocal.push(fileList[x]);
         }
@@ -2184,8 +2385,11 @@ let championships = {
     setSwitchesForACSR: function (state) {
         let $signUpFormSwitch = $("#ChampionshipSignUpFormEnabled");
         let $overridePasswordSwitch = $("#OverridePassword");
+        let $acsrOptions = $("#acsr-options")
 
         if (state) {
+            $acsrOptions.removeClass("d-none")
+
             $signUpFormSwitch.bootstrapSwitch('state', true);
             $signUpFormSwitch.bootstrapSwitch('disabled', true);
 
@@ -2194,6 +2398,8 @@ let championships = {
 
             $overridePasswordSwitch.closest(".card-body").find("#ReplacementPasswordWrapper").hide();
         } else {
+            $acsrOptions.addClass("d-none")
+
             $overridePasswordSwitch.closest(".card-body").find("#ReplacementPasswordWrapper").show();
 
             $signUpFormSwitch.bootstrapSwitch('disabled', false);

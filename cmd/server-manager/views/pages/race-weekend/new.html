@@ -1,4 +1,4 @@
-{{/* gotype: github.com/JustaPenguin/assetto-server-manager.RaceTemplateVars */}}
+{{/* gotype: justapengu.in/acsm.RaceTemplateVars */}}
 
 {{ define "title" }}Create a Race Weekend{{ end }}
 
@@ -14,8 +14,6 @@
     {{ if $.RaceWeekend.HasLinkedChampionship }}
         <h4 class="text-center">in the {{ $.Championship.Name }} Championship</h4>
     {{ end }}
-
-    {{ template "raceweekend-premium" dict "IsPremium" $.IsPremium }}
 
     <form action="/race-weekends/new/submit" method="post" id="raceweekend-form" data-safe-submit>
         <div class="race-setup">
@@ -144,6 +142,8 @@
                     <button type="submit" name="action" value="addEvent" class="btn btn-success">Add a Session</button>
                 </div>
             {{ end }}
+
+            <div class="clearfix"></div>
         </div>
     </form>
 

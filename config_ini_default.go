@@ -1,12 +1,18 @@
-package servermanager
+package acsm
 
-// ConfigIniDefault is the default server config (ish) as supplied via the assetto corsa server.
-func ConfigIniDefault() ServerConfig {
+import (
+	"justapengu.in/acsm/internal/acserver"
+	"justapengu.in/acsm/pkg/pitlanedetection"
+)
+
+// ConfigDefault is the default server config (ish) as supplied via the assetto corsa server.
+func ConfigDefault() ServerConfig {
 	return ServerConfig{
 		GlobalServerConfig: GlobalServerConfig{
 			Name:                              "Assetto Corsa Server",
 			Password:                          "",
 			AdminPassword:                     "",
+			UPnP:                              true,
 			UDPPort:                           9600,
 			TCPPort:                           9600,
 			HTTPPort:                          8081,
@@ -100,18 +106,57 @@ func ConfigIniDefault() ServerConfig {
 
 			Weather: map[string]*WeatherConfig{
 				"WEATHER_0": {
-					Graphics:                    "3_clear",
-					ChampionshipPracticeWeather: weatherAny,
-					BaseTemperatureAmbient:      26,
-					BaseTemperatureRoad:         11,
-					VariationAmbient:            1,
-					VariationRoad:               1,
-					WindBaseSpeedMin:            3,
-					WindBaseSpeedMax:            15,
-					WindBaseDirection:           30,
-					WindVariationDirection:      15,
+					Graphics:               "3_clear",
+					BaseTemperatureAmbient: 26,
+					BaseTemperatureRoad:    11,
+					VariationAmbient:       1,
+					VariationRoad:          1,
+					WindBaseSpeedMin:       3,
+					WindBaseSpeedMax:       15,
+					WindBaseDirection:      30,
+					WindVariationDirection: 15,
 				},
 			},
+
+			CustomCutsEnabled:             false,
+			CustomCutsOnlyIfCleanSet:      false,
+			CustomCutsIgnoreFirstLap:      true,
+			CustomCutsPenaltyType:         acserver.PenaltyKick,
+			CustomCutsNumWarnings:         4,
+			CustomCutsBoPAmount:           50,
+			CustomCutsBoPNumLaps:          1,
+			CustomCutsDriveThroughNumLaps: 2,
+
+			DRSPenaltiesEnabled:             false,
+			DRSPenaltiesWindow:              1,
+			DRSPenaltiesEnableOnLap:         3,
+			DRSPenaltiesNumWarnings:         2,
+			DRSPenaltiesPenaltyType:         acserver.PenaltyBallast,
+			DRSPenaltiesBoPAmount:           50,
+			DRSPenaltiesBoPNumLaps:          2,
+			DRSPenaltiesDriveThroughNumLaps: 2,
+
+			CollisionPenaltiesEnabled:             false,
+			CollisionPenaltiesIgnoreFirstLap:      true,
+			CollisionPenaltiesOnlyOverSpeed:       40,
+			CollisionPenaltiesNumWarnings:         4,
+			CollisionPenaltiesPenaltyType:         acserver.PenaltyDriveThrough,
+			CollisionPenaltiesBoPAmount:           50,
+			CollisionPenaltiesBoPNumLaps:          2,
+			CollisionPenaltiesDriveThroughNumLaps: 2,
+
+			TyrePenaltiesEnabled:                   false,
+			TyrePenaltiesMustStartOnBestQualifying: true,
+			TyrePenaltiesPenaltyType:               acserver.PenaltyDriveThrough,
+			TyrePenaltiesMinimumCompounds:          2,
+			TyrePenaltiesMinimumCompoundsPenalty:   0,
+			TyrePenaltiesBoPAmount:                 50,
+			TyrePenaltiesBoPNumLaps:                2,
+			TyrePenaltiesDriveThroughNumLaps:       2,
+
+			PitLane: &pitlanedetection.PitLane{},
+
+			DriftModeEnabled: false,
 		},
 	}
 }

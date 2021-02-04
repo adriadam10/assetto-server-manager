@@ -1,4 +1,4 @@
-package servermanager
+package acsm
 
 import (
 	"errors"
@@ -13,14 +13,14 @@ import (
 	"sync"
 	"time"
 
-	"github.com/JustaPenguin/assetto-server-manager/pkg/udp"
-	"github.com/JustaPenguin/assetto-server-manager/pkg/when"
+	"justapengu.in/acsm/internal/acserver"
+	"justapengu.in/acsm/pkg/udp"
+	"justapengu.in/acsm/pkg/when"
 
-	"4d63.com/tz"
-	"github.com/etcd-io/bbolt"
 	"github.com/go-chi/chi"
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
+	"go.etcd.io/bbolt"
 )
 
 var ErrCustomRaceNotFound = errors.New("servermanager: custom race not found")
@@ -96,10 +96,6 @@ func (rm *RaceManager) applyConfigAndStart(event RaceEvent) error {
 		rm.raceControl.currentTimeAttackEvent = nil
 	}
 
-	if !Premium() {
-		rm.raceControl.currentTimeAttackEvent = nil
-	}
-
 	// load server opts
 	serverOpts, err := rm.LoadServerOptions()
 
@@ -116,7 +112,7 @@ func (rm *RaceManager) applyConfigAndStart(event RaceEvent) error {
 	raceConfig := event.GetRaceConfig()
 	entryList := event.GetEntryList()
 
-	if config.Lua.Enabled && Premium() {
+	if config.Lua.Enabled {
 		err = eventStartPlugin(&raceConfig, serverOpts, &entryList)
 
 		if err != nil {
@@ -131,51 +127,10 @@ func (rm *RaceManager) applyConfigAndStart(event RaceEvent) error {
 		raceConfig.MaxBallastKilograms = greatestBallast
 	}
 
-	// if this is a championship practice and some practice weathers exist replace weather in config with them
-	if event.IsChampionship() && event.IsPractice() {
-		practiceWeather := make(map[string]*WeatherConfig)
-
-		id := 0
-
-		for _, weather := range raceConfig.Weather {
-			if weather.ChampionshipPracticeWeather == weatherPractice || weather.ChampionshipPracticeWeather == weatherAny {
-				practiceWeather[fmt.Sprintf("WEATHER_%d", id)] = weather
-
-				id++
-			}
-		}
-
-		if len(practiceWeather) > 0 {
-			raceConfig.Weather = practiceWeather
-		}
-	} else if event.IsChampionship() {
-		nonPracticeWeather := make(map[string]*WeatherConfig)
-
-		id := 0
-
-		for _, weather := range raceConfig.Weather {
-			if weather.ChampionshipPracticeWeather == weatherEvent || weather.ChampionshipPracticeWeather == weatherAny {
-				nonPracticeWeather[fmt.Sprintf("WEATHER_%d", id)] = weather
-
-				id++
-			}
-		}
-
-		if len(nonPracticeWeather) > 0 {
-			raceConfig.Weather = nonPracticeWeather
-		}
-	}
-
 	config := ServerConfig{
 		CurrentRaceConfig:  raceConfig,
 		GlobalServerConfig: *serverOpts,
 	}
-
-	forwardingAddress := config.GlobalServerConfig.UDPPluginAddress
-	forwardListenPort := config.GlobalServerConfig.UDPPluginLocalPort
-
-	config.GlobalServerConfig.UDPPluginAddress = config.GlobalServerConfig.FreeUDPPluginAddress
-	config.GlobalServerConfig.UDPPluginLocalPort = config.GlobalServerConfig.FreeUDPPluginLocalPort
 
 	if MaxClientsOverride > 0 {
 		config.CurrentRaceConfig.MaxClients = MaxClientsOverride
@@ -198,15 +153,24 @@ func (rm *RaceManager) applyConfigAndStart(event RaceEvent) error {
 
 	config.CurrentRaceConfig.Cars = strings.Join(finalCars, ";")
 
-	// if password override turn the password off
-	if event.OverrideServerPassword() {
-		config.GlobalServerConfig.Password = event.ReplacementServerPassword()
-	} else {
-		config.GlobalServerConfig.Password = serverOpts.Password
-	}
-
 	if config.CurrentRaceConfig.HasSession(SessionTypeBooking) {
 		config.CurrentRaceConfig.PickupModeEnabled = 0
+	}
+
+	sessions, sessionTypes := config.CurrentRaceConfig.Sessions.AsSliceWithSessionTypes()
+
+	if len(sessions) > 0 {
+		session, sessionType := sessions[0], sessionTypes[0]
+
+		if session.IsOpen == SessionOpennessNoJoin {
+			if sessionType == SessionTypeRace {
+				logrus.Warnf("Session openness was set to no join on the first session of this event! Corrected to 'Free Join until 20 seconds to the green light'")
+				session.IsOpen = SessionOpennessFreeJoinUntil20SecondsToTheGreenLight
+			} else {
+				logrus.Warnf("Session openness was set to no join on the first session of this event! Corrected to 'Free Join'")
+				session.IsOpen = SessionOpennessFreeJoin
+			}
+		}
 	}
 
 	// drs zones management
@@ -214,6 +178,13 @@ func (rm *RaceManager) applyConfigAndStart(event RaceEvent) error {
 
 	if err != nil {
 		return err
+	}
+
+	// if password override turn the password off
+	if event.OverrideServerPassword() {
+		config.GlobalServerConfig.Password = event.ReplacementServerPassword()
+	} else {
+		config.GlobalServerConfig.Password = serverOpts.Password
 	}
 
 	if config.GlobalServerConfig.ShowRaceNameInServerLobby == 1 {
@@ -233,22 +204,15 @@ func (rm *RaceManager) applyConfigAndStart(event RaceEvent) error {
 		return err
 	}
 
-	// any available car should make sure you have one of each before randomising (#678)
-	for _, car := range finalCars {
-		for _, entrant := range entryList {
-			if entrant.Model == AnyCarModel {
-				entrant.Model = car
-				entrant.Skin = rm.carManager.RandomSkin(entrant.Model)
-				break
-			}
-		}
-	}
+	numEntrantsWithAnyCar := 0
 
 	for _, entrant := range entryList {
 		if entrant.Model == AnyCarModel {
 			// cars with 'any car model' become random in the entry list.
-			entrant.Model = finalCars[rand.Intn(len(finalCars))]
+			entrant.Model = finalCars[numEntrantsWithAnyCar%len(finalCars)]
 			entrant.Skin = rm.carManager.RandomSkin(entrant.Model)
+
+			numEntrantsWithAnyCar++
 		}
 	}
 
@@ -261,7 +225,7 @@ func (rm *RaceManager) applyConfigAndStart(event RaceEvent) error {
 	rm.currentRace = &config
 	rm.currentEntryList = entryList
 
-	err = rm.process.Start(event, config.GlobalServerConfig.UDPPluginAddress, config.GlobalServerConfig.UDPPluginLocalPort, forwardingAddress, forwardListenPort)
+	err = rm.process.Start(event, &config.GlobalServerConfig)
 
 	if err != nil {
 		return err
@@ -317,7 +281,7 @@ func (rm *RaceManager) applyConfigAndStart(event RaceEvent) error {
 }
 
 func eventStartPlugin(raceConfig *CurrentRaceConfig, serverOpts *GlobalServerConfig, entryList *EntryList) error {
-	p := &LuaPlugin{}
+	p := NewLuaPlugin()
 
 	newRaceConfig, newServerOpts, newEntryList := &CurrentRaceConfig{}, &GlobalServerConfig{}, &EntryList{}
 
@@ -341,7 +305,7 @@ func (rm *RaceManager) SetupQuickRace(r *http.Request) error {
 	}
 
 	// load default config values
-	quickRace := ConfigIniDefault().CurrentRaceConfig
+	quickRace := ConfigDefault().CurrentRaceConfig
 
 	cars := r.Form["Cars"]
 
@@ -495,6 +459,8 @@ func formValueAsFloat(val string) float64 {
 	return i
 }
 
+var errEntryListFormatError = errors.New("acsm: Entry List is not formatted correctly, please check your event setup")
+
 func (rm *RaceManager) BuildEntryList(r *http.Request, start, length int) (EntryList, error) {
 	entryList := EntryList{}
 
@@ -507,6 +473,10 @@ func (rm *RaceManager) BuildEntryList(r *http.Request, start, length int) (Entry
 	carMap := allCars.AsMap()
 
 	for i := start; i < start+length; i++ {
+		if i == len(r.Form["EntryList.Car"]) || i == len(r.Form["EntryList.Skin"]) {
+			return nil, errEntryListFormatError
+		}
+
 		model := r.Form["EntryList.Car"][i]
 		skin := r.Form["EntryList.Skin"][i]
 
@@ -526,10 +496,12 @@ func (rm *RaceManager) BuildEntryList(r *http.Request, start, length int) (Entry
 			}
 		}
 
-		e.Name = r.Form["EntryList.Name"][i]
+		guid, name := NormaliseEntrantGUIDsNames(r.Form["EntryList.GUID"][i], r.Form["EntryList.Name"][i])
+
+		e.Name = name
 		e.Team = r.Form["EntryList.Team"][i]
 
-		e.GUID = NormaliseEntrantGUID(r.Form["EntryList.GUID"][i])
+		e.GUID = guid
 		e.Model = model
 		e.Skin = skin
 		// Despite having the option for SpectatorMode, the server does not support it, and panics if set to 1
@@ -573,12 +545,7 @@ func (rm *RaceManager) BuildCustomRaceFromForm(r *http.Request) (*CurrentRaceCon
 		gasPenaltyDisabled = 0
 	}
 
-	timeAttack := false
-
-	if Premium() {
-		timeAttack = formValueAsInt(r.FormValue("TimeAttack")) == 1
-	}
-
+	timeAttack := formValueAsInt(r.FormValue("TimeAttack")) == 1
 	loopMode := formValueAsInt(r.FormValue("LoopMode"))
 
 	if timeAttack {
@@ -618,12 +585,13 @@ func (rm *RaceManager) BuildCustomRaceFromForm(r *http.Request) (*CurrentRaceCon
 		SunAngle: formValueAsInt(r.FormValue("SunAngle")),
 
 		// realism
-		LegalTyres:          legalTyres,
-		FuelRate:            formValueAsInt(r.FormValue("FuelRate")),
-		DamageMultiplier:    formValueAsInt(r.FormValue("DamageMultiplier")),
-		TyreWearRate:        formValueAsInt(r.FormValue("TyreWearRate")),
-		ForceVirtualMirror:  formValueAsInt(r.FormValue("ForceVirtualMirror")),
-		TimeOfDayMultiplier: formValueAsInt(r.FormValue("TimeOfDayMultiplier")),
+		LegalTyres:              legalTyres,
+		FuelRate:                formValueAsInt(r.FormValue("FuelRate")),
+		DamageMultiplier:        formValueAsInt(r.FormValue("DamageMultiplier")),
+		TyreWearRate:            formValueAsInt(r.FormValue("TyreWearRate")),
+		ForceVirtualMirror:      formValueAsInt(r.FormValue("ForceVirtualMirror")),
+		ForceOpponentHeadlights: formValueAsInt(r.FormValue("ForceOpponentHeadlights")) == 1,
+		TimeOfDayMultiplier:     formValueAsFloat(r.FormValue("TimeOfDayMultiplier")),
 
 		DynamicTrack: DynamicTrackConfig{
 			SessionStart:    formValueAsInt(r.FormValue("SessionStart")),
@@ -649,24 +617,59 @@ func (rm *RaceManager) BuildCustomRaceFromForm(r *http.Request) (*CurrentRaceCon
 		RaceExtraLap:              formValueAsInt(r.FormValue("RaceExtraLap")),
 		MaxContactsPerKilometer:   formValueAsInt(r.FormValue("MaxContactsPerKilometer")),
 		ResultScreenTime:          formValueAsInt(r.FormValue("ResultScreenTime")),
+		ForcedApps:                r.Form["ForcedApps"],
 		DisableDRSZones:           formValueAsInt(r.FormValue("DisableDRSZones")) == 1,
 
 		TimeAttack: timeAttack,
+
+		CustomCutsEnabled:             formValueAsInt(r.FormValue("CustomCutsEnabled")) == 1,
+		CustomCutsOnlyIfCleanSet:      formValueAsInt(r.FormValue("CustomCutsOnlyIfCleanSet")) == 1,
+		CustomCutsIgnoreFirstLap:      formValueAsInt(r.FormValue("CustomCutsIgnoreFirstLap")) == 1,
+		CustomCutsNumWarnings:         formValueAsInt(r.FormValue("CustomCutsNumWarnings")),
+		CustomCutsPenaltyType:         acserver.PenaltyType(formValueAsInt(r.FormValue("CustomCutsPenaltyType"))),
+		CustomCutsBoPAmount:           float32(formValueAsFloat(r.FormValue("CustomCutsBoPAmount"))),
+		CustomCutsBoPNumLaps:          formValueAsInt(r.FormValue("CustomCutsBoPNumLaps")),
+		CustomCutsDriveThroughNumLaps: formValueAsInt(r.FormValue("CustomCutsDriveThroughNumLaps")),
+
+		DRSPenaltiesEnabled:             formValueAsInt(r.FormValue("DRSPenaltiesEnabled")) == 1,
+		DRSPenaltiesWindow:              float32(formValueAsFloat(r.FormValue("DRSPenaltiesWindow"))),
+		DRSPenaltiesEnableOnLap:         formValueAsInt(r.FormValue("DRSPenaltiesEnableOnLap")),
+		DRSPenaltiesNumWarnings:         formValueAsInt(r.FormValue("DRSPenaltiesNumWarnings")),
+		DRSPenaltiesPenaltyType:         acserver.PenaltyType(formValueAsInt(r.FormValue("DRSPenaltiesPenaltyType"))),
+		DRSPenaltiesBoPAmount:           float32(formValueAsFloat(r.FormValue("DRSPenaltiesBoPAmount"))),
+		DRSPenaltiesBoPNumLaps:          formValueAsInt(r.FormValue("DRSPenaltiesBoPNumLaps")),
+		DRSPenaltiesDriveThroughNumLaps: formValueAsInt(r.FormValue("DRSPenaltiesDriveThroughNumLaps")),
+
+		CollisionPenaltiesEnabled:             formValueAsInt(r.FormValue("CollisionPenaltiesEnabled")) == 1,
+		CollisionPenaltiesIgnoreFirstLap:      formValueAsInt(r.FormValue("CollisionPenaltiesIgnoreFirstLap")) == 1,
+		CollisionPenaltiesOnlyOverSpeed:       float32(formValueAsFloat(r.FormValue("CollisionPenaltiesOnlyOverSpeed"))),
+		CollisionPenaltiesNumWarnings:         formValueAsInt(r.FormValue("CollisionPenaltiesNumWarnings")),
+		CollisionPenaltiesPenaltyType:         acserver.PenaltyType(formValueAsInt(r.FormValue("CollisionPenaltiesPenaltyType"))),
+		CollisionPenaltiesBoPAmount:           float32(formValueAsFloat(r.FormValue("CollisionPenaltiesBoPAmount"))),
+		CollisionPenaltiesBoPNumLaps:          formValueAsInt(r.FormValue("CollisionPenaltiesBoPNumLaps")),
+		CollisionPenaltiesDriveThroughNumLaps: formValueAsInt(r.FormValue("CollisionPenaltiesDriveThroughNumLaps")),
+
+		TyrePenaltiesEnabled:                   formValueAsInt(r.FormValue("TyrePenaltiesEnabled")) == 1,
+		TyrePenaltiesMustStartOnBestQualifying: formValueAsInt(r.FormValue("TyrePenaltiesMustStartOnBestQualifying")) == 1,
+		TyrePenaltiesMinimumCompounds:          formValueAsInt(r.FormValue("TyrePenaltiesMinimumCompounds")),
+		TyrePenaltiesMinimumCompoundsPenalty:   formValueAsInt(r.FormValue("TyrePenaltiesMinimumCompoundsPenalty")),
+		TyrePenaltiesPenaltyType:               acserver.PenaltyType(formValueAsInt(r.FormValue("TyrePenaltiesPenaltyType"))),
+		TyrePenaltiesBoPAmount:                 float32(formValueAsFloat(r.FormValue("TyrePenaltiesBoPAmount"))),
+		TyrePenaltiesBoPNumLaps:                formValueAsInt(r.FormValue("TyrePenaltiesBoPNumLaps")),
+		TyrePenaltiesDriveThroughNumLaps:       formValueAsInt(r.FormValue("TyrePenaltiesDriveThroughNumLaps")),
+
+		DriftModeEnabled: formValueAsInt(r.FormValue("DriftModeEnabled")) == 1,
 	}
 
-	if Premium() {
-		// driver swap
-		raceConfig.DriverSwapEnabled = formValueAsInt(r.FormValue("DriverSwapEnabled"))
-		raceConfig.DriverSwapMinTime = formValueAsInt(r.FormValue("DriverSwapMinTime"))
-		raceConfig.DriverSwapDisqualifyTime = formValueAsInt(r.FormValue("DriverSwapDisqualifyTime"))
-		raceConfig.DriverSwapPenaltyTime = formValueAsInt(r.FormValue("DriverSwapPenaltyTime"))
-		raceConfig.DriverSwapMinimumNumberOfSwaps = formValueAsInt(r.FormValue("DriverSwapMinimumNumberOfSwaps"))
-		raceConfig.DriverSwapNotEnoughSwapsPenalty = formValueAsInt(r.FormValue("DriverSwapNotEnoughSwapsPenalty"))
+	// driver swap
+	raceConfig.DriverSwapEnabled = formValueAsInt(r.FormValue("DriverSwapEnabled"))
+	raceConfig.DriverSwapMinTime = formValueAsInt(r.FormValue("DriverSwapMinTime"))
+	raceConfig.DriverSwapDisqualifyTime = formValueAsInt(r.FormValue("DriverSwapDisqualifyTime"))
+	raceConfig.DriverSwapPenaltyTime = formValueAsInt(r.FormValue("DriverSwapPenaltyTime"))
+	raceConfig.DriverSwapMinimumNumberOfSwaps = formValueAsInt(r.FormValue("DriverSwapMinimumNumberOfSwaps"))
+	raceConfig.DriverSwapNotEnoughSwapsPenalty = formValueAsInt(r.FormValue("DriverSwapNotEnoughSwapsPenalty"))
 
-		raceConfig.ExportSecondRaceToACSR = formValueAsInt(r.FormValue("ExportSecondRaceToACSR")) == 1
-	} else {
-		raceConfig.DriverSwapEnabled = 0
-	}
+	raceConfig.ExportSecondRaceToACSR = formValueAsInt(r.FormValue("ExportSecondRaceToACSR")) == 1
 
 	if isSol {
 		raceConfig.SunAngle = 0
@@ -679,7 +682,7 @@ func (rm *RaceManager) BuildCustomRaceFromForm(r *http.Request) (*CurrentRaceCon
 		disabled := r.FormValue(sessName+".Enabled") != "1"
 
 		if timeAttack {
-			if sessName != SessionTypePractice.String() {
+			if session != SessionTypePractice {
 				continue
 			} else {
 				disabled = false
@@ -696,6 +699,7 @@ func (rm *RaceManager) BuildCustomRaceFromForm(r *http.Request) (*CurrentRaceCon
 			Laps:     formValueAsInt(r.FormValue(sessName + ".Laps")),
 			IsOpen:   SessionOpenness(formValueAsInt(r.FormValue(sessName + ".IsOpen"))),
 			WaitTime: formValueAsInt(r.FormValue(sessName + ".WaitTime")),
+			IsSolo:   session == SessionTypeQualifying && formValueAsInt(r.FormValue(sessName+".IsSolo")) == 1,
 		})
 	}
 
@@ -703,7 +707,20 @@ func (rm *RaceManager) BuildCustomRaceFromForm(r *http.Request) (*CurrentRaceCon
 	for i := 0; i < len(r.Form["Graphics"]); i++ {
 		weatherName := r.Form["Graphics"][i]
 
-		WFXType, err := getWeatherType(weatherName)
+		var sessions []SessionType
+
+		for _, session := range r.Form[fmt.Sprintf("WeatherSessions-%d", i)] {
+			sessions = append(sessions, SessionNameToSessionType(session))
+		}
+
+		if len(sessions) == 0 {
+			// Either Race Weekend or no sessions selected, either way apply to all
+			for sessionType := range raceConfig.Sessions {
+				sessions = append(sessions, sessionType)
+			}
+		}
+
+		wfxType, err := getWeatherType(weatherName)
 
 		// if WFXType can't be found due to an error, default to non-sol weather.
 		if !isSol || err != nil {
@@ -718,7 +735,8 @@ func (rm *RaceManager) BuildCustomRaceFromForm(r *http.Request) (*CurrentRaceCon
 				WindBaseDirection:      formValueAsInt(r.Form["WindBaseDirection"][i]),
 				WindVariationDirection: formValueAsInt(r.Form["WindVariationDirection"][i]),
 
-				ChampionshipPracticeWeather: r.Form["ChampionshipPracticeWeather"][i],
+				Duration: int64(formValueAsInt(r.Form["Duration"][i])),
+				Sessions: sessions,
 			})
 		} else {
 			startTime, err := time.ParseInLocation("2006-01-02T15:04", r.Form["DateUnix"][i], time.UTC)
@@ -740,7 +758,7 @@ func (rm *RaceManager) BuildCustomRaceFromForm(r *http.Request) (*CurrentRaceCon
 			}
 
 			raceConfig.AddWeather(&WeatherConfig{
-				Graphics: weatherName + "_type=" + strconv.Itoa(WFXType) + "_time=0_mult=" +
+				Graphics: weatherName + "_type=" + strconv.Itoa(wfxType) + "_time=0_mult=" +
 					timeMulti + "_start=" + strconv.Itoa(int(startTimeFinal.Unix())),
 				BaseTemperatureAmbient: formValueAsInt(r.Form["BaseTemperatureAmbient"][i]),
 				BaseTemperatureRoad:    formValueAsInt(r.Form["BaseTemperatureRoad"][i]),
@@ -751,10 +769,10 @@ func (rm *RaceManager) BuildCustomRaceFromForm(r *http.Request) (*CurrentRaceCon
 				WindBaseDirection:      formValueAsInt(r.Form["WindBaseDirection"][i]),
 				WindVariationDirection: formValueAsInt(r.Form["WindVariationDirection"][i]),
 
-				ChampionshipPracticeWeather: r.Form["ChampionshipPracticeWeather"][i],
-
+				Duration:            int64(formValueAsInt(r.Form["Duration"][i])),
+				Sessions:            sessions,
 				CMGraphics:          weatherName,
-				CMWFXType:           WFXType,
+				CMWFXType:           wfxType,
 				CMWFXUseCustomTime:  1,
 				CMWFXTime:           0,
 				CMWFXTimeMulti:      timeMultiInt,
@@ -793,7 +811,7 @@ func (rm *RaceManager) SetupCustomRace(r *http.Request) error {
 		return err
 	}
 
-	completeConfig := ConfigIniDefault()
+	completeConfig := ConfigDefault()
 	completeConfig.CurrentRaceConfig = *raceConfig
 
 	overridePassword := r.FormValue("OverridePassword") == "1"
@@ -838,7 +856,7 @@ func (rm *RaceManager) SetupCustomRace(r *http.Request) error {
 		timeString := r.FormValue("CustomRaceScheduledTime")
 		timezone := r.FormValue("CustomRaceScheduledTimezone")
 
-		location, err := tz.LoadLocation(timezone)
+		location, err := time.LoadLocation(timezone)
 
 		if err != nil {
 			logrus.WithError(err).Errorf("could not find location: %s", location)
@@ -861,7 +879,7 @@ func (rm *RaceManager) SetupCustomRace(r *http.Request) error {
 		return nil
 	}
 
-	if race.RaceConfig.TimeAttack && Premium() {
+	if race.RaceConfig.TimeAttack {
 		logrus.Info("Time Attack event started")
 		rm.raceControl.currentTimeAttackEvent = race
 	}
@@ -927,11 +945,32 @@ func (rm *RaceManager) ListAutoFillEntrants() ([]*Entrant, error) {
 	return entrants, nil
 }
 
+type TrackOptsGrouped []Track
+
+type TracksSplit struct {
+	Stock, DLC, Mod []Track
+}
+
+func (tog TrackOptsGrouped) Split() TracksSplit {
+	var split TracksSplit
+	for _, t := range tog {
+		if t.IsMod() {
+			split.Mod = append(split.Mod, t)
+		} else if t.IsPaidDLC() {
+			split.DLC = append(split.DLC, t)
+		} else {
+			split.Stock = append(split.Stock, t)
+		}
+	}
+
+	return split
+}
+
 type RaceTemplateVars struct {
 	BaseTemplateVars
 
 	CarOpts             Cars
-	TrackOpts           []Track
+	TrackOpts           TrackOptsGrouped
 	AvailableSessions   []SessionType
 	Weather             Weather
 	SolIsInstalled      bool
@@ -947,6 +986,7 @@ type RaceTemplateVars struct {
 	ReplacementPassword string
 	Tyres               Tyres
 	DeselectedTyres     map[string]bool
+	ForcedApps          *CustomChecksums
 
 	ForceStopTime        int
 	ForceStopWithDrivers bool
@@ -960,6 +1000,8 @@ type RaceTemplateVars struct {
 	RaceWeekend                     *RaceWeekend
 	RaceWeekendSession              *RaceWeekendSession
 	RaceWeekendHasAtLeastOneSession bool
+
+	PenaltyOptions map[acserver.PenaltyType]string
 
 	ShowOverridePasswordCard bool
 }
@@ -984,7 +1026,7 @@ func (rm *RaceManager) BuildRaceOpts(r *http.Request) (*RaceTemplateVars, error)
 		return nil, err
 	}
 
-	race := ConfigIniDefault()
+	race := ConfigDefault()
 
 	templateID := r.URL.Query().Get("from")
 
@@ -1000,6 +1042,12 @@ func (rm *RaceManager) BuildRaceOpts(r *http.Request) (*RaceTemplateVars, error)
 
 		race.CurrentRaceConfig = customRace.RaceConfig
 		entrants = customRace.EntryList
+	}
+
+	forcedApps, err := rm.store.LoadCustomChecksums()
+
+	if err != nil {
+		return nil, err
 	}
 
 	templateIDForEditing := chi.URLParam(r, "uuid")
@@ -1075,6 +1123,8 @@ func (rm *RaceManager) BuildRaceOpts(r *http.Request) (*RaceTemplateVars, error)
 		ShowOverridePasswordCard: true,
 		ForceStopTime:            forceStopTime,
 		ForceStopWithDrivers:     forceStopWithDrivers,
+		ForcedApps:               forcedApps,
+		PenaltyOptions:           acserver.CutPenaltyOptions,
 	}
 
 	err = rm.applyCurrentRaceSetupToOptions(opts, race.CurrentRaceConfig)
@@ -1086,7 +1136,7 @@ func (rm *RaceManager) BuildRaceOpts(r *http.Request) (*RaceTemplateVars, error)
 	return opts, nil
 }
 
-const maxRecentRaces = 30
+const maxRecentRaces = 40
 
 func (rm *RaceManager) ListCustomRaces() (recent, starred, looped, scheduled []*CustomRace, err error) {
 	recent, err = rm.store.ListCustomRaces()
@@ -1098,10 +1148,8 @@ func (rm *RaceManager) ListCustomRaces() (recent, starred, looped, scheduled []*
 	}
 
 	sort.Slice(recent, func(i, j int) bool {
-		return recent[i].Created.After(recent[j].Created)
+		return recent[i].Updated.After(recent[j].Updated)
 	})
-
-	var filteredRecent []*CustomRace
 
 	for _, race := range recent {
 		if race.IsLooping() {
@@ -1133,17 +1181,13 @@ func (rm *RaceManager) ListCustomRaces() (recent, starred, looped, scheduled []*
 		if race.Scheduled.After(time.Now()) && race.ScheduledServerID == serverID {
 			scheduled = append(scheduled, race)
 		}
-
-		if !race.Starred && !race.IsLooping() && !race.Scheduled.After(time.Now()) {
-			filteredRecent = append(filteredRecent, race)
-		}
 	}
 
-	if len(filteredRecent) > maxRecentRaces {
-		filteredRecent = filteredRecent[:maxRecentRaces]
+	if len(recent) > maxRecentRaces {
+		recent = recent[:maxRecentRaces]
 	}
 
-	return filteredRecent, starred, looped, scheduled, nil
+	return recent, starred, looped, scheduled, nil
 }
 
 func (rm *RaceManager) SaveEntrantsForAutoFill(entryList EntryList) error {
@@ -1223,7 +1267,7 @@ func (rm *RaceManager) StartCustomRace(uuid string, forceRestart bool) (*CustomR
 		return nil, err
 	}
 
-	if race.RaceConfig.TimeAttack && Premium() {
+	if race.RaceConfig.TimeAttack {
 		logrus.Info("Time Attack event started")
 		rm.raceControl.currentTimeAttackEvent = race
 	}
@@ -1292,7 +1336,7 @@ func (rm *RaceManager) ScheduleRace(uuid string, date time.Time, action string, 
 			}
 		}
 
-		if config.Lua.Enabled && Premium() {
+		if config.Lua.Enabled {
 			err = eventSchedulePlugin(race)
 
 			if err != nil {
@@ -1337,7 +1381,7 @@ func (rm *RaceManager) ScheduleRace(uuid string, date time.Time, action string, 
 }
 
 func eventSchedulePlugin(race *CustomRace) error {
-	p := &LuaPlugin{}
+	p := NewLuaPlugin()
 
 	newRace := &CustomRace{}
 
@@ -1432,11 +1476,11 @@ func (rm *RaceManager) ToggleStarCustomRace(uuid string) error {
 	return rm.store.UpsertCustomRace(race)
 }
 
-func (rm *RaceManager) ToggleLoopCustomRace(uuid string) error {
+func (rm *RaceManager) ToggleLoopCustomRace(uuid string) (bool, error) {
 	race, err := rm.store.FindCustomRaceByID(uuid)
 
 	if err != nil {
-		return err
+		return false, err
 	}
 
 	if race.LoopServer == nil {
@@ -1445,7 +1489,7 @@ func (rm *RaceManager) ToggleLoopCustomRace(uuid string) error {
 
 	race.LoopServer[serverID] = !race.LoopServer[serverID]
 
-	return rm.store.UpsertCustomRace(race)
+	return race.LoopServer[serverID], rm.store.UpsertCustomRace(race)
 }
 
 func (rm *RaceManager) SaveServerOptions(newServerOpts *GlobalServerConfig) error {
@@ -1477,32 +1521,7 @@ func (rm *RaceManager) SaveServerOptions(newServerOpts *GlobalServerConfig) erro
 }
 
 func (rm *RaceManager) LoadServerOptions() (*GlobalServerConfig, error) {
-	serverOpts, err := rm.store.LoadServerOptions()
-
-	if err != nil {
-		return nil, err
-	}
-
-	udpListenPort, udpSendPort := 0, 0
-
-	for udpListenPort == udpSendPort {
-		udpListenPort, err = FreeUDPPort()
-
-		if err != nil {
-			return nil, err
-		}
-
-		udpSendPort, err = FreeUDPPort()
-
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	serverOpts.FreeUDPPluginAddress = fmt.Sprintf("127.0.0.1:%d", udpSendPort)
-	serverOpts.FreeUDPPluginLocalPort = udpListenPort
-
-	return serverOpts, nil
+	return rm.store.LoadServerOptions()
 }
 
 func (rm *RaceManager) LoopRaces() {

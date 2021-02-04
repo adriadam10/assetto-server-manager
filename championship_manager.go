@@ -1,4 +1,4 @@
-package servermanager
+package acsm
 
 import (
 	"encoding/json"
@@ -15,8 +15,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/JustaPenguin/assetto-server-manager/pkg/udp"
-	"github.com/JustaPenguin/assetto-server-manager/pkg/when"
+	"justapengu.in/acsm/pkg/udp"
+	"justapengu.in/acsm/pkg/when"
 
 	"github.com/cj123/caldav-go/icalendar"
 	"github.com/cj123/caldav-go/icalendar/components"
@@ -118,7 +118,7 @@ func (cm *ChampionshipManager) ListChampionships() ([]*Championship, error) {
 }
 
 func (cm *ChampionshipManager) LoadACSRRatings(championship *Championship) (map[string]*ACSRDriverRating, error) {
-	if !championship.ACSR || !Premium() {
+	if !championship.ACSR {
 		return nil, nil
 	}
 
@@ -134,6 +134,12 @@ func (cm *ChampionshipManager) LoadACSRRatings(championship *Championship) (map[
 		guidMap[entrant.GUID] = true
 	}
 
+	if championship.SignUpForm.Enabled {
+		for _, entrant := range championship.SignUpForm.Responses {
+			guidMap[entrant.GUID] = true
+		}
+	}
+
 	var guids []string
 
 	for guid := range guidMap {
@@ -143,12 +149,34 @@ func (cm *ChampionshipManager) LoadACSRRatings(championship *Championship) (map[
 	return cm.acsrClient.GetRating(guids...)
 }
 
+func (cm *ChampionshipManager) LoadACSRRating(guid string) (*ACSRDriverRating, error) {
+	ratingMap, err := cm.acsrClient.GetRating(guid)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return ratingMap[guid], nil
+}
+
+func (cm *ChampionshipManager) LoadACSRRanges() ([]*ACSRRatingRanges, error) {
+	return cm.acsrClient.GetRanges()
+}
+
 type ChampionshipTemplateVars struct {
 	*RaceTemplateVars
 
-	DefaultPoints ChampionshipPoints
-	DefaultClass  *ChampionshipClass
-	ACSREnabled   bool
+	DefaultPoints             ChampionshipPoints
+	DefaultClass              *ChampionshipClass
+	ACSREnabled               bool
+	ACSRRanges                *ACSRRanges
+	AvailableChampionshipTabs []ChampionshipTab
+}
+
+type ACSRRanges struct {
+	Ranges             []*ACSRRatingRanges
+	HighestSkillCount  int
+	HighestSafetyCount int
 }
 
 func (cm *ChampionshipManager) BuildChampionshipOpts(r *http.Request) (championship *Championship, opts *ChampionshipTemplateVars, err error) {
@@ -162,9 +190,10 @@ func (cm *ChampionshipManager) BuildChampionshipOpts(r *http.Request) (champions
 	defaultClass.ID = uuid.Nil
 
 	opts = &ChampionshipTemplateVars{
-		RaceTemplateVars: raceOpts,
-		DefaultPoints:    DefaultChampionshipPoints,
-		DefaultClass:     defaultClass,
+		RaceTemplateVars:          raceOpts,
+		DefaultPoints:             DefaultChampionshipPoints,
+		DefaultClass:              defaultClass,
+		AvailableChampionshipTabs: AvailableChampionshipTabs,
 	}
 
 	championshipID := chi.URLParam(r, "championshipID")
@@ -184,6 +213,36 @@ func (cm *ChampionshipManager) BuildChampionshipOpts(r *http.Request) (champions
 
 	opts.Championship = championship
 	opts.ACSREnabled = cm.acsrClient.Enabled
+
+	if opts.ACSREnabled {
+		ranges, err := cm.LoadACSRRanges()
+
+		if err != nil {
+			logrus.WithError(err).Errorf("couldn't load ACSR skill/safety range information")
+		} else {
+			highestSkillCount := 0
+			highestSafetyCount := 0
+
+			for _, acsrRange := range ranges {
+				switch acsrRange.RatingType {
+				case "skill":
+					if acsrRange.Count > highestSkillCount {
+						highestSkillCount = acsrRange.Count
+					}
+				case "safety":
+					if acsrRange.Count > highestSafetyCount {
+						highestSafetyCount = acsrRange.Count
+					}
+				}
+			}
+
+			opts.ACSRRanges = &ACSRRanges{
+				Ranges:             ranges,
+				HighestSkillCount:  highestSkillCount,
+				HighestSafetyCount: highestSafetyCount,
+			}
+		}
+	}
 
 	return championship, opts, nil
 }
@@ -237,11 +296,9 @@ func (cm *ChampionshipManager) HandleCreateChampionship(r *http.Request) (champi
 	}
 
 	championship.Info = template.HTML(r.FormValue("ChampionshipInfo"))
+	championship.DefaultTab = ChampionshipTab(r.FormValue("ChampionshipDefaultTab"))
 	championship.OverridePassword = r.FormValue("OverridePassword") == "on" || r.FormValue("OverridePassword") == "1"
-
-	if Premium() {
-		championship.OGImage = r.FormValue("ChampionshipOGImage")
-	}
+	championship.OGImage = r.FormValue("ChampionshipOGImage")
 
 	newACSR := r.FormValue("ACSR") == "on" || r.FormValue("ACSR") == "1"
 
@@ -257,6 +314,11 @@ func (cm *ChampionshipManager) HandleCreateChampionship(r *http.Request) (champi
 		championship.OverridePassword = true
 		championship.ReplacementPassword = ""
 		championship.SignUpForm.Enabled = true
+
+		championship.ACSRSkillGate = r.FormValue("SkillGate")
+		championship.ACSRSafetyGate = formValueAsInt(r.FormValue("SafetyGate"))
+		championship.EnableACSRSafetyGate = r.FormValue("EnableACSRSafetyGate") == "on" || r.FormValue("EnableACSRSafetyGate") == "1"
+		championship.EnableACSRSkillGate = r.FormValue("EnableACSRSkillGate") == "on" || r.FormValue("EnableACSRSkillGate") == "1"
 	} else {
 		championship.ReplacementPassword = r.FormValue("ReplacementPassword")
 	}
@@ -265,20 +327,18 @@ func (cm *ChampionshipManager) HandleCreateChampionship(r *http.Request) (champi
 	previousNumPoints := 0
 	previousNumCars := 0
 
-	if Premium() {
-		// spectator car
-		entrants, err := cm.BuildEntryList(r, previousNumEntrants, 1)
+	// spectator car
+	entrants, err := cm.BuildEntryList(r, previousNumEntrants, 1)
 
-		if err != nil {
-			return nil, edited, err
-		}
-
-		championship.SpectatorCar = *(entrants.AsSlice()[0])
-
-		previousNumEntrants++
-		previousNumCars += formValueAsInt(r.FormValue("NumAvailableSpectatorCars"))
-		championship.SpectatorCarEnabled = formValueAsInt(r.FormValue("Championship.SpectatorCar.Enabled")) == 1
+	if err != nil {
+		return nil, edited, err
 	}
+
+	championship.SpectatorCar = *(entrants.AsSlice()[0])
+
+	previousNumEntrants++
+	previousNumCars += formValueAsInt(r.FormValue("NumAvailableSpectatorCars"))
+	championship.SpectatorCarEnabled = formValueAsInt(r.FormValue("Championship.SpectatorCar.Enabled")) == 1
 
 	for i := 0; i < len(r.Form["ClassName"]); i++ {
 		class := NewChampionshipClass(r.Form["ClassName"][i])
@@ -471,13 +531,13 @@ func (cm *ChampionshipManager) BuildChampionshipEventOpts(r *http.Request) (*Rac
 			}
 
 			if !foundEvent {
-				defaultConfig := ConfigIniDefault()
+				defaultConfig := ConfigDefault()
 				opts.Current = defaultConfig.CurrentRaceConfig
 			}
 
 			opts.ChampionshipHasAtLeastOnceRace = true
 		} else {
-			defaultConfig := ConfigIniDefault()
+			defaultConfig := ConfigDefault()
 
 			opts.Current = defaultConfig.CurrentRaceConfig
 			opts.ChampionshipHasAtLeastOnceRace = false
@@ -650,7 +710,7 @@ func (cm *ChampionshipManager) StartEvent(championshipID string, eventID string,
 
 	raceSetup, entryList := cm.FinalEventConfigurationFiles(championship, event, isPreChampionshipPracticeEvent)
 
-	if config.Lua.Enabled && Premium() {
+	if config.Lua.Enabled {
 		err := championshipEventStartPlugin(event, championship, &entryList)
 
 		if err != nil {
@@ -690,6 +750,33 @@ func (cm *ChampionshipManager) StartEvent(championshipID string, eventID string,
 		raceSetup.PickupModeEnabled = 1
 	}
 
+	filteredWeather := make(map[string]*WeatherConfig)
+
+	i := 0
+	weatherKey := 0
+
+	for {
+		weather, ok := raceSetup.Weather[fmt.Sprintf("WEATHER_%d", weatherKey)]
+
+		if !ok {
+			break
+		}
+
+		for _, session := range weather.Sessions {
+			if session == SessionTypeChampionshipPractice {
+				weather.Sessions = []SessionType{SessionTypePractice}
+				filteredWeather[fmt.Sprintf("WEATHER_%d", i)] = weather
+
+				i++
+			}
+		}
+
+		weatherKey++
+	}
+
+	raceSetup.Weather = filteredWeather
+	raceSetup.ResultScreenTime = 30
+
 	return cm.RaceManager.applyConfigAndStart(&ActiveChampionship{
 		ChampionshipID:      championship.ID,
 		EventID:             event.ID,
@@ -710,7 +797,7 @@ func championshipEventStartPlugin(event *ChampionshipEvent, championship *Champi
 		standings = append(standings, class.Standings(championship, championship.Events))
 	}
 
-	p := &LuaPlugin{}
+	p := NewLuaPlugin()
 
 	newEvent, newChampionship, newEntryList := NewChampionshipEvent(), NewChampionship(championship.Name), &EntryList{}
 
@@ -784,7 +871,7 @@ func (cm *ChampionshipManager) ScheduleEvent(championshipID string, eventID stri
 			}
 		}
 
-		if config.Lua.Enabled && Premium() {
+		if config.Lua.Enabled {
 			err = championshipEventSchedulePlugin(championship, event)
 
 			if err != nil {
@@ -829,7 +916,7 @@ func (cm *ChampionshipManager) ScheduleEvent(championshipID string, eventID stri
 }
 
 func championshipEventSchedulePlugin(championship *Championship, event *ChampionshipEvent) error {
-	p := &LuaPlugin{}
+	p := NewLuaPlugin()
 
 	var standings [][]*ChampionshipStanding
 
@@ -1459,6 +1546,16 @@ func (cm *ChampionshipManager) AddEntrantFromSessionData(championship *Champions
 		if err != nil {
 			logrus.Errorf("Couldn't add entrant (GUID: %s, Name: %s) to autofill list", newEntrant.GUID, newEntrant.Name)
 		}
+
+		if event, ok := cm.process.Event().(*ActiveChampionship); ok && event.IsPracticeSession && event.ChampionshipID == championship.ID {
+			err = cm.raceControl.server.AddDriver(newEntrant.Name, newEntrant.Team, newEntrant.GUID, entrant.Model)
+
+			if err != nil {
+				logrus.WithError(err).Warnf("Driver (%s) was added to the entry list, but could not be added to the active practice event! Please restart the event to add the new driver.", newEntrant.Name)
+			} else {
+				logrus.Infof("Successfully added new driver (%s) to the active practice event entry list.", newEntrant.Name)
+			}
+		}
 	}
 
 	return foundFreeEntrantSlot, entrantClass, nil
@@ -1604,12 +1701,14 @@ func (cm *ChampionshipManager) HandleChampionshipSignUp(r *http.Request) (respon
 		return nil, false, err
 	}
 
+	guid, name := NormaliseEntrantGUIDsNames(r.FormValue("GUID"), r.FormValue("Name"))
+
 	signUpResponse := &ChampionshipSignUpResponse{
 		Created: time.Now(),
-		Name:    r.FormValue("Name"),
-		GUID:    NormaliseEntrantGUID(r.FormValue("GUID")),
-		Team:    r.FormValue("Team"),
-		Email:   r.FormValue("Email"),
+		Name:    strings.TrimSpace(name),
+		GUID:    guid,
+		Team:    strings.TrimSpace(r.FormValue("Team")),
+		Email:   strings.TrimSpace(r.FormValue("Email")),
 
 		Car:  r.FormValue("Car"),
 		Skin: r.FormValue("Skin"),
@@ -1634,6 +1733,25 @@ func (cm *ChampionshipManager) HandleChampionshipSignUp(r *http.Request) (respon
 
 	if !steamGUIDRegex.MatchString(signUpResponse.GUID) {
 		return signUpResponse, false, ValidationError("Please enter a valid SteamID64.")
+	}
+
+	serverOptions, err := cm.store.LoadServerOptions()
+
+	if err != nil {
+		return signUpResponse, false, err
+	}
+
+	if serverOptions.EnableACSR {
+		rating, err := cm.LoadACSRRating(signUpResponse.GUID)
+
+		if err != nil {
+			logrus.WithError(err).Errorf("Couldn't load ACSR rating for guid: %s", signUpResponse.GUID)
+			return signUpResponse, false, ValidationError("Please register your GUID to an account with ACSR.")
+		}
+
+		if !championship.DriverMeetsACSRGates(rating) {
+			return signUpResponse, false, ValidationError("You do not meet the minimum ACSR skill/safety requirements.")
+		}
 	}
 
 	for _, entrant := range championship.SignUpForm.Responses {
@@ -1771,12 +1889,27 @@ func (cm *ChampionshipManager) DuplicateChampionship(championshipID string) (*Ch
 	duplicateChampionship.Name = championship.Name + " Duplicate"
 
 	for _, event := range events {
-		_, err := duplicateChampionship.ImportEvent(&event)
+		if event.IsRaceWeekend() {
+			newEvent, err := duplicateChampionship.ImportEvent(event.RaceWeekend)
 
-		if err != nil {
-			return nil, err
+			if err != nil {
+				return nil, err
+			}
+
+			if err := cm.store.UpsertRaceWeekend(newEvent.RaceWeekend); err != nil {
+				return nil, err
+			}
+		} else {
+			_, err = duplicateChampionship.ImportEvent(&event)
+
+			if err != nil {
+				return nil, err
+			}
 		}
 	}
+
+	// clear sign up form responses
+	duplicateChampionship.SignUpForm.Responses = nil
 
 	logrus.Infof("New Championship: %s, %s. Duplicate of %s", duplicateChampionship.Name, duplicateChampionship.ID.String(), championshipID)
 

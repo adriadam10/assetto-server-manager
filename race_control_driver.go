@@ -1,21 +1,24 @@
-package servermanager
+package acsm
 
 import (
 	"context"
+	"encoding/json"
 	"sort"
 	"sync"
 	"time"
 
-	"github.com/JustaPenguin/assetto-server-manager/pkg/udp"
-
 	"github.com/sirupsen/logrus"
+
+	"justapengu.in/acsm/pkg/udp"
 )
 
 func NewRaceControlDriver(carInfo udp.SessionCarInfo) *RaceControlDriver {
 	driver := &RaceControlDriver{
-		CarInfo:  carInfo,
-		Cars:     make(map[string]*RaceControlCarLapInfo),
-		LastSeen: time.Now(),
+		RaceControlDriverData: RaceControlDriverData{
+			CarInfo:  carInfo,
+			Cars:     make(map[string]*RaceControlCarLapInfo),
+			LastSeen: time.Now(),
+		},
 	}
 
 	driver.Cars[carInfo.CarModel] = NewRaceControlCarLapInfo(carInfo.CarModel)
@@ -29,27 +32,54 @@ func NewRaceControlCarLapInfo(carModel string) *RaceControlCarLapInfo {
 	}
 }
 
-type RaceControlDriver struct {
+const (
+	numMiniSectors       = 500
+	sectorUpdateInterval = time.Second
+	sectorLapInterval    = time.Second * 30
+)
+
+type RaceControlDriverData struct {
 	CarInfo      udp.SessionCarInfo `json:"CarInfo"`
 	TotalNumLaps int                `json:"TotalNumLaps"`
 
 	ConnectedTime time.Time `json:"ConnectedTime" ts:"date"`
 	LoadedTime    time.Time `json:"LoadedTime" ts:"date"`
 
-	Position int       `json:"Position"`
-	Split    string    `json:"Split"`
-	LastSeen time.Time `json:"LastSeen" ts:"date"`
-	LastPos  udp.Vec   `json:"LastPos"`
+	Position            int       `json:"Position"`
+	Split               string    `json:"Split"`
+	LastSeen            time.Time `json:"LastSeen" ts:"date"`
+	LastPos             udp.Vec   `json:"LastPos"`
+	IsInPits            bool      `json:"IsInPits"`
+	LastPitStop         int       `json:"LastPitStop"`
+	DRSActive           bool      `json:"DRSActive"`
+	NormalisedSplinePos float32   `json:"NormalisedSplinePos"`
+	SteerAngle          uint8     `json:"SteerAngle"`
+	StatusBytes         uint32    `json:"StatusBytes"`
+	BlueFlag            bool      `json:"BlueFlag"`
+	BlueFlagTo          udp.CarID `json:"-"`
+	LastGapUpdate       time.Time `json:"-"`
 
 	Collisions []Collision `json:"Collisions"`
-
-	driverSwapContext context.Context
-	driverSwapCfn     context.CancelFunc
 
 	// Cars is a map of CarModel to the information for that car.
 	Cars map[string]*RaceControlCarLapInfo `json:"Cars"`
 
-	mutex sync.Mutex
+	miniSectors    [numMiniSectors]*miniSector
+	lastMiniSector int
+}
+
+type miniSector struct {
+	time int64
+	lap  int
+}
+
+type RaceControlDriver struct {
+	RaceControlDriverData
+
+	driverSwapContext context.Context
+	driverSwapCfn     context.CancelFunc
+
+	mutex sync.RWMutex
 }
 
 func (rcd *RaceControlDriver) CurrentCar() *RaceControlCarLapInfo {
@@ -61,15 +91,89 @@ func (rcd *RaceControlDriver) CurrentCar() *RaceControlCarLapInfo {
 	return &RaceControlCarLapInfo{}
 }
 
+func (rcd *RaceControlDriver) UpdateMiniSector(update udp.CarUpdate) {
+	miniSectorIndex := int(update.NormalisedSplinePos*numMiniSectors) % numMiniSectors
+
+	if miniSectorIndex < rcd.lastMiniSector {
+		rcd.lastMiniSector = 0
+	}
+
+	miniSector := &miniSector{
+		time: time.Now().UnixNano(),
+		lap:  rcd.TotalNumLaps,
+	}
+
+	for i := rcd.lastMiniSector; i <= miniSectorIndex; i++ {
+		s := rcd.miniSectors[i]
+		if s == nil || s.lap != rcd.TotalNumLaps || s.time == 0 {
+			rcd.miniSectors[i] = miniSector
+		}
+	}
+
+	rcd.lastMiniSector = miniSectorIndex
+}
+
+func (rcd *RaceControlDriverData) IntervalToDriver(other *RaceControlDriver) time.Duration {
+	if other.miniSectors[other.lastMiniSector] == nil || rcd.miniSectors[other.lastMiniSector] == nil || rcd.miniSectors[rcd.lastMiniSector] == nil {
+		return -1
+	}
+
+	otherDriverSectorTime := other.miniSectors[other.lastMiniSector].time
+	driverSectorTime := rcd.miniSectors[other.lastMiniSector].time + (time.Now().UnixNano() - rcd.miniSectors[rcd.lastMiniSector].time)
+
+	return (time.Duration(otherDriverSectorTime-driverSectorTime) * time.Nanosecond).Round(time.Millisecond)
+}
+
+func (rcd *RaceControlDriver) ClearSessionInfo() {
+	rcd.mutex.Lock()
+	defer rcd.mutex.Unlock()
+
+	carInfo := rcd.CarInfo
+	loadedTime := rcd.LoadedTime
+	connectedTime := rcd.ConnectedTime
+	isInPits := rcd.IsInPits
+
+	rcd.RaceControlDriverData = RaceControlDriverData{
+		CarInfo:       carInfo,
+		LoadedTime:    loadedTime,
+		ConnectedTime: connectedTime,
+		IsInPits:      isInPits,
+
+		Cars: map[string]*RaceControlCarLapInfo{
+			carInfo.CarModel: NewRaceControlCarLapInfo(carInfo.CarModel),
+		},
+	}
+}
+
+func (rcd *RaceControlDriver) MarshalJSON() ([]byte, error) {
+	rcd.mutex.RLock()
+	defer rcd.mutex.RUnlock()
+
+	return json.Marshal(rcd.RaceControlDriverData)
+}
+
 type RaceControlCarLapInfo struct {
 	TopSpeedThisLap      float64       `json:"TopSpeedThisLap"`
 	TopSpeedBestLap      float64       `json:"TopSpeedBestLap"`
+	TyresBestLap         string        `json:"TyreBestLap"`
 	BestLap              time.Duration `json:"BestLap"`
 	NumLaps              int           `json:"NumLaps"`
 	LastLap              time.Duration `json:"LastLap"`
 	LastLapCompletedTime time.Time     `json:"LastLapCompletedTime" ts:"date"`
 	TotalLapTime         time.Duration `json:"TotalLapTime"`
 	CarName              string        `json:"CarName"`
+
+	CurrentLapSplits map[uint8]RaceControlCarSplit `json:"CurrentLapSplits"`
+	BestSplits       map[uint8]RaceControlCarSplit `json:"BestSplits"`
+	BestLapSplits    map[uint8]RaceControlCarSplit `json:"BestLapSplits"`
+}
+
+type RaceControlCarSplit struct {
+	SplitIndex    uint8         `json:"SplitIndex"`
+	SplitTime     time.Duration `json:"SplitTime"`
+	Cuts          uint8         `json:"Cuts"`
+	IsDriversBest bool          `json:"IsDriversBest"`
+	IsBest        bool          `json:"IsBest"`
 }
 
 type DriverMap struct {
@@ -131,8 +235,10 @@ func (d *DriverMap) Get(driverGUID udp.DriverGUID) (*RaceControlDriver, bool) {
 
 func (d *DriverMap) Add(driverGUID udp.DriverGUID, driver *RaceControlDriver) {
 	d.rwMutex.Lock()
-	defer d.rwMutex.Unlock()
-	defer d.sort()
+	defer func() {
+		d.rwMutex.Unlock()
+		d.sort()
+	}()
 
 	d.Drivers[driverGUID] = driver
 
@@ -146,6 +252,9 @@ func (d *DriverMap) Add(driverGUID udp.DriverGUID, driver *RaceControlDriver) {
 }
 
 func (d *DriverMap) sort() {
+	d.rwMutex.Lock()
+	defer d.rwMutex.Unlock()
+
 	sort.Slice(d.GUIDsInPositionalOrder, func(i, j int) bool {
 		driverA, ok := d.Drivers[d.GUIDsInPositionalOrder[i]]
 
@@ -170,13 +279,18 @@ func (d *DriverMap) sort() {
 			continue
 		}
 
+		driver.mutex.Lock()
 		driver.Position = pos + 1
+		driver.mutex.Unlock()
 	}
 }
 
 func (d *DriverMap) Del(driverGUID udp.DriverGUID) {
 	d.rwMutex.Lock()
-	defer d.rwMutex.Unlock()
+	defer func() {
+		d.rwMutex.Unlock()
+		d.sort()
+	}()
 
 	delete(d.Drivers, driverGUID)
 
@@ -186,8 +300,6 @@ func (d *DriverMap) Del(driverGUID udp.DriverGUID) {
 			break
 		}
 	}
-
-	d.sort()
 }
 
 func (d *DriverMap) Len() int {
@@ -195,4 +307,17 @@ func (d *DriverMap) Len() int {
 	defer d.rwMutex.RUnlock()
 
 	return len(d.Drivers)
+}
+
+func (d *DriverMap) MarshalJSON() ([]byte, error) {
+	d.rwMutex.RLock()
+	defer d.rwMutex.RUnlock()
+
+	return json.Marshal(struct {
+		Drivers                map[udp.DriverGUID]*RaceControlDriver `json:"Drivers"`
+		GUIDsInPositionalOrder []udp.DriverGUID                      `json:"GUIDsInPositionalOrder"`
+	}{
+		Drivers:                d.Drivers,
+		GUIDsInPositionalOrder: d.GUIDsInPositionalOrder,
+	})
 }

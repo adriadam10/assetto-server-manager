@@ -1,4 +1,4 @@
-package servermanager
+package acsm
 
 import (
 	"encoding/json"
@@ -9,7 +9,10 @@ import (
 	"runtime"
 	"time"
 
-	"github.com/JustaPenguin/assetto-server-manager/pkg/udp"
+	"github.com/google/uuid"
+
+	"justapengu.in/acsm/internal/acserver"
+	"justapengu.in/acsm/pkg/license"
 )
 
 var LaunchTime = time.Now()
@@ -31,8 +34,8 @@ func NewHealthCheck(raceControl *RaceControl, store Store, process ServerProcess
 type HealthCheckResponse struct {
 	OK        bool
 	Version   string
-	IsPremium bool
 	IsHosted  bool
+	LicenseID uuid.UUID
 
 	OS            string
 	NumCPU        int
@@ -61,7 +64,7 @@ type HealthCheckResponse struct {
 	MaxClientsOverride  int
 }
 
-func (h *HealthCheck) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (h *HealthCheck) buildHealthCheckResponse() HealthCheckResponse {
 	event := h.process.Event()
 	opts, err := h.store.LoadServerOptions()
 
@@ -71,12 +74,14 @@ func (h *HealthCheck) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		serverName = opts.Name
 	}
 
-	_ = json.NewEncoder(w).Encode(HealthCheckResponse{
-		OK:                 true,
-		OS:                 runtime.GOOS + "/" + runtime.GOARCH,
-		Version:            BuildVersion,
-		IsPremium:          Premium(),
-		IsHosted:           IsHosted,
+	return HealthCheckResponse{
+		OK:       true,
+		OS:       runtime.GOOS + "/" + runtime.GOARCH,
+		Version:  BuildVersion,
+		IsHosted: IsHosted,
+
+		LicenseID: license.GetLicense().ID,
+
 		MaxClientsOverride: MaxClientsOverride,
 		NumCPU:             runtime.NumCPU(),
 		NumGoroutines:      runtime.NumGoroutine(),
@@ -86,7 +91,7 @@ func (h *HealthCheck) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		ServerName:          serverName,
 		ServerID:            serverID,
 		EventInProgress:     h.raceControl.process.IsRunning(),
-		EventIsCritical:     !event.IsPractice() && (event.IsChampionship() || event.IsRaceWeekend() || h.raceControl.SessionInfo.Type == udp.SessionTypeRace || h.raceControl.SessionInfo.Type == udp.SessionTypeQualifying),
+		EventIsCritical:     !event.IsPractice() && (event.IsChampionship() || event.IsRaceWeekend() || h.raceControl.SessionInfo.Type == acserver.SessionTypeRace || h.raceControl.SessionInfo.Type == acserver.SessionTypeQualifying),
 		EventIsChampionship: event.IsChampionship(),
 		EventIsRaceWeekend:  event.IsRaceWeekend(),
 		EventIsPractice:     event.IsPractice(),
@@ -100,7 +105,11 @@ func (h *HealthCheck) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		WeatherDirectoryIsWritable: IsDirWriteable(filepath.Join(ServerInstallPath, "content", "weather")) == nil,
 		SetupsDirectoryIsWritable:  IsDirWriteable(filepath.Join(ServerInstallPath, "setups")) == nil,
 		ResultsDirectoryIsWritable: IsDirWriteable(filepath.Join(ServerInstallPath, "results")) == nil,
-	})
+	}
+}
+
+func (h *HealthCheck) ServeHTTP(w http.ResponseWriter, _ *http.Request) {
+	_ = json.NewEncoder(w).Encode(h.buildHealthCheckResponse())
 }
 
 func IsDirWriteable(dir string) error {

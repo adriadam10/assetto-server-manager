@@ -1,10 +1,8 @@
-{{/* gotype: github.com/JustaPenguin/assetto-server-manager.homeTemplateVars */}}
+{{/* gotype: justapengu.in/acsm.homeTemplateVars */}}
 
 {{ define "title" }}Home{{ end }}
 
 {{ define "content" }}
-    {{ template "premium" dict "IsPremium" $.IsPremium }}
-
     {{ with .RaceDetails }}
         <div class="card mb-4">
             {{ if $.ServerEvent.IsChampionship }}
@@ -61,7 +59,7 @@
                     </div>
                 </div>
                 <div class="col-md-4">
-                    <img class="img img-fluid ml-2"
+                    <img class="img img-fluid ml-md-2"
                          id="trackImage"
                          src="/content/tracks/{{ .RaceConfig.Track }}/ui{{ with .RaceConfig.TrackLayout }}/{{.}}{{ end }}/preview.png"
                          alt="{{ .RaceConfig.Track }} {{ .RaceConfig.TrackLayout }}"
@@ -293,7 +291,7 @@
                 </div>
 
                 <div class="col-md-6 col-lg-4 mt-4">
-                    <a class="card" href="/blacklist">
+                    <a class="card" href="/blocklist">
                         <div class="card-body">
                             <div class="row">
                                 <div class="col-5">
@@ -301,7 +299,7 @@
                                 </div>
 
                                 <div class="col-7">
-                                    <h3>Blacklist</h3>
+                                    <h3>Block List</h3>
                                 </div>
                             </div>
                         </div>
@@ -325,6 +323,22 @@
                 </div>
 
                 <div class="col-md-6 col-lg-4 mt-4">
+                    <a class="card" href="/required-apps">
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-5">
+                                    <h1 class="text-center"><i class="fas fa-plug fa-2x"></i></h1>
+                                </div>
+
+                                <div class="col-7">
+                                    <h3>Required Apps</h3>
+                                </div>
+                            </div>
+                        </div>
+                    </a>
+                </div>
+
+                <div class="col-md-6 col-lg-4 mt-4">
                     <a class="card" href="/audit-logs">
                         <div class="card-body">
                             <div class="row">
@@ -340,48 +354,66 @@
                     </a>
                 </div>
 
-                <div class="col-md-6 col-lg-4 mt-4">
-                    <a class="card" href="/stracker/options">
-                        <div class="card-body">
-                            <div class="row">
-                                <div class="col-5">
-                                    <h1 class="text-center"><i class="fas fa-stopwatch fa-2x"></i></h1>
-                                </div>
+                {{ if $.PluginsEnabled }}
+                    <div class="col-md-6 col-lg-4 mt-4">
+                        <a class="card" href="/stracker/options">
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-5">
+                                        <h1 class="text-center"><i class="fas fa-stopwatch fa-2x"></i></h1>
+                                    </div>
 
-                                <div class="col-7">
-                                    <h3>STracker</h3>
-                                </div>
-                            </div>
-                        </div>
-                    </a>
-                </div>
-
-                <div class="col-md-6 col-lg-4 mt-4">
-                    <a class="card" href="/kissmyrank/options">
-                        <div class="card-body">
-                            <div class="row">
-                                <div class="col-5">
-                                    <h1 class="text-center"><i class="fas fa-balance-scale fa-2x"></i></h1>
-                                </div>
-
-                                <div class="col-7">
-                                    <h3>KissMyRank</h3>
+                                    <div class="col-7">
+                                        <h3>STracker</h3>
+                                    </div>
                                 </div>
                             </div>
-                        </div>
-                    </a>
-                </div>
+                        </a>
+                    </div>
+
+                    <div class="col-md-6 col-lg-4 mt-4">
+                        <a class="card" href="/kissmyrank/options">
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-5">
+                                        <h1 class="text-center"><i class="fas fa-balance-scale fa-2x"></i></h1>
+                                    </div>
+
+                                    <div class="col-7">
+                                        <h3>KissMyRank</h3>
+                                    </div>
+                                </div>
+                            </div>
+                        </a>
+                    </div>
+
+                    <div class="col-md-6 col-lg-4 mt-4">
+                        <a class="card" href="/realpenalty/options">
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-5">
+                                        <h1 class="text-center"><i class="fas fa-shield-alt fa-2x"></i></h1>
+                                    </div>
+
+                                    <div class="col-7">
+                                        <h3>Real Penalty</h3>
+                                    </div>
+                                </div>
+                            </div>
+                        </a>
+                    </div>
+                {{ end }}
 
                 <div class="col-md-6 col-lg-4 mt-4">
-                    <a class="card" href="/realpenalty/options">
+                    <a class="card" href="/current-config">
                         <div class="card-body">
                             <div class="row">
                                 <div class="col-5">
-                                    <h1 class="text-center"><i class="fas fa-shield-alt fa-2x"></i></h1>
+                                    <h1 class="text-center"><i class="fas fa-scroll fa-2x"></i></h1>
                                 </div>
 
                                 <div class="col-7">
-                                    <h3>Real Penalty</h3>
+                                    <h3>Current Config</h3>
                                 </div>
                             </div>
                         </div>

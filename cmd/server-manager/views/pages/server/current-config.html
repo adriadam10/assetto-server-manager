@@ -1,0 +1,21 @@
+{{/* gotype: justapengu.in/acsm.currentCFGTemplateVars */}}
+
+{{ define "title" }}Current Config{{ end }}
+
+{{ define "content" }}
+    <h1 class="text-center">Current Config</h1>
+
+    <p>
+        This page contains the configuration files that are currently
+        applied to the server. This information is intended for troubleshooting and so is read-only.
+    </p>
+
+    <h3>Event Config</h3>
+    <div>{{ .EventConfigText }}</div>
+
+    <h3>Entry List</h3>
+    <div>{{ .EntryListText }}</div>
+
+    <h3>Server Config</h3>
+    <div>{{ .ServerConfigText }}</div>
+{{ end }}

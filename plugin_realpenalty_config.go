@@ -1,4 +1,4 @@
-package servermanager
+package acsm
 
 import (
 	"path/filepath"
@@ -7,6 +7,8 @@ import (
 )
 
 const (
+	RealPenaltySupportedVersion = "v3.02.01b"
+
 	realPenaltyAppConfigIniPath  = "settings.ini"
 	realPenaltySettingsIniPath   = "penalty_settings.ini"
 	realPenaltyACSettingsIniPath = "ac_settings.ini"
@@ -22,9 +24,9 @@ func DefaultRealPenaltyConfig() *RealPenaltyConfig {
 
 // each of these is a separate ini file
 type RealPenaltyConfig struct {
-	RealPenaltyAppConfig  RealPenaltyAppConfig
-	RealPenaltySettings   RealPenaltySettings
-	RealPenaltyACSettings RealPenaltyACSettings
+	RealPenaltyAppConfig  RealPenaltyAppConfig  `show:"contents"`
+	RealPenaltySettings   RealPenaltySettings   `show:"contents"`
+	RealPenaltyACSettings RealPenaltyACSettings `show:"contents"`
 }
 
 func (rpc *RealPenaltyConfig) Write() error {
@@ -44,6 +46,7 @@ func DefaultRealPenaltyAppConfig() RealPenaltyAppConfig {
 			UDPPort:           0,
 			UDPResponse:       "",
 			AppTCPPort:        53000,
+			AppUDPPort:        53000,
 		},
 		PluginsRelay: RealPenaltyPluginsRelay{
 			OtherUDPPlugin: "",
@@ -106,7 +109,8 @@ type RealPenaltyConfigGeneral struct {
 
 	UDPPort     int    `ini:"UDP_PORT" show:"-" help:"Listening UDP port - Set the same port (without IP) of cfg of the server, UDP_PLUGIN_ADDRESS "`
 	UDPResponse string `ini:"UDP_RESPONSE" show:"-" help:"Destination IP and UDP port for response - Set the same port in the cfg of the AC server, UDP_PLUGIN_LOCAL_PORT"`
-	AppTCPPort  int    `ini:"APP_TCP_PORT" show:"open" help:"Listening UDP port from AC app (to open in firewall/router). Must be one of 53000, 53001, 53002 to 530020, or the port of cfg AC server, HTTP_PORT + 27. The app will try all these ports on the ac server's ip address (until the right connection is found)"`
+	AppTCPPort  int    `ini:"APP_TCP_PORT" show:"open" help:"Listening TCP port from AC app (to open in firewall/router). Must be one of 53000, 53001, 53002 to 53020, or the port of cfg AC server, HTTP_PORT + 27. The app will try all these ports on the ac server's ip address (until the right connection is found)"`
+	AppUDPPort  int    `ini:"APP_UDP_PORT" show:"open" help:"Listening UDP port from AC app (to open in firewall/router). Any free UDP port is OK"`
 
 	AppFile      string `ini:"APP_FILE" show:"-" help:"Path and file names of the app from the plugin package"`
 	ImagesFile   string `ini:"IMAGES_FILE" show:"-" help:"Path and file names of the images from the plugin package"`
@@ -276,12 +280,14 @@ func DefaultRealPenaltySettings() RealPenaltySettings {
 			SpeedLimitPenalty2: 9999,
 		},
 		DRS: RealPenaltySettingsDRS{
-			PenaltyType:      "dt",
-			Gap:              1.0,
-			EnabledAfterLaps: 0,
-			MinSpeed:         50,
-			BonusTime:        0.8,
-			MaxIllegalUses:   2,
+			PenaltyType:            "dt",
+			Gap:                    1.0,
+			EnabledAfterLaps:       0,
+			MinSpeed:               50,
+			BonusTime:              0.8,
+			MaxIllegalUses:         2,
+			EnabledDuringSafetyCar: false,
+			OmitCars:               "",
 		},
 		BlueFlag: RealPenaltySettingsBlueFlag{
 			QualifyTimeThreshold: 2.5,
@@ -341,20 +347,22 @@ type RealPenaltySettingsJumpStart struct {
 	PenaltyType0       string `ini:"PENALTY_TYPE_0" help:"Penalty type for jump start. Don't set seconds penalty! dt = drive through, sgn = stop and go n seconds, dsq = disqualification --> kick"`
 	SpeedLimitPenalty0 int    `ini:"SPEED_LIMIT_PENALTY_0" help:""`
 
-	PenaltyType1       string `ini:"PENALTY_TYPE_0" help:""`
-	SpeedLimitPenalty1 int    `ini:"SPEED_LIMIT_PENALTY_0" help:"Penalty type for jump start. Don't set seconds penalty! dt = drive through, sgn = stop and go n seconds, dsq = disqualification --> kick"`
+	PenaltyType1       string `ini:"PENALTY_TYPE_1" help:""`
+	SpeedLimitPenalty1 int    `ini:"SPEED_LIMIT_PENALTY_1" help:"Penalty type for jump start. Don't set seconds penalty! dt = drive through, sgn = stop and go n seconds, dsq = disqualification --> kick"`
 
-	PenaltyType2       string `ini:"PENALTY_TYPE_0" help:""`
-	SpeedLimitPenalty2 int    `ini:"SPEED_LIMIT_PENALTY_0" help:"Penalty type for jump start. Don't set seconds penalty! dt = drive through, sgn = stop and go n seconds, dsq = disqualification --> kick"`
+	PenaltyType2       string `ini:"PENALTY_TYPE_2" help:""`
+	SpeedLimitPenalty2 int    `ini:"SPEED_LIMIT_PENALTY_2" help:"Penalty type for jump start. Don't set seconds penalty! dt = drive through, sgn = stop and go n seconds, dsq = disqualification --> kick"`
 }
 
 type RealPenaltySettingsDRS struct {
-	PenaltyType      string  `ini:"PENALTY_TYPE" help:"Penalty type for illegal DRS use. dt = drive through, sgn = stop and go n seconds, n = n seconds to add at the end of the race"`
-	Gap              float64 `ini:"GAP" help:"Max gap in seconds from front car"`
-	EnabledAfterLaps int     `ini:"ENABLED_AFTER_LAPS" help:"DRS enabled after N lap from start (+1 if rolling start with SC - file ac_settings.ini)"`
-	MinSpeed         int     `ini:"MIN_SPEED" help:"If the car speed < MIN SPEED no penalty for illegal DRS use"`
-	BonusTime        float64 `ini:"BONUS_TIME" help:"How many seconds the DRS can remain open during each illegal use before the penalty"`
-	MaxIllegalUses   int     `ini:"MAX_ILLEGAL_USES" help:"How many time the driver can open the illegal DRS in each sector before the penalty"`
+	PenaltyType            string  `ini:"PENALTY_TYPE" help:"Penalty type for illegal DRS use. dt = drive through, sgn = stop and go n seconds, n = n seconds to add at the end of the race"`
+	Gap                    float64 `ini:"GAP" help:"Max gap in seconds from front car"`
+	EnabledAfterLaps       int     `ini:"ENABLED_AFTER_LAPS" help:"DRS enabled after N lap from start (+1 if rolling start with SC - file ac_settings.ini)"`
+	MinSpeed               int     `ini:"MIN_SPEED" help:"If the car speed < MIN SPEED no penalty for illegal DRS use"`
+	BonusTime              float64 `ini:"BONUS_TIME" help:"How many seconds the DRS can remain open during each illegal use before the penalty"`
+	MaxIllegalUses         int     `ini:"MAX_ILLEGAL_USES" help:"How many time the driver can open the illegal DRS in each sector before the penalty"`
+	EnabledDuringSafetyCar bool    `ini:"ENABLED_DURING_SAFETY_CAR" help:"DRS penalty enabled during Safety Car or Virtual Safety Car"`
+	OmitCars               string  `ini:"OMIT_CARS" help:"List of cars without DRS, semicolon separated."`
 }
 
 type RealPenaltySettingsBlueFlag struct {
@@ -363,13 +371,14 @@ type RealPenaltySettingsBlueFlag struct {
 }
 
 type RealPenaltyACSettings struct {
-	General   RealPenaltyACSettingsGeneral   `ini:"General" help:""`
-	App       RealPenaltyACSettingsApp       `ini:"App" help:""`
-	Sol       RealPenaltyACSettingsSol       `ini:"Sol" help:""`
-	SafetyCar RealPenaltyACSettingsSafetyCar `ini:"Safety_Car" help:""`
-	NoPenalty RealPenaltyACSettingsNoPenalty `ini:"No_Penalty" help:""`
-	Admin     RealPenaltyACSettingsAdmin     `ini:"Admin" help:""`
-	Helicorsa RealPenaltyACSettingsHelicorsa `ini:"Helicorsa" help:""`
+	General            RealPenaltyACSettingsGeneral            `ini:"General" help:""`
+	App                RealPenaltyACSettingsApp                `ini:"App" help:""`
+	Sol                RealPenaltyACSettingsSol                `ini:"Sol" help:""`
+	CustomShadersPatch RealPenaltyACSettingsCustomShadersPatch `ini:"Custom_Shaders_Patch"`
+	SafetyCar          RealPenaltyACSettingsSafetyCar          `ini:"Safety_Car" help:""`
+	NoPenalty          RealPenaltyACSettingsNoPenalty          `ini:"No_Penalty" help:""`
+	Admin              RealPenaltyACSettingsAdmin              `ini:"Admin" help:""`
+	Helicorsa          RealPenaltyACSettingsHelicorsa          `ini:"Helicorsa" help:""`
 }
 
 func (rpac *RealPenaltyACSettings) write() error {
@@ -478,6 +487,7 @@ func DefaultRealPenaltyACSettings() RealPenaltyACSettings {
 			CockpitCamera:   false,
 			TrackChecksum:   false,
 			WeatherChecksum: false,
+			CarChecksum:     false,
 		},
 		App: RealPenaltyACSettingsApp{
 			Mandatory:      "true",
@@ -487,6 +497,10 @@ func DefaultRealPenaltyACSettings() RealPenaltyACSettings {
 			Mandatory:              false,
 			PerformanceModeAllowed: true,
 			CheckFrequency:         60,
+		},
+		CustomShadersPatch: RealPenaltyACSettingsCustomShadersPatch{
+			Mandatory:      false,
+			CheckFrequency: 60,
 		},
 		SafetyCar: RealPenaltyACSettingsSafetyCar{
 			CarModel:                   "",
@@ -521,17 +535,23 @@ type RealPenaltyACSettingsGeneral struct {
 
 	TrackChecksum   bool `ini:"TRACK_CHECKSUM" help:"Set to true if you want an additional checksum of the track (model + kn5 files if they exist on the server)"`
 	WeatherChecksum bool `ini:"WEATHER_CHECKSUM" help:"Set to true if you want the weather checksum (if the weather exists on the server)"`
+	CarChecksum     bool `ini:"CAR_CHECKSUM" help:"Set to true if you want the additional car checksum (data.acd + collider.kn5, if these two files exist on the server)"`
 }
 
 type RealPenaltyACSettingsApp struct {
-	Mandatory      string `ini:"MANDATORY" help:"List of permitted versions (separated by a semicolon). Set to blank if the app is not mandatory. True for any version."`
-	CheckFrequency int    `ini:"CHECK_FREQUENCY" help:"Frequency (seconds) for app check"`
+	Mandatory      boolString `ini:"MANDATORY" help:"on = Real Penalty app is mandatory, off = Real Penalty app is not mandatory"`
+	CheckFrequency int        `ini:"CHECK_FREQUENCY" help:"Frequency (seconds) for app check"`
 }
 
 type RealPenaltyACSettingsSol struct {
 	Mandatory              bool `ini:"MANDATORY" help:"Set to true if the event is with mod Sol day to night transition"`
 	PerformanceModeAllowed bool `ini:"PERFORMACE_MODE_ALLOWED" help:"Set to true if Sol performance mode is allowed"` // misspelt in real penalty INI
 	CheckFrequency         int  `ini:"CHECK_FREQUENCY" help:"Frequency (seconds) for Sol check"`
+}
+
+type RealPenaltyACSettingsCustomShadersPatch struct {
+	Mandatory      bool `ini:"MANDATORY" help:"Set to ON if you want to force all drivers to have Custom Shaders Patch (version 0.1.46 or newer) to drive on the server. If you set this option true the app invalidates the lap time automatically"`
+	CheckFrequency int  `ini:"CHECK_FREQUENCY" help:"Frequency (seconds) for Custom Shaders Patch check"`
 }
 
 type RealPenaltyACSettingsSafetyCar struct {
@@ -543,11 +563,11 @@ type RealPenaltyACSettingsSafetyCar struct {
 }
 
 type RealPenaltyACSettingsNoPenalty struct {
-	GUIDs string `ini:"GUIDs" help:"List of Steam GUIDs (separated by a semicolon) that can connect to the server without the app and sol (for example 'Race Direction' or for 'Live')"`
+	GUIDs string `ini:"GUIDs" name:"GUIDs" help:"List of Steam GUIDs (separated by a semicolon) that can connect to the server without the app and sol (for example 'Race Direction' or for 'Live')"`
 }
 
 type RealPenaltyACSettingsAdmin struct {
-	GUIDs string `ini:"GUIDs" help:"List of Steam GUIDs (separated by a semicolon) that can send commands to the server via chat"`
+	GUIDs string `ini:"GUIDs" name:"GUIDs" help:"List of Steam GUIDs (separated by a semicolon) that can send commands to the server via chat"`
 }
 
 type RealPenaltyACSettingsHelicorsa struct {

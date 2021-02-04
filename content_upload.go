@@ -1,4 +1,4 @@
-package servermanager
+package acsm
 
 import (
 	"encoding/base64"
@@ -29,34 +29,41 @@ type ContentFile struct {
 	Size     int    `json:"size"`
 }
 
+type UploadPayload struct {
+	Files             []ContentFile `json:"Files"`
+	GenerateTrackMaps bool          `json:"GenerateTrackMaps"`
+}
+
 var base64HeaderRegex = regexp.MustCompile("^(data:.+;base64,)")
 
 type ContentUploadHandler struct {
 	*BaseHandler
 
-	carManager *CarManager
+	carManager   *CarManager
+	trackManager *TrackManager
 }
 
-func NewContentUploadHandler(baseHandler *BaseHandler, carManager *CarManager) *ContentUploadHandler {
+func NewContentUploadHandler(baseHandler *BaseHandler, carManager *CarManager, trackManager *TrackManager) *ContentUploadHandler {
 	return &ContentUploadHandler{
-		BaseHandler: baseHandler,
-		carManager:  carManager,
+		BaseHandler:  baseHandler,
+		carManager:   carManager,
+		trackManager: trackManager,
 	}
 }
 
 // Stores Files encoded into r.Body
 func (cuh *ContentUploadHandler) upload(contentType ContentType) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		var files []ContentFile
+		var uploadPayload UploadPayload
 
-		err := json.NewDecoder(r.Body).Decode(&files)
+		err := json.NewDecoder(r.Body).Decode(&uploadPayload)
 
 		if err != nil {
 			logrus.WithError(err).Errorf("could not decode %s json", contentType)
 			return
 		}
 
-		err = cuh.addFiles(files, contentType)
+		err = cuh.handleUploadPayload(uploadPayload, contentType)
 
 		if err != nil {
 			logrus.WithError(err).Error("couldn't upload file")
@@ -68,8 +75,7 @@ func (cuh *ContentUploadHandler) upload(contentType ContentType) http.HandlerFun
 	}
 }
 
-// Stores files in the correct location
-func (cuh *ContentUploadHandler) addFiles(files []ContentFile, contentType ContentType) error {
+func (cuh *ContentUploadHandler) handleUploadPayload(payload UploadPayload, contentType ContentType) error {
 	var contentPath string
 
 	switch contentType {
@@ -82,8 +88,16 @@ func (cuh *ContentUploadHandler) addFiles(files []ContentFile, contentType Conte
 	}
 
 	uploadedCars := make(map[string]bool)
+	uploadedTracks := make(map[string]bool)
 
-	for _, file := range files {
+	var tags []string
+
+	for _, file := range payload.Files {
+		if file.Name == "tags" {
+			tags = strings.Split(file.Data, ",")
+			continue
+		}
+
 		var fileDecoded []byte
 
 		if file.Size > 0 {
@@ -119,8 +133,11 @@ func (cuh *ContentUploadHandler) addFiles(files []ContentFile, contentType Conte
 			return err
 		}
 
-		if contentType == ContentTypeCar {
+		switch contentType {
+		case ContentTypeCar:
 			uploadedCars[parts[0]] = true
+		case ContentTypeTrack:
+			uploadedTracks[parts[0]] = true
 		}
 
 		err = ioutil.WriteFile(path, fileDecoded, 0644)
@@ -131,7 +148,8 @@ func (cuh *ContentUploadHandler) addFiles(files []ContentFile, contentType Conte
 		}
 	}
 
-	if contentType == ContentTypeCar {
+	switch contentType {
+	case ContentTypeCar:
 		// index the cars that have been uploaded.
 		for car := range uploadedCars {
 			car, err := cuh.carManager.LoadCar(car, nil)
@@ -140,10 +158,53 @@ func (cuh *ContentUploadHandler) addFiles(files []ContentFile, contentType Conte
 				return err
 			}
 
+			for _, tag := range tags {
+				car.Details.AddTag(strings.TrimSpace(tag))
+			}
+
 			err = cuh.carManager.IndexCar(car)
 
 			if err != nil {
 				return err
+			}
+
+			err = cuh.carManager.SaveCarDetails(car.Name, car)
+
+			if err != nil {
+				return err
+			}
+		}
+	case ContentTypeTrack:
+		for track := range uploadedTracks {
+			track, err := cuh.trackManager.GetTrackFromName(track)
+
+			if err == nil {
+				for _, layout := range track.Layouts {
+					clearFromTrackInfoCache(track.Name, layout)
+				}
+			}
+		}
+
+		if payload.GenerateTrackMaps {
+			for track := range uploadedTracks {
+				t, err := cuh.trackManager.GetTrackFromName(track)
+
+				if err != nil {
+					return err
+				}
+
+				for _, layout := range t.Layouts {
+					layoutForWarn := layout
+
+					if layout == defaultLayoutName {
+						layout = ""
+						layoutForWarn = "default"
+					}
+
+					if err := cuh.trackManager.BuildTrackMap(track, layout); err != nil {
+						logrus.WithError(err).Warnf("Track layout (%s, %s) was uploaded but AI spline files are missing or out of date, some advanced SM features will be unavailable for this layout!", track, layoutForWarn)
+					}
+				}
 			}
 		}
 	}

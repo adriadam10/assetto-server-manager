@@ -1,4 +1,4 @@
-package servermanager
+package acsm
 
 import (
 	"encoding/json"
@@ -7,12 +7,14 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"sync"
 	"time"
 
-	"github.com/JustaPenguin/assetto-server-manager/pkg/udp"
-	"github.com/JustaPenguin/assetto-server-manager/pkg/when"
+	"justapengu.in/acsm/internal/acserver"
+	"justapengu.in/acsm/pkg/udp"
+	"justapengu.in/acsm/pkg/when"
 
 	"github.com/cj123/ini"
 	"github.com/go-chi/chi"
@@ -25,6 +27,7 @@ type RaceWeekendManager struct {
 	raceManager         *RaceManager
 	championshipManager *ChampionshipManager
 	notificationManager NotificationDispatcher
+	carManager          *CarManager
 	store               Store
 	process             ServerProcess
 	acsrClient          *ACSRClient
@@ -43,6 +46,7 @@ func NewRaceWeekendManager(
 	process ServerProcess,
 	notificationManager NotificationDispatcher,
 	acsrClient *ACSRClient,
+	carManager *CarManager,
 ) *RaceWeekendManager {
 	return &RaceWeekendManager{
 		raceManager:         raceManager,
@@ -51,6 +55,7 @@ func NewRaceWeekendManager(
 		store:               store,
 		process:             process,
 		acsrClient:          acsrClient,
+		carManager:          carManager,
 
 		scheduledSessionTimers:         make(map[string]*when.Timer),
 		scheduledSessionReminderTimers: make(map[string]*when.Timer),
@@ -207,6 +212,40 @@ func (rwm *RaceWeekendManager) SaveRaceWeekend(r *http.Request) (raceWeekend *Ra
 			return nil, edited, err
 		}
 
+		numAvailableSpectatorCars := formValueAsInt(r.FormValue("NumAvailableSpectatorCars"))
+		cars := r.Form["Cars"]
+		carSelectionRange := len(cars) - numAvailableSpectatorCars
+
+		if len(cars) > 0 && carSelectionRange < len(cars) {
+			// look through all cars and if they have 'any car model', split all chosen cars between the entrants
+			cars = cars[:carSelectionRange]
+
+			allCars, err := rwm.carManager.ListCars()
+
+			if err != nil {
+				return nil, edited, err
+			}
+
+			carMap := allCars.AsMap()
+
+			availableCarIndex := 0
+			carSkinChoice := make(map[string]int)
+
+			for _, entrant := range entryList {
+				if entrant.Model == AnyCarModel {
+					entrant.Model = cars[availableCarIndex%len(cars)]
+
+					if skins, ok := carMap[entrant.Model]; ok && len(skins) > 0 {
+						entrant.Skin = skins[carSkinChoice[entrant.Model]%len(skins)]
+
+						carSkinChoice[entrant.Model]++
+					}
+
+					availableCarIndex++
+				}
+			}
+		}
+
 		raceWeekend.EntryList = entryList
 
 		// persist race weekend entrants in the autofill entry list
@@ -296,7 +335,7 @@ func (rwm *RaceWeekendManager) BuildRaceWeekendSessionOpts(r *http.Request) (*Ra
 
 			opts.RaceWeekendHasAtLeastOneSession = true
 		} else {
-			current := ConfigIniDefault().CurrentRaceConfig
+			current := ConfigDefault().CurrentRaceConfig
 			delete(current.Sessions, SessionTypeBooking)
 			delete(current.Sessions, SessionTypeQualifying)
 			delete(current.Sessions, SessionTypeRace)
@@ -409,6 +448,7 @@ func (rwm *RaceWeekendManager) SaveRaceWeekendSession(r *http.Request) (raceWeek
 
 	session.OverridePassword = r.FormValue("OverridePassword") == "1"
 	session.ReplacementPassword = r.FormValue("ReplacementPassword")
+	session.WarmUpSessionTime = formValueAsInt(r.FormValue("RaceWeekendWarmUpSessionTime"))
 
 	if raceWeekend.HasLinkedChampionship() {
 		// points
@@ -461,10 +501,6 @@ func (rwm *RaceWeekendManager) StartPracticeSession(raceWeekendID string, raceWe
 }
 
 func (rwm *RaceWeekendManager) StartSession(raceWeekendID string, raceWeekendSessionID string, isPracticeSession bool) error {
-	if !Premium() {
-		return errors.New("servermanager: premium required")
-	}
-
 	raceWeekend, err := rwm.LoadRaceWeekend(raceWeekendID)
 
 	if err != nil {
@@ -535,9 +571,21 @@ func (rwm *RaceWeekendManager) StartSession(raceWeekendID string, raceWeekendSes
 	session.RaceConfig.LockedEntryList = 1
 	session.RaceConfig.PickupModeEnabled = 1
 
+	hasWarmUpSession := session.HasWarmUp() && !isPracticeSession
+
+	if hasWarmUpSession {
+		session.RaceConfig.Sessions[SessionTypePractice] = &SessionConfig{
+			Name:   "Warm Up",
+			Time:   session.WarmUpSessionTime,
+			IsOpen: SessionOpennessFreeJoin,
+		}
+
+		session.RaceConfig.QualifyMaxWaitPercentage = 120
+	}
+
 	// all race weekend sessions must be open so players can join
 	for _, acSession := range session.RaceConfig.Sessions {
-		acSession.IsOpen = 1
+		acSession.IsOpen = SessionOpennessFreeJoin
 	}
 
 	overridePassword := session.OverridePassword
@@ -563,6 +611,7 @@ func (rwm *RaceWeekendManager) StartSession(raceWeekendID string, raceWeekendSes
 		RaceConfig:          session.RaceConfig,
 		EntryList:           entryList,
 		ChampionshipID:      championshipID,
+		HasWarmUpSession:    hasWarmUpSession,
 	}
 
 	if isPracticeSession {
@@ -577,6 +626,7 @@ func (rwm *RaceWeekendManager) StartSession(raceWeekendID string, raceWeekendSes
 		}
 
 		session.RaceConfig.LoopMode = 1
+		session.RaceConfig.ResultScreenTime = 30
 
 		raceWeekendRaceEvent.IsPracticeSession = true
 		raceWeekendRaceEvent.RaceConfig = session.RaceConfig
@@ -604,6 +654,11 @@ func (rwm *RaceWeekendManager) UDPCallback(message udp.Message) {
 
 		if err != nil {
 			logrus.WithError(err).Errorf("Could not read session results for race weekend: %s, session: %s", rwm.activeRaceWeekend.RaceWeekendID.String(), rwm.activeRaceWeekend.SessionID.String())
+			return
+		}
+
+		if results.Type == SessionTypePractice && rwm.activeRaceWeekend.HasWarmUpSession {
+			// don't stop the session after the warm up session has happened
 			return
 		}
 
@@ -795,10 +850,6 @@ func (rwm *RaceWeekendManager) RestartActiveSession() error {
 }
 
 func (rwm *RaceWeekendManager) ImportSession(raceWeekendID string, raceWeekendSessionID string, r *http.Request) error {
-	if !Premium() {
-		return errors.New("servermanager: premium required")
-	}
-
 	if err := r.ParseForm(); err != nil {
 		return err
 	}
@@ -1221,7 +1272,7 @@ func (rwm *RaceWeekendManager) ScheduleSession(raceWeekendID, sessionID string, 
 	session.StartWhenParentHasFinished = startWhenParentFinishes
 	session.ScheduledServerID = serverID
 
-	if config.Lua.Enabled && Premium() {
+	if config.Lua.Enabled {
 		err = raceWeekendEventSchedulePlugin(raceWeekend, session)
 
 		if err != nil {
@@ -1241,7 +1292,7 @@ func (rwm *RaceWeekendManager) ScheduleSession(raceWeekendID, sessionID string, 
 }
 
 func raceWeekendEventSchedulePlugin(raceWeekend *RaceWeekend, raceWeekendSession *RaceWeekendSession) error {
-	p := &LuaPlugin{}
+	p := NewLuaPlugin()
 
 	newRaceWeekendSession, newRaceWeekend := NewRaceWeekendSession(), NewRaceWeekend()
 
@@ -1270,4 +1321,73 @@ func (rwm *RaceWeekendManager) DeScheduleSession(raceWeekendID, sessionID string
 	rwm.clearScheduledSessionTimer(session)
 
 	return rwm.UpsertRaceWeekend(raceWeekend)
+}
+
+func (rwm *RaceWeekendManager) SortLeaderboard(sessionType acserver.SessionType, leaderboard []*acserver.LeaderboardLine) {
+	rwm.mutex.Lock()
+	defer rwm.mutex.Unlock()
+
+	if !rwm.RaceWeekendSessionIsRunning() {
+		return
+	}
+
+	if sessionType != acserver.SessionTypePractice || !rwm.activeRaceWeekend.HasWarmUpSession {
+		// in-session leaderboard sorting only happens to keep the original leaderboard in place through a race weekend
+		// warm up session. do not change it for any other session.
+		return
+	}
+
+	raceWeekend, err := rwm.LoadRaceWeekend(rwm.activeRaceWeekend.RaceWeekendID.String())
+
+	if err != nil {
+		logrus.WithError(err).Errorf("Could not load active race weekend")
+		return
+	}
+
+	session, err := raceWeekend.FindSessionByID(rwm.activeRaceWeekend.SessionID.String())
+
+	if err != nil {
+		logrus.WithError(err).Errorf("Could not load active race weekend session")
+		return
+	}
+
+	entryList, err := session.GetRaceWeekendEntryList(raceWeekend, nil, "")
+
+	if err != nil {
+		logrus.WithError(err).Errorf("Could not load race weekend session entrylist")
+		return
+	}
+
+	guidToPositionMap := make(map[string]int)
+	gridPosition := 0
+
+	for _, entrant := range entryList {
+		if entrant.IsPlaceholder {
+			continue
+		}
+
+		guidToPositionMap[entrant.Car.GetGUID()] = gridPosition
+		gridPosition++
+	}
+
+	sort.Slice(leaderboard, func(i, j int) bool {
+		carI, carJ := leaderboard[i], leaderboard[j]
+
+		carIPos, carIOK := guidToPositionMap[carI.Car.Driver.GUID]
+		carJPos, carJOK := guidToPositionMap[carJ.Car.Driver.GUID]
+
+		if carIOK && carJOK {
+			return carIPos < carJPos
+		}
+
+		if carIOK {
+			return true
+		}
+
+		if carJOK {
+			return false
+		}
+
+		return false
+	})
 }

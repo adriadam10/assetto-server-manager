@@ -1,4 +1,4 @@
-{{/* gotype: github.com/JustaPenguin/assetto-server-manager.serverOptionsTemplateVars */}}
+{{/* gotype: justapengu.in/acsm.serverOptionsTemplateVars */}}
 
 {{ define "title" }}Options{{ end }}
 
@@ -8,9 +8,7 @@
     <p>These configuration options are applied globally - they are applied to each race setup started by Server Manager.</p>
 
     <form method="post" action="/server-options">
-        {{ range $k, $v := .Form.Fields }}
-            {{ $v.HTML }}
-        {{ end }}
+        {{ $.Form }}
 
         <button class="btn btn-success float-right" type="submit">Save</button>
 
@@ -27,4 +25,23 @@
         you will need to use this so that the content shows up in the Search. Note that this process can take a long time.
     </p>
     <a class="btn btn-primary" href="/search-index">Rebuild Search Index</a>
+
+    <br><br>
+
+    <p>
+        You can use the button below to build track map images for all tracks uploaded to the server. The track map image
+        build uses the AI files for the track. If it can't find those, then it will leave the existing track map image in place.
+        Note that this process can take a long time.
+    </p>
+
+    <a class="btn btn-primary" href="/tracks/rebuild-maps">Rebuild Track Maps</a>
+
+
+    <br><br>
+
+    <p>
+        You can use the button below to clear all currently stored Live Timings data. This action is permanent. <strong>If an event is running, it will be stopped.</strong>
+    </p>
+
+    <a class="btn btn-danger" href="/server/delete-live-timings" onclick="confirm('Do you really want to stop the running event (if any) and permanently delete all live timings? This action is irreversible.')">Delete Live Timings</a>
 {{ end }}

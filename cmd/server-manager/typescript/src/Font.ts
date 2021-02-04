@@ -1,5 +1,5 @@
 // Font.ts minimises Font-Awesome page load times by only loading in the icons that we are using.
-import {library, dom} from "@fortawesome/fontawesome-svg-core";
+import {dom, library} from "@fortawesome/fontawesome-svg-core";
 
 import {faUser} from "@fortawesome/free-solid-svg-icons/faUser";
 import {faBug} from "@fortawesome/free-solid-svg-icons/faBug";
@@ -48,6 +48,12 @@ import {faBalanceScale} from "@fortawesome/free-solid-svg-icons/faBalanceScale";
 import {faUsers} from "@fortawesome/free-solid-svg-icons/faUsers";
 import {faShieldAlt} from "@fortawesome/free-solid-svg-icons/faShieldAlt"
 import {faVideo} from "@fortawesome/free-solid-svg-icons/faVideo";
+import {faScroll} from "@fortawesome/free-solid-svg-icons/faScroll"
+import {faRedoAlt} from "@fortawesome/free-solid-svg-icons/faRedoAlt";
+import {faClock} from "@fortawesome/free-solid-svg-icons/faClock";
+import {faPlug} from "@fortawesome/free-solid-svg-icons/faPlug";
+import {faSpinner} from "@fortawesome/free-solid-svg-icons/faSpinner";
+import {faInfoCircle} from "@fortawesome/free-solid-svg-icons/faInfoCircle";
 
 library.add(
     faUser,
@@ -97,6 +103,12 @@ library.add(
     faUsers,
     faShieldAlt,
     faVideo,
+    faScroll,
+    faRedoAlt,
+    faClock,
+    faPlug,
+    faSpinner,
+    faInfoCircle,
 );
 
 dom.watch();

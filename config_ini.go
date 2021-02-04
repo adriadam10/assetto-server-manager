@@ -1,15 +1,20 @@
-package servermanager
+package acsm
 
 import (
 	"bytes"
 	"fmt"
+	"io/ioutil"
 	"path/filepath"
 	"strings"
 	"text/template"
 	"time"
 
+	"github.com/cj123/formulate"
 	"github.com/cj123/ini"
 	"github.com/sirupsen/logrus"
+
+	"justapengu.in/acsm/internal/acserver"
+	"justapengu.in/acsm/pkg/pitlanedetection"
 )
 
 func init() {
@@ -24,6 +29,8 @@ const (
 	SessionTypePractice   SessionType = "PRACTICE"
 	SessionTypeQualifying SessionType = "QUALIFY"
 	SessionTypeRace       SessionType = "RACE"
+
+	SessionTypeChampionshipPractice SessionType = "CHAMPIONSHIP-PRACTICE"
 
 	// SessionTypeSecondRace is a convenience const to allow for checking of
 	// reversed grid positions signifying a second race.
@@ -48,9 +55,42 @@ func (s SessionType) String() string {
 		return "Race"
 	case SessionTypeSecondRace:
 		return "2nd Race"
+	case SessionTypeChampionshipPractice:
+		return "Looping Championship Practice"
 	default:
 		return strings.Title(strings.ToLower(string(s)))
 	}
+}
+
+func SessionNameToSessionType(name string) SessionType {
+	if name == SessionTypeChampionshipPractice.String() {
+		return SessionTypeChampionshipPractice
+	}
+
+	for _, t := range AvailableSessions {
+		if t.String() == name {
+			return t
+		}
+	}
+
+	return ""
+}
+
+func (s SessionType) ACServerType() acserver.SessionType {
+	switch s {
+	case SessionTypeBooking:
+		return acserver.SessionTypeBooking
+	case SessionTypePractice:
+		return acserver.SessionTypePractice
+	case SessionTypeQualifying:
+		return acserver.SessionTypeQualifying
+	case SessionTypeRace:
+		return acserver.SessionTypeRace
+	case SessionTypeChampionshipPractice:
+		return acserver.SessionType(4)
+	}
+
+	return acserver.SessionTypePractice
 }
 
 var AvailableSessions = []SessionType{
@@ -141,77 +181,88 @@ func (sc ServerConfig) Write() error {
 	return f.SaveTo(filepath.Join(ServerInstallPath, ServerConfigPath, serverConfigIniPath))
 }
 
+func (sc ServerConfig) ReadString() (string, error) {
+	content, err := ioutil.ReadFile(filepath.Join(ServerInstallPath, ServerConfigPath, serverConfigIniPath))
+	if err != nil {
+		return "", err
+	}
+
+	return string(content), nil
+}
+
 type GlobalServerConfig struct {
 	AssettoCorsaServer FormHeading `ini:"-" json:"-" input:"heading"`
 
-	Name                      string `ini:"NAME" help:"Server Name"`
-	Password                  string `ini:"PASSWORD" input:"password" help:"Server password"`
-	AdminPassword             string `ini:"ADMIN_PASSWORD" input:"password" help:"The password needed to be recognized as server administrator: you can join the server using it to be recognized automatically. Type /help in the game's chat to see the command list. Warning: Leaving this blank will allow any driver to connect as Admin!"`
-	UDPPort                   int    `ini:"UDP_PORT" show:"open" min:"0" max:"65535" help:"UDP port number: open this port on your server's firewall"`
-	TCPPort                   int    `ini:"TCP_PORT" show:"open" min:"0" max:"65535" help:"TCP port number: open this port on your server's firewall"`
-	HTTPPort                  int    `ini:"HTTP_PORT" show:"open" min:"0" max:"65535" help:"Lobby port number: open these ports (both UDP and TCP) on your server's firewall"`
-	UDPPluginLocalPort        int    `ini:"UDP_PLUGIN_LOCAL_PORT" show:"open" min:"0" max:"65535" help:"The port on which to listen for UDP messages from a plugin. Please note that Server Manager proxies UDP ports so that it can use them as well, for things such as Championships, Live Timings and the Map. This means that the UDP ports you see in the server_cfg.ini will be different to the ones you specify here. This is not an issue, and messages will be correctly sent/received on the UDP ports you specify here as well."`
-	UDPPluginAddress          string `ini:"UDP_PLUGIN_ADDRESS" show:"open" help:"The address of the plugin to which UDP messages are sent.  Please note that Server Manager proxies UDP ports so that it can use them as well, for things such as Championships, Live Timings and the Map. This means that the UDP ports you see in the server_cfg.ini will be different to the ones you specify here. This is not an issue, and messages will be correctly sent/received on the UDP ports you specify here as well."`
-	AuthPluginAddress         string `ini:"AUTH_PLUGIN_ADDRESS" show:"open" help:"The address of the auth plugin"`
-	RegisterToLobby           int    `ini:"REGISTER_TO_LOBBY" show:"open" input:"checkbox" help:"Register the AC Server to the main lobby"`
-	ClientSendIntervalInHertz int    `ini:"CLIENT_SEND_INTERVAL_HZ" show:"open" help:"Refresh rate of packet sending by the server. 10Hz = ~100ms. Higher number = higher MP quality = higher bandwidth resources needed. Really high values can create connection issues"`
-	SendBufferSize            int    `ini:"SEND_BUFFER_SIZE" show:"open" help:""`
-	ReceiveBufferSize         int    `ini:"RECV_BUFFER_SIZE" show:"open" help:""`
-	KickQuorum                int    `ini:"KICK_QUORUM" help:"Percentage that is required for the kick vote to pass"`
-	VotingQuorum              int    `ini:"VOTING_QUORUM" min:"0" max:"100" help:"Percentage that is required for the session vote to pass"`
-	VoteDuration              int    `ini:"VOTE_DURATION" min:"0" help:"Vote length in seconds"`
-	BlacklistMode             int    `ini:"BLACKLIST_MODE" min:"0" max:"2" help:"0 = normal kick, kicked player can rejoin; 1 = kicked player cannot rejoin until server restart; 2 = kick player and add to blacklist.txt, kicked player can not rejoin unless removed from blacklist (Better to use ban_id command rather than set this)."`
-	NumberOfThreads           int    `ini:"NUM_THREADS" show:"open" min:"1" help:"Number of threads to run on"`
-	WelcomeMessage            string `ini:"WELCOME_MESSAGE" show:"-" help:"Path to the file that contains the server welcome message"`
+	Name                      string               `ini:"NAME" help:"Server Name"`
+	Password                  string               `ini:"PASSWORD" type:"password" help:"Server password"`
+	AdminPassword             string               `ini:"ADMIN_PASSWORD" type:"password" help:"The password needed to be recognized as server administrator: you can join the server using it to be recognized automatically. Type /help in the game's chat to see the command list."`
+	SpectatorPassword         string               `ini:"SPECTATOR_PASSWORD" type:"password" help:"The password needed to be recognized as a spectator: you can join the server using it to be recognized automatically. Spectator cars can use commands to view other cars in Solo Qualifying, and will always be shown in the pits. Type /help in the game's chat to see the command list."`
+	SpectatorIsAdmin          bool                 `help:"Spectators will also be treated as administrators if this option is enabled."`
+	UPnP                      bool                 `name:"UPnP" help:"Universal Plug and Play. If enabled, Server Manager will try to register port forwards automatically with your router's UPnP service. This can fail, so you may still need to manually set up the port forwards."`
+	UDPPort                   int                  `ini:"UDP_PORT" show:"open" min:"0" max:"65535" help:"UDP port number: open this port on your server's firewall"`
+	TCPPort                   int                  `ini:"TCP_PORT" show:"open" min:"0" max:"65535" help:"TCP port number: open this port on your server's firewall"`
+	HTTPPort                  int                  `ini:"HTTP_PORT" show:"open" min:"0" max:"65535" help:"Lobby port number: open these ports (both UDP and TCP) on your server's firewall"`
+	UDPPluginLocalPort        int                  `ini:"UDP_PLUGIN_LOCAL_PORT" show:"open" min:"0" max:"65535" help:"The port on which to listen for UDP messages from a plugin. Please note that Server Manager proxies UDP ports so that it can use them as well, for things such as Championships, Live Timings and the Map. This means that the UDP ports you see in the server_cfg.ini will be different to the ones you specify here. This is not an issue, and messages will be correctly sent/received on the UDP ports you specify here as well."`
+	UDPPluginAddress          string               `ini:"UDP_PLUGIN_ADDRESS" show:"open" help:"The address of the plugin to which UDP messages are sent.  Please note that Server Manager proxies UDP ports so that it can use them as well, for things such as Championships, Live Timings and the Map. This means that the UDP ports you see in the server_cfg.ini will be different to the ones you specify here. This is not an issue, and messages will be correctly sent/received on the UDP ports you specify here as well."`
+	AuthPluginAddress         string               `ini:"AUTH_PLUGIN_ADDRESS" show:"open" help:"The address of the auth plugin"`
+	RegisterToLobby           formulate.BoolNumber `ini:"REGISTER_TO_LOBBY" show:"open" help:"Register the AC Server to the main lobby"`
+	ClientSendIntervalInHertz int                  `ini:"CLIENT_SEND_INTERVAL_HZ" show:"open" help:"Refresh rate of packet sending by the server. 10Hz = ~100ms. Higher number = higher MP quality = higher bandwidth resources needed. Really high values can create connection issues"`
+	SendBufferSize            int                  `ini:"SEND_BUFFER_SIZE" show:"open" help:""`
+	ReceiveBufferSize         int                  `ini:"RECV_BUFFER_SIZE" show:"open" help:""`
+	KickQuorum                int                  `ini:"KICK_QUORUM" help:"Percentage that is required for the kick vote to pass"`
+	VotingQuorum              int                  `ini:"VOTING_QUORUM" min:"0" help:"Percentage that is required for the session vote to pass"`
+	VoteDuration              int                  `ini:"VOTE_DURATION" min:"0" help:"Vote length in seconds"`
+	BlacklistMode             BlockListMode        `ini:"BLACKLIST_MODE" name:"BlockList mode" help:"How to handle blocklisting of players."`
+	NumberOfThreads           int                  `ini:"NUM_THREADS" show:"open" min:"1" help:"Number of threads to run on"`
+	WelcomeMessage            string               `ini:"WELCOME_MESSAGE" show:"-" help:"Path to the file that contains the server welcome message"`
 
 	SleepTime int `ini:"SLEEP_TIME" help:"The use of this setting is not fully known. Leave the value as 1 unless you really know what you're doing. (Values other than 1 cause excessive CPU usage)"`
 
-	FreeUDPPluginLocalPort int    `ini:"-" show:"-"`
-	FreeUDPPluginAddress   string `ini:"-" show:"-"`
-
 	// ACSR
-	AssettoCorsaSkillRating FormHeading `ini:"-" json:"-" show:"premium" input:"heading"`
-	EnableACSR              bool        `ini:"-" show:"premium" input:"checkbox" help:"Enable ACSR integration. <a href='https://acsr.assettocorsaservers.com'>You can read more about ACSR here</a>."`
+	AssettoCorsaSkillRating FormHeading `ini:"-" json:"-" show:"premium"`
+	EnableACSR              bool        `ini:"-" show:"premium" help:"Enable ACSR integration. <a href='https://acsr.assettocorsaservers.com'>You can read more about ACSR here</a>."`
 	ACSRAccountID           string      `ini:"-" show:"premium" help:"Your ACSR account ID. You can <a href='https://acsr.assettocorsaservers.com/account'>request an ACSR key here</a>."`
-	ACSRAPIKey              string      `ini:"-" show:"premium" help:"Your ACSR API Key. You can <a href='https://acsr.assettocorsaservers.com/account'>request an ACSR key here</a>."`
+	ACSRAPIKey              string      `ini:"-" show:"premium" name:"ACSR API Key" help:"Your ACSR API Key. You can <a href='https://acsr.assettocorsaservers.com/account'>request an ACSR key here</a>."`
 
-	ServerName                FormHeading `ini:"-" json:"-" input:"heading"`
-	ShowRaceNameInServerLobby int         `ini:"-" input:"checkbox" help:"When on, this option will make Server Manager append the Custom Race or Championship name to the Server name in the lobby."`
-	ServerNameTemplate        string      `ini:"-" help:"You can enter anything you like in here. If you put <code>{{ .ServerName }}</code> in, the Server Name will replace it. If you put <code>{{ .EventName }}</code>, then the Event Name will replace it. Note this only works if 'Show Race Name In Server Lobby' (above) is enabled. You can <a href='https://github.com/JustaPenguin/assetto-server-manager/wiki/Server-Name-Template-Examples'>view some examples</a> on the Server Manager Wiki!"`
+	ServerName                FormHeading          `ini:"-" json:"-"`
+	ShowRaceNameInServerLobby formulate.BoolNumber `ini:"-" help:"When on, this option will make Server Manager append the Custom Race or Championship name to the Server name in the lobby."`
+	ServerNameTemplate        string               `ini:"-" help:"You can enter anything you like in here. If you put <code>{{ .ServerName }}</code> in, the Server Name will replace it. If you put <code>{{ .EventName }}</code>, then the Event Name will replace it. Note this only works if 'Show Race Name In Server Lobby' (above) is enabled. You can <a href='https://github.com/JustaPenguin/assetto-server-manager/wiki/Server-Name-Template-Examples'>view some examples</a> on the Server Manager Wiki!"`
 
-	Theme     FormHeading `ini:"-" json:"-" input:"heading"`
-	DarkTheme int         `ini:"-" input:"checkbox" help:"Enable Server Manager's Dark Theme by default"`
-	CustomCSS string      `ini:"-" input:"textarea" help:"Customise the style of Server Manager! You can <a href='https://github.com/JustaPenguin/assetto-server-manager/wiki/Custom-CSS-Examples'>view some examples</a> on the Server Manager Wiki!"`
-	OGImage   string      `ini:"-" show:"premium" help:"Link to an image on the web here to set it as your default Open Graph image (will show in links)"`
+	Theme     FormHeading          `ini:"-" json:"-"`
+	DarkTheme formulate.BoolNumber `ini:"-" help:"Enable Server Manager's Dark Theme by default"`
+	CustomCSS string               `ini:"-" elem:"textarea" help:"Customise the style of Server Manager! You can <a href='https://github.com/JustaPenguin/assetto-server-manager/wiki/Custom-CSS-Examples'>view some examples</a> on the Server Manager Wiki!"`
+	OGImage   string               `ini:"-" show:"premium" help:"Link to an image on the web here to set it as your default Open Graph image (will show in links)"`
+	Favicon   string               `ini:"-" show:"premium" help:"Set to a link on the web to change the favicon!"`
 
-	ContentManagerIntegration   FormHeading `ini:"-" json:"-" input:"heading"`
-	EnableContentManagerWrapper int         `ini:"-" input:"checkbox" help:"When on, this option makes Server Manager provide extra information to Content Manager. This includes more detail about connected clients, event descriptions and download links. A side-effect of this is that your server name will contain a new piece of information (an 'i' character followed by a port - which Content Manager requires). Also - if enabled - this wrapper uses a GeoIP functionality provided by <a href='https://freegeoip.app''>freegeoip.app</a>."`
-	ContentManagerWrapperPort   int         `ini:"-" show:"open" min:"0" max:"65535" help:"The port on which to serve Content Manager with the above information. Please make sure this port is open on your firewall."`
-	ShowContentManagerJoinLink  int         `ini:"-" input:"checkbox" help:"When on, this option will make Server Manager display Content Manager join links on the Live Timing page and (if enabled) in Discord race start notifications."`
-	ContentManagerIPOverride    string      `ini:"-" show:"open" help:"When set, this overrides the IP address detected by the GeoIP service used for the Content Manager join link. This must be an IPv4 address."`
-	//ContentManagerWrapperContentRequiresPassword int         `ini:"-" input:"checkbox" help:"When on a user will require the server password in order to download linked content through the Content Manager Wrapper."`
+	ContentManagerIntegration   FormHeading          `ini:"-" json:"-"`
+	EnableContentManagerWrapper formulate.BoolNumber `ini:"-" help:"When on, this option makes Server Manager provide extra information to Content Manager. This includes more detail about connected clients, event descriptions and download links. A side-effect of this is that your server name will contain a new piece of information (an 'i' character followed by a port - which Content Manager requires). Also - if enabled - this wrapper uses a GeoIP functionality provided by <a href='https://freegeoip.app''>freegeoip.app</a>."`
+	ContentManagerWrapperPort   int                  `ini:"-" show:"open" min:"0" max:"65535" help:"The port on which to serve Content Manager with the above information. Please make sure this port is open on your firewall."`
+	ShowContentManagerJoinLink  formulate.BoolNumber `ini:"-" help:"When on, this option will make Server Manager display Content Manager join links on the Live Timing page and (if enabled) in Discord race start notifications."`
+	ContentManagerIPOverride    string               `ini:"-" show:"open" help:"When set, this overrides the IP address detected by the GeoIP service used for the Content Manager join link. This must be an IPv4 address."`
+	//ContentManagerWrapperContentRequiresPassword formulate.BoolNumber `ini:"-" help:"When on a user will require the server password in order to download linked content through the Content Manager Wrapper."`
 
-	Miscellaneous                     FormHeading `ini:"-" json:"-" input:"heading"`
-	UseShortenedDriverNames           int         `ini:"-" input:"checkbox" help:"When on, this option will make Server Manager hide driver's last names, for example 'John Smith' becomes 'John S.'"`
-	FallBackResultsSorting            int         `ini:"-" input:"checkbox" help:"When on results will use a fallback method of sorting. Only enable this if you are experiencing results that are in the wrong order in the json file."`
-	UseMPH                            int         `ini:"-" input:"checkbox" help:"When on, this option will make Server Manager use MPH instead of Km/h for all speed values."`
-	PreventWebCrawlers                int         `ini:"-" input:"checkbox" help:"When on, robots will be prohibited from indexing this manager by the robots.txt. Please note this will only deter well behaved bots, and not malware/spam bots etc."`
-	RestartEventOnServerManagerLaunch int         `ini:"-" input:"checkbox" help:"When on, if Server Manager is stopped while there is an event in progress, Server Manager will try to restart the event when Server Manager is restarted."`
-	LogACServerOutputToFile           bool        `ini:"-" show:"open" input:"checkbox" help:"When on, Server Manager will output each Assetto Corsa session into a log file in the logs folder."`
-	NumberOfACServerLogsToKeep        int         `ini:"-" show:"open" help:"The number of AC Server logs to keep in the logs folder. (Oldest files will be deleted first. 0 = keep all files)"`
-	ShowEventDetailsPopup             bool        `ini:"-" help:"Allows all users to view a popup that describes in detail the setup of Custom Races, Championship Events and Race Weekend Sessions."`
+	Miscellaneous                     FormHeading          `ini:"-" json:"-"`
+	UseShortenedDriverNames           formulate.BoolNumber `ini:"-" help:"When on, this option will make Server Manager hide driver's last names, for example 'John Smith' becomes 'John S.'"`
+	FallBackResultsSorting            formulate.BoolNumber `ini:"-" help:"When on results will use a fallback method of sorting. Only enable this if you are experiencing results that are in the wrong order in the json file."`
+	UseMPH                            formulate.BoolNumber `ini:"-" help:"When on, this option will make Server Manager use MPH instead of Km/h for all speed values."`
+	PreventWebCrawlers                formulate.BoolNumber `ini:"-" help:"When on, robots will be prohibited from indexing this manager by the robots.txt. Please note this will only deter well behaved bots, and not malware/spam bots etc."`
+	RestartEventOnServerManagerLaunch formulate.BoolNumber `ini:"-" help:"When on, if Server Manager is stopped while there is an event in progress, Server Manager will try to restart the event when Server Manager is restarted."`
+	LogACServerOutputToFile           bool                 `ini:"-" show:"open" help:"When on, Server Manager will output each Assetto Corsa session into a log file in the logs folder."`
+	NumberOfACServerLogsToKeep        int                  `ini:"-" show:"open" help:"The number of AC Server logs to keep in the logs folder. (Oldest files will be deleted first. 0 = keep all files)"`
+	ShowEventDetailsPopup             bool                 `ini:"-" help:"Allows all users to view a popup that describes in detail the setup of Custom Races, Championship Events and Race Weekend Sessions."`
+	CustomAnalyticsTrackingCode       string               `ini:"-" elem:"textarea" show:"premium" help:"If set, this custom analytics tracking code will be placed on every page."`
 
 	// Discord Integration
-	DiscordIntegration FormHeading `ini:"-" json:"-" input:"heading"`
+	DiscordIntegration FormHeading `ini:"-" json:"-"`
 	DiscordAPIToken    string      `ini:"-" help:"If set, will enable race start and scheduled reminder messages to the Discord channel ID specified below.  Use your bot's user token, not the OAuth token."`
 	DiscordChannelID   string      `ini:"-" help:"If Discord is enabled, this is the channel ID it will send messages to.  To find the channel ID, enable Developer mode in Discord (user settings, Appearance), then Server Settings, Roles, and right click on the channel and Copy ID."`
 	DiscordRoleID      string      `ini:"-" help:"If set, this role will be mentioned in all Discord notifications.  Any users with this role and access to the channel will be pinged.  To find the role ID, enable Developer mode (see above)), then Server Settings, Roles, right click on the role and Copy ID."`
 	DiscordRoleCommand string      `ini:"-" help:"If the Discord Role ID is set, you can optionally specify a command string here, like \"notify\" (no ! prefix), which if run as a ! command by a user (on a line by itself) in Discord will cause this server to attempt to add the configured role to the user.  If you run multiple servers with Discord enabled, only set this on one of them.  In order for this to work your bot must have the \"Manage Roles\" permission."`
 
-	NotificationReminderTimer   int    `ini:"-"  show:"-" min:"0" max:"65535" help:"This setting has been deprecated and will be removed in the next release. Use Notification Reminder Timers instead."`
-	NotificationReminderTimers  string `ini:"-" help:"If Discord is enabled, a reminder will be sent this many minutes prior to race start.  If 0 or empty, only race start messages will be sent.  You may schedule multiple reminders by using a comma separated list like 120,15."`
-	ShowPasswordInNotifications int    `ini:"-" input:"checkbox" help:"Show the server password in race start notifications."`
-	NotifyWhenScheduled         int    `ini:"-" input:"checkbox" help:"Send a notification when a race is scheduled (or cancelled)."`
+	NotificationReminderTimer   int                  `ini:"-"  show:"-" min:"0" max:"65535" help:"This setting has been deprecated and will be removed in the next release. Use Notification Reminder Timers instead."`
+	NotificationReminderTimers  string               `ini:"-" help:"If Discord is enabled, a reminder will be sent this many minutes prior to race start.  If 0 or empty, only race start messages will be sent.  You may schedule multiple reminders by using a comma separated list like 120,15."`
+	ShowPasswordInNotifications formulate.BoolNumber `ini:"-" help:"Show the server password in race start notifications."`
+	NotifyWhenScheduled         formulate.BoolNumber `ini:"-" help:"Send a notification when a race is scheduled (or cancelled)."`
 
 	// Messages
 	ContentManagerWelcomeMessage string `ini:"-" show:"-"`
@@ -228,7 +279,34 @@ func (gsc GlobalServerConfig) GetName() string {
 	return gsc.Name
 }
 
-type FactoryAssist int
+func (gsc GlobalServerConfig) ToACServerConfig() *acserver.ServerConfig {
+	return &acserver.ServerConfig{
+		Name:                      gsc.Name,
+		Password:                  gsc.Password,
+		AdminPassword:             gsc.AdminPassword,
+		SpectatorPassword:         gsc.SpectatorPassword,
+		SpectatorIsAdmin:          gsc.SpectatorIsAdmin,
+		UPnP:                      gsc.UPnP,
+		UDPPort:                   uint16(gsc.UDPPort),
+		TCPPort:                   uint16(gsc.TCPPort),
+		HTTPPort:                  uint16(gsc.HTTPPort),
+		RegisterToLobby:           gsc.RegisterToLobby == 1,
+		ClientSendIntervalInHertz: uint8(gsc.ClientSendIntervalInHertz),
+		SendBufferSize:            gsc.SendBufferSize,
+		ReceiveBufferSize:         gsc.ReceiveBufferSize,
+		KickQuorum:                gsc.KickQuorum,
+		VotingQuorum:              gsc.VotingQuorum,
+		VoteDuration:              gsc.VoteDuration,
+		BlockListMode:             acserver.BlockListMode(gsc.BlacklistMode),
+		NumberOfThreads:           gsc.NumberOfThreads,
+		SleepTime:                 gsc.SleepTime,
+		UDPPluginAddress:          gsc.UDPPluginAddress,
+		UDPPluginLocalPort:        gsc.UDPPluginLocalPort,
+		WelcomeMessageFile:        MOTDFilename,
+	}
+}
+
+type FactoryAssist acserver.Assist
 
 func (a FactoryAssist) String() string {
 	switch a {
@@ -243,7 +321,7 @@ func (a FactoryAssist) String() string {
 	return ""
 }
 
-type StartRule int
+type StartRule acserver.StartRule
 
 func (s StartRule) String() string {
 	switch s {
@@ -256,6 +334,29 @@ func (s StartRule) String() string {
 	}
 
 	return ""
+}
+
+type BlockListMode acserver.BlockListMode
+
+func (b BlockListMode) SelectMultiple() bool {
+	return false
+}
+
+func (b BlockListMode) SelectOptions() []formulate.Option {
+	return []formulate.Option{
+		{
+			Value: acserver.BlockListModeNormalKick,
+			Label: "Normal kick, player can rejoin",
+		},
+		{
+			Value: acserver.BlockListModeNoRejoin,
+			Label: "Kicked player cannot rejoin until server restart",
+		},
+		{
+			Value: acserver.BlockListModeAddToList,
+			Label: "Kick player and add to blacklist.txt, kicked player can not rejoin unless removed from blacklist",
+		},
+	}
 }
 
 type CurrentRaceConfig struct {
@@ -277,7 +378,7 @@ type CurrentRaceConfig struct {
 	RacePitWindowStart        int           `ini:"RACE_PIT_WINDOW_START" help:"pit window opens at lap/minute specified"`
 	RacePitWindowEnd          int           `ini:"RACE_PIT_WINDOW_END" help:"pit window closes at lap/minute specified"`
 	ReversedGridRacePositions int           `ini:"REVERSED_GRID_RACE_POSITIONS" help:" 0 = no additional race, 1toX = only those position will be reversed for the next race, -1 = all the position will be reversed (Retired players will be on the last positions)"`
-	TimeOfDayMultiplier       int           `ini:"TIME_OF_DAY_MULT" help:"multiplier for the time of day"`
+	TimeOfDayMultiplier       float64       `ini:"TIME_OF_DAY_MULT" help:"multiplier for the time of day"`
 	QualifyMaxWaitPercentage  int           `ini:"QUALIFY_MAX_WAIT_PERC" help:"The factor to calculate the remaining time in a qualify session after the session is ended: 120 means that 120% of the session fastest lap remains to end the current lap."`
 	RaceGasPenaltyDisabled    int           `ini:"RACE_GAS_PENALTY_DISABLED" input:"checkbox" help:"0 = any cut will be penalized with the gas cut message; 1 = no penalization will be forced, but cuts will be saved in the race result json."`
 	MaxBallastKilograms       int           `ini:"MAX_BALLAST_KG" help:"the max total of ballast that can be added to an entrant in the entry list or through the admin command"`
@@ -302,9 +403,10 @@ type CurrentRaceConfig struct {
 
 	IsSol int `ini:"-" help:"Allows for 24 hour time cycles. The server treats time differently if enabled. Clients also require Sol and Content Manager"`
 
-	DisableDRSZones bool `ini:"-"`
-
-	TimeAttack bool `ini:"-"` // time attack races will force loop ON and merge all results files (practice only)
+	ForcedApps              []string `ini:"-"`
+	ForceOpponentHeadlights bool     `ini:"FORCE_OPPONENT_HEADLIGHTS"`
+	DisableDRSZones         bool     `ini:"-"`
+	TimeAttack              bool     `ini:"-"` // time attack races will force loop ON and merge all results files (practice only)
 
 	ExportSecondRaceToACSR bool `ini:"-"`
 
@@ -312,6 +414,169 @@ type CurrentRaceConfig struct {
 
 	Sessions Sessions                  `ini:"-"`
 	Weather  map[string]*WeatherConfig `ini:"-"`
+	PitLane  *pitlanedetection.PitLane `ini:"-"`
+
+	CustomCutsEnabled             bool                 `ini:"-"`
+	CustomCutsOnlyIfCleanSet      bool                 `ini:"-"`
+	CustomCutsIgnoreFirstLap      bool                 `ini:"-"`
+	CustomCutsNumWarnings         int                  `ini:"-"`
+	CustomCutsPenaltyType         acserver.PenaltyType `ini:"-"`
+	CustomCutsBoPAmount           float32              `ini:"-"`
+	CustomCutsBoPNumLaps          int                  `ini:"-"`
+	CustomCutsDriveThroughNumLaps int                  `ini:"-"`
+
+	DRSPenaltiesEnabled             bool                 `ini:"-"`
+	DRSPenaltiesWindow              float32              `ini:"-"`
+	DRSPenaltiesEnableOnLap         int                  `ini:"-"`
+	DRSPenaltiesNumWarnings         int                  `ini:"-"`
+	DRSPenaltiesPenaltyType         acserver.PenaltyType `ini:"-"`
+	DRSPenaltiesBoPAmount           float32              `ini:"-"`
+	DRSPenaltiesBoPNumLaps          int                  `ini:"-"`
+	DRSPenaltiesDriveThroughNumLaps int                  `ini:"-"`
+
+	CollisionPenaltiesEnabled             bool                 `ini:"-"`
+	CollisionPenaltiesIgnoreFirstLap      bool                 `ini:"-"`
+	CollisionPenaltiesOnlyOverSpeed       float32              `ini:"-"`
+	CollisionPenaltiesNumWarnings         int                  `ini:"-"`
+	CollisionPenaltiesPenaltyType         acserver.PenaltyType `ini:"-"`
+	CollisionPenaltiesBoPAmount           float32              `ini:"-"`
+	CollisionPenaltiesBoPNumLaps          int                  `ini:"-"`
+	CollisionPenaltiesDriveThroughNumLaps int                  `ini:"-"`
+
+	TyrePenaltiesEnabled                   bool                 `ini:"-"`
+	TyrePenaltiesMustStartOnBestQualifying bool                 `ini:"-"`
+	TyrePenaltiesPenaltyType               acserver.PenaltyType `ini:"-"`
+	TyrePenaltiesMinimumCompounds          int                  `ini:"-"`
+	TyrePenaltiesMinimumCompoundsPenalty   int                  `ini:"-"`
+	TyrePenaltiesBoPAmount                 float32              `ini:"-"`
+	TyrePenaltiesBoPNumLaps                int                  `ini:"-"`
+	TyrePenaltiesDriveThroughNumLaps       int                  `ini:"-"`
+
+	DriftModeEnabled bool `ini:"-"`
+}
+
+func (c CurrentRaceConfig) ToACConfig() *acserver.EventConfig {
+	eventConfig := &acserver.EventConfig{
+		Cars:                      strings.Split(c.Cars, ";"),
+		Track:                     c.Track,
+		TrackLayout:               c.TrackLayout,
+		SunAngle:                  float32(c.SunAngle),
+		LegalTyres:                strings.Split(c.LegalTyres, ";"),
+		FuelRate:                  float32(c.FuelRate),
+		DamageMultiplier:          float32(c.DamageMultiplier),
+		TyreWearRate:              float32(c.TyreWearRate),
+		AllowedTyresOut:           int16(c.AllowedTyresOut),
+		ABSAllowed:                acserver.Assist(c.ABSAllowed),
+		TractionControlAllowed:    acserver.Assist(c.TractionControlAllowed),
+		StabilityControlAllowed:   c.StabilityControlAllowed == 1,
+		AutoClutchAllowed:         c.AutoClutchAllowed == 1,
+		TyreBlanketsAllowed:       c.TyreBlanketsAllowed == 1,
+		ForceVirtualMirror:        c.ForceVirtualMirror == 1,
+		ForceOpponentHeadlights:   c.ForceOpponentHeadlights,
+		RacePitWindowStart:        uint16(c.RacePitWindowStart),
+		RacePitWindowEnd:          uint16(c.RacePitWindowEnd),
+		ReversedGridRacePositions: int16(c.ReversedGridRacePositions),
+		TimeOfDayMultiplier:       c.TimeOfDayMultiplier,
+		QualifyMaxWaitPercentage:  c.QualifyMaxWaitPercentage,
+		RaceGasPenaltyDisabled:    c.RaceGasPenaltyDisabled == 1,
+		MaxBallastKilograms:       c.MaxBallastKilograms,
+		RaceExtraLap:              c.RaceExtraLap == 1,
+		MaxContactsPerKilometer:   uint8(c.MaxContactsPerKilometer),
+		ResultScreenTime:          uint32(c.ResultScreenTime),
+		PickupModeEnabled:         c.PickupModeEnabled == 1,
+		LockedEntryList:           c.LockedEntryList == 1,
+		LoopMode:                  c.LoopMode == 1,
+		MaxClients:                c.MaxClients,
+		RaceOverTime:              uint32(c.RaceOverTime),
+		StartRule:                 acserver.StartRule(c.StartRule),
+		DynamicTrack: acserver.DynamicTrackConfig{
+			SessionStart:    c.DynamicTrack.SessionStart,
+			Randomness:      c.DynamicTrack.Randomness,
+			SessionTransfer: c.DynamicTrack.SessionTransfer,
+			LapGain:         c.DynamicTrack.LapGain,
+		},
+		CustomCutsEnabled:                      c.CustomCutsEnabled,
+		CustomCutsOnlyIfCleanSet:               c.CustomCutsOnlyIfCleanSet,
+		CustomCutsIgnoreFirstLap:               c.CustomCutsIgnoreFirstLap,
+		CustomCutsNumWarnings:                  c.CustomCutsNumWarnings,
+		CustomCutsPenaltyType:                  c.CustomCutsPenaltyType,
+		CustomCutsBoPAmount:                    c.CustomCutsBoPAmount,
+		CustomCutsBoPNumLaps:                   c.CustomCutsBoPNumLaps,
+		CustomCutsDriveThroughNumLaps:          c.CustomCutsDriveThroughNumLaps,
+		DRSPenaltiesEnabled:                    c.DRSPenaltiesEnabled,
+		DRSPenaltiesWindow:                     c.DRSPenaltiesWindow,
+		DRSPenaltiesEnableOnLap:                c.DRSPenaltiesEnableOnLap,
+		DRSPenaltiesNumWarnings:                c.DRSPenaltiesNumWarnings,
+		DRSPenaltiesPenaltyType:                c.DRSPenaltiesPenaltyType,
+		DRSPenaltiesBoPAmount:                  c.DRSPenaltiesBoPAmount,
+		DRSPenaltiesBoPNumLaps:                 c.DRSPenaltiesBoPNumLaps,
+		DRSPenaltiesDriveThroughNumLaps:        c.DRSPenaltiesDriveThroughNumLaps,
+		CollisionPenaltiesEnabled:              c.CollisionPenaltiesEnabled,
+		CollisionPenaltiesIgnoreFirstLap:       c.CollisionPenaltiesIgnoreFirstLap,
+		CollisionPenaltiesOnlyOverSpeed:        c.CollisionPenaltiesOnlyOverSpeed,
+		CollisionPenaltiesNumWarnings:          c.CollisionPenaltiesNumWarnings,
+		CollisionPenaltiesPenaltyType:          c.CollisionPenaltiesPenaltyType,
+		CollisionPenaltiesBoPAmount:            c.CollisionPenaltiesBoPAmount,
+		CollisionPenaltiesBoPNumLaps:           c.CollisionPenaltiesBoPNumLaps,
+		CollisionPenaltiesDriveThroughNumLaps:  c.CollisionPenaltiesDriveThroughNumLaps,
+		TyrePenaltiesEnabled:                   c.TyrePenaltiesEnabled,
+		TyrePenaltiesMustStartOnBestQualifying: c.TyrePenaltiesMustStartOnBestQualifying,
+		TyrePenaltiesPenaltyType:               c.TyrePenaltiesPenaltyType,
+		TyrePenaltiesMinimumCompounds:          c.TyrePenaltiesMinimumCompounds,
+		TyrePenaltiesMinimumCompoundsPenalty:   c.TyrePenaltiesMinimumCompoundsPenalty,
+		TyrePenaltiesBoPAmount:                 c.TyrePenaltiesBoPAmount,
+		TyrePenaltiesBoPNumLaps:                c.TyrePenaltiesBoPNumLaps,
+		TyrePenaltiesDriveThroughNumLaps:       c.TyrePenaltiesDriveThroughNumLaps,
+		DriftModeEnabled:                       c.DriftModeEnabled,
+	}
+
+	i := 0
+
+	for {
+		weather, ok := c.Weather[fmt.Sprintf("WEATHER_%d", i)]
+
+		if !ok {
+			break
+		}
+
+		var sessions []acserver.SessionType
+
+		for _, sess := range weather.Sessions {
+			sessions = append(sessions, sess.ACServerType())
+		}
+
+		eventConfig.Weather = append(eventConfig.Weather, &acserver.WeatherConfig{
+			Graphics:               weather.Graphics,
+			Duration:               weather.Duration,
+			Sessions:               sessions,
+			BaseTemperatureAmbient: weather.BaseTemperatureAmbient,
+			BaseTemperatureRoad:    weather.BaseTemperatureRoad,
+			VariationAmbient:       weather.VariationAmbient,
+			VariationRoad:          weather.VariationRoad,
+			WindBaseSpeedMin:       weather.WindBaseSpeedMin,
+			WindBaseSpeedMax:       weather.WindBaseSpeedMax,
+			WindVariationDirection: weather.WindVariationDirection,
+			WindBaseDirection:      weather.WindBaseDirection,
+		})
+
+		i++
+	}
+
+	sessions, sessionTypes := c.Sessions.AsSliceWithSessionTypes()
+
+	for sessionIndex, session := range sessions {
+		eventConfig.Sessions = append(eventConfig.Sessions, &acserver.SessionConfig{
+			SessionType: sessionTypes[sessionIndex].ACServerType(),
+			Name:        session.Name,
+			Time:        uint16(session.Time),
+			Laps:        uint16(session.Laps),
+			IsOpen:      acserver.OpenRule(session.IsOpen),
+			Solo:        session.IsSolo,
+			WaitTime:    session.WaitTime,
+		})
+	}
+
+	return eventConfig
 }
 
 func (c CurrentRaceConfig) Tyres() map[string]bool {
@@ -329,23 +594,31 @@ type Sessions map[SessionType]*SessionConfig
 func (s Sessions) AsSlice() []*SessionConfig {
 	var out []*SessionConfig
 
-	if x, ok := s[SessionTypeBooking]; ok {
-		out = append(out, x)
-	}
+	for i := len(AvailableSessions) - 1; i >= 0; i-- {
+		sessionType := AvailableSessions[i]
 
-	if x, ok := s[SessionTypePractice]; ok {
-		out = append(out, x)
-	}
-
-	if x, ok := s[SessionTypeQualifying]; ok {
-		out = append(out, x)
-	}
-
-	if x, ok := s[SessionTypeRace]; ok {
-		out = append(out, x)
+		if x, ok := s[sessionType]; ok {
+			out = append(out, x)
+		}
 	}
 
 	return out
+}
+
+func (s Sessions) AsSliceWithSessionTypes() ([]*SessionConfig, []SessionType) {
+	var out []*SessionConfig
+	var types []SessionType
+
+	for i := len(AvailableSessions) - 1; i >= 0; i-- {
+		sessionType := AvailableSessions[i]
+
+		if x, ok := s[sessionType]; ok {
+			out = append(out, x)
+			types = append(types, sessionType)
+		}
+	}
+
+	return out, types
 }
 
 func (c CurrentRaceConfig) HasMultipleRaces() bool {
@@ -399,13 +672,19 @@ func (c *CurrentRaceConfig) RemoveWeather(weather *WeatherConfig) {
 
 type SessionOpenness int
 
+const (
+	SessionOpennessNoJoin                                = 0
+	SessionOpennessFreeJoin                              = 1
+	SessionOpennessFreeJoinUntil20SecondsToTheGreenLight = 2
+)
+
 func (s SessionOpenness) String() string {
 	switch s {
-	case 0:
+	case SessionOpennessNoJoin:
 		return "No Join"
-	case 1:
+	case SessionOpennessFreeJoin:
 		return "Free Join"
-	case 2:
+	case SessionOpennessFreeJoinUntil20SecondsToTheGreenLight:
 		return "Free join until 20 seconds to the green light"
 	}
 
@@ -418,6 +697,9 @@ type SessionConfig struct {
 	Laps     int             `ini:"LAPS" show:"quick" help:"number of laps in the race"`
 	IsOpen   SessionOpenness `ini:"IS_OPEN" input:"checkbox" help:"0 = no join, 1 = free join, 2 = free join until 20 seconds to the green light"`
 	WaitTime int             `ini:"WAIT_TIME" help:"seconds before the start of the session"`
+
+	// custom ac server
+	IsSolo bool `ini:"-"`
 }
 
 type DynamicTrackConfig struct {
@@ -427,10 +709,10 @@ type DynamicTrackConfig struct {
 	LapGain         int `ini:"LAP_GAIN" help:"how many laps are needed to add 1% grip"`
 }
 
+// Deprecated: Use Sessions instead.
 const (
 	weatherPractice = "weatherPractice"
 	weatherEvent    = "weatherEvent"
-	weatherAny      = "weatherAny"
 )
 
 type WeatherConfig struct {
@@ -445,7 +727,12 @@ type WeatherConfig struct {
 	WindBaseDirection      int `ini:"WIND_BASE_DIRECTION" help:"base direction of the wind (wind is pointing at); 0 = North, 90 = East etc"`
 	WindVariationDirection int `ini:"WIND_VARIATION_DIRECTION" help:"variation (+ or -) of the base direction"`
 
+	// Deprecated: Use Sessions instead.
 	ChampionshipPracticeWeather string `ini:"-"`
+
+	// custom ac server
+	Duration int64         `ini:"DURATION" help:"The duration of a weather if dynamic weather changes are enabled"`
+	Sessions []SessionType `ini:"SESSIONS"`
 
 	CMGraphics          string `ini:"__CM_GRAPHICS" help:"Graphics folder name"`
 	CMWFXType           int    `ini:"__CM_WFX_TYPE" help:"Weather ini file number, inside weather.ini"`
@@ -455,6 +742,16 @@ type WeatherConfig struct {
 	CMWFXUseCustomDate  int    `ini:"__CM_WFX_USE_CUSTOM_DATE" help:"If Sol is active then this should be too"`
 	CMWFXDate           int    `ini:"__CM_WFX_DATE" help:"Unix timestamp (UTC + 10)"`
 	CMWFXDateUnModified int    `ini:"__CM_WFX_DATE_UNMODIFIED" help:"Unix timestamp (UTC + 10), without multiplier correction"`
+}
+
+func (w WeatherConfig) SessionsCSV() string {
+	var sessionTypes []string
+
+	for _, sess := range w.Sessions {
+		sessionTypes = append(sessionTypes, sess.String())
+	}
+
+	return strings.Join(sessionTypes, ", ")
 }
 
 func (w WeatherConfig) UnixToTime(unix int) time.Time {

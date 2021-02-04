@@ -9,12 +9,8 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
-
-	servermanager "github.com/JustaPenguin/assetto-server-manager"
-	"github.com/JustaPenguin/assetto-server-manager/cmd/server-manager/static"
-	"github.com/JustaPenguin/assetto-server-manager/cmd/server-manager/views"
-	"github.com/JustaPenguin/assetto-server-manager/internal/changelog"
-	"github.com/JustaPenguin/assetto-server-manager/pkg/udp"
+	"time"
+	_ "time/tzdata"
 
 	"github.com/dustin/go-humanize"
 	"github.com/fatih/color"
@@ -22,22 +18,47 @@ import (
 	_ "github.com/mjibson/esc/embed"
 	"github.com/pkg/browser"
 	"github.com/sirupsen/logrus"
-	lua "github.com/yuin/gopher-lua"
+
+	"justapengu.in/acsm"
+	"justapengu.in/acsm/cmd/server-manager/static"
+	"justapengu.in/acsm/cmd/server-manager/views"
+	"justapengu.in/acsm/internal/changelog"
+	"justapengu.in/acsm/pkg/license"
 )
 
 var defaultAddress = "0.0.0.0:8772"
 
 const (
-	udpRealtimePosRefreshIntervalMin = 100
+	udpRealtimePosRefreshIntervalMin = 50
 )
 
 func init() {
 	runtime.LockOSThread()
-	servermanager.InitLogging()
+	acsm.InitLogging()
 }
 
 func main() {
-	config, err := servermanager.ReadConfig("config.yml")
+	if err := license.LoadAndValidateLicense(license.Filename, license.ManagerTypeACSM); err != nil {
+		logrus.WithError(err).Fatal("Failed to validate license")
+		return
+	}
+
+	l := license.GetLicense()
+
+	if !l.Expires.IsZero() {
+		go func() {
+			tick := time.Tick(time.Minute * 10)
+
+			for range tick {
+				if l.Expires.Before(time.Now()) {
+					logrus.Fatalf("License has expired")
+					return
+				}
+			}
+		}()
+	}
+
+	config, err := acsm.ReadConfig("config.yml")
 
 	if err != nil {
 		ServeHTTPWithError(defaultAddress, "Read configuration file (config.yml)", err)
@@ -45,7 +66,7 @@ func main() {
 	}
 
 	if config.Monitoring.Enabled {
-		servermanager.InitMonitoring()
+		acsm.InitMonitoring()
 	}
 
 	store, err := config.Store.BuildStore()
@@ -62,39 +83,44 @@ func main() {
 		return
 	}
 
-	servermanager.Changelog = changes
+	acsm.Changelog = changes
 
-	var templateLoader servermanager.TemplateLoader
+	var templateLoader acsm.TemplateLoader
 	var filesystem http.FileSystem
 
 	if os.Getenv("FILESYSTEM_HTML") == "true" {
-		templateLoader = servermanager.NewFilesystemTemplateLoader("views")
+		templateLoader = acsm.NewFilesystemTemplateLoader("views")
 		filesystem = http.Dir("static")
 	} else {
 		templateLoader = &views.TemplateLoader{}
 		filesystem = static.FS(false)
 	}
 
-	resolver, err := servermanager.NewResolver(templateLoader, os.Getenv("FILESYSTEM_HTML") == "true", store)
+	resolver, err := acsm.NewResolver(templateLoader, os.Getenv("FILESYSTEM_HTML") == "true", store)
 
 	if err != nil {
 		ServeHTTPWithError(config.HTTP.Hostname, "Initialise resolver (internal error)", err)
 		return
 	}
-	servermanager.SetAssettoInstallPath(config.Steam.InstallPath)
 
-	err = servermanager.InstallAssettoCorsaServer(config.Steam.Username, config.Steam.Password, config.Steam.ForceUpdate)
+	acsm.SetAssettoInstallPath(config.Steam.InstallPath)
+
+	err = acsm.InstallAssettoCorsaServerWithSteamCMD(config.Steam.Username, config.Steam.Password, config.Steam.ForceUpdate)
 
 	if err != nil {
-		ServeHTTPWithError(defaultAddress, "Install assetto corsa server with steamcmd. Likely you do not have steamcmd installed correctly.", err)
-		return
+		logrus.Warnf("Could not find or install Assetto Corsa Server using SteamCMD. Creating barebones install.")
+
+		if err := acsm.InstallBareBonesAssettoCorsaServer(); err != nil {
+			ServeHTTPWithError(defaultAddress, "Install assetto corsa server with steamcmd or using barebones install.", err)
+			return
+		}
 	}
 
 	if config.LiveMap.IsEnabled() {
 		if config.LiveMap.IntervalMs < udpRealtimePosRefreshIntervalMin {
-			udp.RealtimePosIntervalMs = udpRealtimePosRefreshIntervalMin
+			acsm.RealtimePosInterval = time.Duration(udpRealtimePosRefreshIntervalMin) * time.Millisecond
 		} else {
-			udp.RealtimePosIntervalMs = config.LiveMap.IntervalMs
+			acsm.RealtimePosInterval = time.Duration(config.LiveMap.IntervalMs) * time.Millisecond
 		}
 
 		if runtime.GOOS == "linux" {
@@ -108,7 +134,7 @@ func main() {
 		}
 	}
 
-	if config.Lua.Enabled && servermanager.Premium() {
+	if config.Lua.Enabled {
 		luaPath := os.Getenv("LUA_PATH")
 
 		newPath, err := filepath.Abs("./plugins/?.lua")
@@ -129,13 +155,10 @@ func main() {
 			}
 		}
 
-		servermanager.Lua = lua.NewState()
-		defer servermanager.Lua.Close()
-
-		servermanager.InitLua(resolver.ResolveRaceControl())
+		acsm.InitLua(resolver.ResolveRaceControl())
 	}
 
-	err = servermanager.InitWithResolver(resolver)
+	err = acsm.InitWithResolver(resolver)
 
 	if err != nil {
 		ServeHTTPWithError(config.HTTP.Hostname, "Initialise server manager (internal error)", err)

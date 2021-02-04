@@ -1,4 +1,4 @@
-{{/* gotype:github.com/JustaPenguin/assetto-server-manager.eventDetailsTemplateVars */}}
+{{/* gotype:justapengu.in/acsm.eventDetailsTemplateVars */}}
 
 {{ define "partial" }}
     <div class="modal-dialog modal-lg" role="document">
@@ -82,6 +82,10 @@
                                                 <br>Wait Time: {{ $session.WaitTime }} seconds
                                             {{ end }}
 
+                                            {{ if and (eq $sessionType "QUALIFY") $session.IsSolo }}
+                                                <br><strong>Solo Qualifying</strong>
+                                            {{ end }}
+
                                             {{ if eq $sessionType "RACE" }}
                                                 {{ if or (gt $.EventConfig.RacePitWindowStart 0) (gt $.EventConfig.RacePitWindowEnd 0) }}
                                                     <br>
@@ -125,18 +129,16 @@
                                     <li>Locked Entry List: {{ yn (eq $.EventConfig.LockedEntryList 1) }}</li>
                                     <li>Pickup Mode: {{ yn (eq $.EventConfig.PickupModeEnabled 1) }}</li>
 
-                                    {{ if $.IsPremium }}
-                                        <li>
-                                            Driver Swaps: {{ yn (eq $.EventConfig.DriverSwapEnabled 1) }}
+                                    <li>
+                                        Driver Swaps: {{ yn (eq $.EventConfig.DriverSwapEnabled 1) }}
 
-                                            {{ if eq $.EventConfig.DriverSwapEnabled 1 }}
-                                                <ul>
-                                                    <li>Minimum Driver Swap Time: {{ $.EventConfig.DriverSwapMinTime }} seconds</li>
-                                                    <li>Minimum Number of Required Swaps: {{ $.EventConfig.DriverSwapMinimumNumberOfSwaps }}</li>
-                                                </ul>
-                                            {{ end }}
-                                        </li>
-                                    {{ end }}
+                                        {{ if eq $.EventConfig.DriverSwapEnabled 1 }}
+                                            <ul>
+                                                <li>Minimum Driver Swap Time: {{ $.EventConfig.DriverSwapMinTime }} seconds</li>
+                                                <li>Minimum Number of Required Swaps: {{ $.EventConfig.DriverSwapMinimumNumberOfSwaps }}</li>
+                                            </ul>
+                                        {{ end }}
+                                    </li>
                                 </ul>
                             </div>
                         </div>
@@ -154,18 +156,27 @@
                                     {{ end }}
 
                                 </ul>
-
-                                <p>Each session will randomly select from one of the below options:</p>
-
+                                
                                 <ol class="pl-3 ml-0">
                                     {{ range $weatherIndex, $weather := $.EventConfig.Weather }}
                                         <li>
                                             {{ weatherName $weather.Graphics }}<br>
                                             <small>
                                                 {{ if $.EventConfig.IsSol }}
-                                                    Date: {{ localFormat ($weather.UnixToTime $weather.CMWFXDate) }}<br>
+                                                    Date: {{ solTimeFormat ($weather.UnixToTime $weather.CMWFXDateUnModified) }}<br>
                                                     Multiplier: {{ $weather.CMWFXTimeMulti }}x<br>
                                                 {{ end }}
+
+                                                {{ if gt $weather.Duration 0 }}
+                                                    Duration: {{ $weather.Duration }} minutes<br>
+                                                {{ end }}
+
+                                                {{ if gt (len $weather.Sessions) 0 }}
+                                                    Sessions: {{ $weather.SessionsCSV }}
+                                                {{ else }}
+                                                    Applies to all sessions.
+                                                {{ end }}
+                                                <br>
 
                                                 Ambient: {{ $weather.BaseTemperatureAmbient }}&deg;C (variation {{ $weather.VariationAmbient }})<br>
                                                 Road: {{ add $weather.BaseTemperatureAmbient $weather.BaseTemperatureRoad }}&deg;C (variation {{ $weather.VariationRoad }})<br>

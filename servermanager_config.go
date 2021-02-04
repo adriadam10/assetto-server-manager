@@ -1,4 +1,4 @@
-package servermanager
+package acsm
 
 import (
 	"errors"
@@ -9,8 +9,8 @@ import (
 	"time"
 
 	"github.com/cj123/sessions"
-	"github.com/etcd-io/bbolt"
 	"github.com/sirupsen/logrus"
+	"go.etcd.io/bbolt"
 	"gopkg.in/yaml.v2"
 )
 
@@ -151,6 +151,7 @@ func (s *StoreConfig) BuildStore() (Store, error) {
 
 type ServerExtraConfig struct {
 	Plugins                     []*CommandPlugin `yaml:"plugins"`
+	DisablePlugins              bool             `yaml:"disable_plugins"`
 	AuditLogging                bool             `yaml:"audit_logging"`
 	PerformanceMode             bool             `yaml:"performance_mode"`
 	DisableWindowsBrowserOpen   bool             `yaml:"dont_open_browser"`

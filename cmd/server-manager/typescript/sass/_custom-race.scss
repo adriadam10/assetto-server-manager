@@ -22,6 +22,20 @@
     background-color: #08c!important;
 }
 
+.sessionsWrapper .ms-container {
+    .ms-selectable .ms-list {
+     height: 100px;
+    }
+
+    .ms-selection .ms-list {
+      height: 100px
+    }
+}
+
+.rotate-180 {
+  transform: rotate(180deg);
+}
+
 .bg-dlc {
     background-color: #b5d9f5;
 }

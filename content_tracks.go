@@ -1,21 +1,34 @@
-package servermanager
+package acsm
 
 import (
 	"bytes"
 	"encoding/json"
 	"fmt"
 	"image"
+	"image/color"
+	"image/draw"
 	"image/png"
+	"io"
 	"io/ioutil"
 	"net/http"
 	"os"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
+	"sync"
+	"time"
+	"unicode"
+
+	"justapengu.in/acsm/cmd/server-manager/static"
+	"justapengu.in/acsm/internal/acserver"
+	"justapengu.in/acsm/pkg/ai"
 
 	"github.com/cj123/ini"
 	"github.com/dimchansky/utfbom"
 	"github.com/go-chi/chi"
+	"github.com/jpillora/longestcommon"
+	"github.com/nfnt/resize"
 	"github.com/sirupsen/logrus"
 )
 
@@ -23,10 +36,15 @@ type Track struct {
 	Name    string
 	Layouts []string
 
+	CalculatedPrettyName string
+
 	MetaData TrackMetaData
 }
 
-const defaultTrackURL = "/static/img/no-preview-general.png"
+const (
+	defaultTrackURL   = "/static/img/no-preview-general.png"
+	defaultLayoutName = "<default>"
+)
 
 func (t Track) GetImagePath() string {
 	if len(t.Layouts) == 0 {
@@ -50,7 +68,9 @@ func LoadTrackMetaDataFromName(name string) (*TrackMetaData, error) {
 	f, err := os.Open(metaDataFile)
 
 	if err != nil && os.IsNotExist(err) {
-		return &TrackMetaData{}, nil
+		return &TrackMetaData{
+			Layouts: make(map[string]*LayoutMetaData),
+		}, nil
 	} else if err != nil {
 		return nil, err
 	}
@@ -81,6 +101,10 @@ func (t *Track) LoadMetaData() error {
 }
 
 func (t Track) PrettyName() string {
+	if t.CalculatedPrettyName != "" {
+		return t.CalculatedPrettyName
+	}
+
 	return prettifyName(t.Name, false)
 }
 
@@ -97,8 +121,6 @@ func (t Track) IsMod() bool {
 
 	return !ok
 }
-
-const defaultLayoutName = "<default>"
 
 func (t *Track) LayoutsCSV() string {
 	if t.Layouts == nil {
@@ -127,6 +149,18 @@ func trackLayoutURL(track, layout string) string {
 	return "/" + filepath.ToSlash(layoutPath)
 }
 
+func trackSplineURL(track, layout string) string {
+	var layoutPath string
+
+	if layout == "" || layout == defaultLayoutName {
+		layoutPath = filepath.Join("content", "tracks", track, "ui", "splines.png")
+	} else {
+		layoutPath = filepath.Join("content", "tracks", track, "ui", layout, "splines.png")
+	}
+
+	return "/" + filepath.ToSlash(layoutPath)
+}
+
 const trackInfoJSONName = "ui_track.json"
 const trackMetaDataName = "meta_data.json"
 
@@ -146,6 +180,14 @@ type TrackInfo struct {
 type TrackMetaData struct {
 	DownloadURL string `json:"downloadURL"`
 	Notes       string `json:"notes"`
+
+	Layouts map[string]*LayoutMetaData `json:"layouts"`
+}
+
+type LayoutMetaData struct {
+	SplineCalculationDistance    float64 `json:"splineCalculationDistance"`
+	SplineCalculationMaxSpeed    float32 `json:"splineCalculationMaxSpeed"`
+	SplineCalculationMaxDistance float64 `json:"splineCalculationMaxDistance"`
 }
 
 func (tmd *TrackMetaData) Save(name string) error {
@@ -254,6 +296,10 @@ func (th *TracksHandler) delete(w http.ResponseWriter, r *http.Request) {
 				logrus.WithError(err).Errorf("could not remove track files")
 			}
 
+			for _, layout := range track.Layouts {
+				clearFromTrackInfoCache(track.Name, layout)
+			}
+
 			break
 		}
 	}
@@ -266,7 +312,7 @@ func (th *TracksHandler) delete(w http.ResponseWriter, r *http.Request) {
 		AddErrorFlash(w, r, "Sorry, track could not be deleted.")
 	}
 
-	http.Redirect(w, r, "/tracks", http.StatusFound)
+	http.Redirect(w, r, r.Referer(), http.StatusFound)
 }
 
 func (th *TracksHandler) view(w http.ResponseWriter, r *http.Request) {
@@ -298,6 +344,75 @@ func (th *TracksHandler) saveMetadata(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, r.Referer(), http.StatusFound)
 }
 
+func (th *TracksHandler) trackImage(w http.ResponseWriter, r *http.Request) {
+	track := chi.URLParam(r, "track")
+	layout := chi.URLParam(r, "layout")
+
+	w.Header().Add("Content-Type", "image/png")
+	n, err := th.trackManager.GetTrackImage(w, track, layout)
+
+	if err != nil {
+		missingImage := static.FSMustByte(false, "/img/no-preview-general.png")
+		_, _ = w.Write(missingImage)
+	} else {
+		w.Header().Add("Content-Length", strconv.Itoa(int(n)))
+	}
+}
+
+func (th *TracksHandler) rebuildTrackMaps(w http.ResponseWriter, r *http.Request) {
+	go panicCapture(func() {
+		err := th.trackManager.RebuildAllTrackMaps()
+
+		if err != nil {
+			logrus.WithError(err).Error("could not rebuild track maps")
+		}
+	})
+
+	AddFlash(w, r, "Started re-building track maps! This may take some time.")
+	http.Redirect(w, r, r.Referer(), http.StatusFound)
+}
+
+func (th *TracksHandler) trackSplineImage(w http.ResponseWriter, r *http.Request) {
+	track := chi.URLParam(r, "track")
+	layout := chi.URLParam(r, "layout")
+
+	w.Header().Add("Content-Type", "image/png")
+	w.Header().Add("Cache-Control", "no-cache")
+
+	distanceString := r.URL.Query().Get("distance")
+	maxSpeedString := r.URL.Query().Get("maxSpeed")
+	maxDistanceString := r.URL.Query().Get("maxDistance")
+
+	trackSplineImage, err := th.trackManager.getSplineImage(track, layout, distanceString, maxSpeedString, maxDistanceString)
+
+	if err != nil {
+		missingImage := static.FSMustByte(false, "/img/no-preview-general.png")
+		_, _ = w.Write(missingImage)
+
+		logrus.WithError(err).Errorf("Couldn't load ai spline image for layout: %s, track: %s", layout, track)
+		return
+	}
+
+	enc := png.Encoder{
+		CompressionLevel: png.NoCompression,
+	}
+
+	err = enc.Encode(w, trackSplineImage)
+
+	if err != nil {
+		logrus.WithError(err).Errorf("Couldn't encode ai spline image for layout: %s, track: %s", layout, track)
+	}
+}
+
+func (th *TracksHandler) trackInfo(w http.ResponseWriter, r *http.Request) {
+	track := chi.URLParam(r, "track")
+	layout := chi.URLParam(r, "layout")
+
+	w.Header().Add("Content-Type", "application/json")
+
+	_ = json.NewEncoder(w).Encode(trackInfo(track, layout))
+}
+
 type TrackManager struct {
 }
 
@@ -308,9 +423,99 @@ func NewTrackManager() *TrackManager {
 type trackDetailsTemplateVars struct {
 	BaseTemplateVars
 
-	Track     *Track
-	TrackInfo map[string]*TrackInfo
-	Results   map[string][]SessionResults
+	Track            *Track
+	HasAISplineFiles bool
+	TrackInfo        map[string]*TrackInfo
+	Results          map[string][]SessionResults
+}
+
+func (tm *TrackManager) getSplineImage(track, layout, distanceString, maxSpeedString, maxDistanceString string) (image.Image, error) {
+	trackMetaData, err := LoadTrackMetaDataFromName(track)
+
+	if err != nil {
+		return nil, err
+	}
+
+	found := false
+	var layoutMetaDataForCalc *LayoutMetaData
+
+	if distanceString != "" && maxSpeedString != "" && maxDistanceString != "" {
+		distance, err := strconv.ParseFloat(distanceString, 64)
+
+		if err != nil {
+			return nil, err
+		}
+
+		maxSpeed, err := strconv.ParseFloat(maxSpeedString, 32)
+
+		if err != nil {
+			return nil, err
+		}
+
+		maxDistance, err := strconv.ParseFloat(maxDistanceString, 64)
+
+		if err != nil {
+			return nil, err
+		}
+
+		if _, ok := trackMetaData.Layouts[layout]; ok {
+			trackMetaData.Layouts[layout].SplineCalculationDistance = distance
+			trackMetaData.Layouts[layout].SplineCalculationMaxSpeed = float32(maxSpeed)
+			trackMetaData.Layouts[layout].SplineCalculationMaxDistance = maxDistance
+
+			found = true
+			layoutMetaDataForCalc = trackMetaData.Layouts[layout]
+		}
+
+		if !found {
+			layoutMetaDataForCalc = &LayoutMetaData{
+				SplineCalculationDistance:    distance,
+				SplineCalculationMaxSpeed:    float32(maxSpeed),
+				SplineCalculationMaxDistance: maxDistance,
+			}
+
+			if trackMetaData.Layouts == nil {
+				trackMetaData.Layouts = make(map[string]*LayoutMetaData)
+			}
+
+			trackMetaData.Layouts[layout] = layoutMetaDataForCalc
+		}
+
+		err = trackMetaData.Save(track)
+
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		if _, ok := trackMetaData.Layouts[layout]; ok {
+			found = true
+			layoutMetaDataForCalc = trackMetaData.Layouts[layout]
+		}
+
+		if !found {
+			layoutMetaDataForCalc = &LayoutMetaData{
+				SplineCalculationDistance:    3,
+				SplineCalculationMaxSpeed:    30,
+				SplineCalculationMaxDistance: 4,
+			}
+
+			if trackMetaData.Layouts == nil {
+				trackMetaData.Layouts = make(map[string]*LayoutMetaData)
+			}
+
+			trackMetaData.Layouts[layout] = layoutMetaDataForCalc
+		}
+	}
+
+	trackSpline, pitLaneSpline, err := tm.getSplinesForLayout(track, layout, layoutMetaDataForCalc)
+
+	if err != nil {
+		return nil, err
+	}
+
+	trackSplineImage := tm.buildSplineImage(trackSpline, pitLaneSpline)
+
+	return trackSplineImage, nil
 }
 
 func (tm *TrackManager) loadTrackDetailsForTemplate(trackName string) (*trackDetailsTemplateVars, error) {
@@ -349,11 +554,32 @@ func (tm *TrackManager) loadTrackDetailsForTemplate(trackName string) (*trackDet
 		resultsMap[layout] = results
 	}
 
+	hasAISplineFiles := true
+
+	for _, layout := range track.Layouts {
+		if layout == defaultLayoutName || layout == "" {
+			_, err = os.Stat(filepath.Join(ServerInstallPath, "content", "tracks", track.Name, "ai", "fast_lane.ai"))
+
+			if err != nil {
+				hasAISplineFiles = false
+				break
+			}
+		} else {
+			_, err = os.Stat(filepath.Join(ServerInstallPath, "content", "tracks", track.Name, layout, "ai", "fast_lane.ai"))
+
+			if err != nil {
+				hasAISplineFiles = false
+				break
+			}
+		}
+	}
+
 	return &trackDetailsTemplateVars{
 		BaseTemplateVars: BaseTemplateVars{},
 		Track:            track,
 		TrackInfo:        trackInfoMap,
 		Results:          resultsMap,
+		HasAISplineFiles: hasAISplineFiles,
 	}, nil
 }
 
@@ -373,6 +599,63 @@ func (tm *TrackManager) ResultsForLayout(trackName, layout string) ([]SessionRes
 	}
 
 	return out, nil
+}
+
+func (tm *TrackManager) getSplinesForLayout(trackName, layout string, layoutMetaData *LayoutMetaData) (*ai.Spline, *ai.Spline, error) {
+	trackSpline, err := ai.ReadSpline(filepath.Join(ServerInstallPath, "content", "tracks", trackName, layout, "ai", "fast_lane.ai"))
+
+	if err != nil {
+		return nil, nil, err
+	}
+
+	pitLaneSpline, err := ai.ReadPitLaneSpline(
+		filepath.Join(ServerInstallPath, "content", "tracks", trackName, layout, "ai"),
+		trackSpline,
+		layoutMetaData.SplineCalculationMaxSpeed,
+		layoutMetaData.SplineCalculationDistance,
+		layoutMetaData.SplineCalculationMaxDistance,
+	)
+
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return trackSpline, pitLaneSpline, nil
+}
+
+const maxDimensionsToDisplayFullImage = 2400
+
+func (tm *TrackManager) buildSplineImage(trackSpline, pitLaneSpline *ai.Spline) image.Image {
+	x, y := trackSpline.Dimensions()
+	minX, minY := trackSpline.Min()
+	maxX, maxY := trackSpline.Max()
+
+	padding := 20
+
+	if x > maxDimensionsToDisplayFullImage || y > maxDimensionsToDisplayFullImage {
+		x, y = pitLaneSpline.Dimensions()
+		minX, minY = pitLaneSpline.Min()
+		maxX, maxY = pitLaneSpline.Max()
+		padding = 200
+
+		x += float32(2 * padding)
+		y += float32(2 * padding)
+	}
+
+	img := image.NewRGBA(image.Rectangle{Min: image.Pt(0, 0), Max: image.Pt(int(x)+(padding*2), int(y)+(padding*2))})
+	radius := 1
+
+	for _, point := range trackSpline.Points {
+		if point.Position.X > minX-float32(padding) && point.Position.X < maxX+float32(padding) && point.Position.Z > minY-float32(padding) && point.Position.Z < maxY+float32(padding) {
+			draw.Draw(img, img.Bounds(), &circle{image.Pt(padding+int(point.Position.X-minX), padding+int(point.Position.Z-minY)), radius, color.RGBA{R: 0, G: 125, B: 0, A: 0xff}}, image.Pt(0, 0), draw.Over)
+		}
+	}
+
+	for _, point := range pitLaneSpline.Points {
+		draw.Draw(img, img.Bounds(), &circle{image.Pt(padding+int(point.Position.X-minX), padding+int(point.Position.Z-minY)), radius, color.RGBA{R: 255, G: 125, B: 0, A: 0xff}}, image.Pt(0, 0), draw.Over)
+	}
+
+	return img
 }
 
 func (tm *TrackManager) ListTracks() ([]Track, error) {
@@ -401,6 +684,107 @@ func (tm *TrackManager) ListTracks() ([]Track, error) {
 	})
 
 	return tracks, nil
+}
+
+func (tm *TrackManager) decodeTrackImage(path string) (image.Image, error) {
+	f, err := os.Open(path)
+
+	if err != nil {
+		return nil, err
+	}
+
+	defer f.Close()
+
+	data, _, err := image.Decode(f)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return data, err
+}
+
+const (
+	trackMapOverlayScale = 2.0
+)
+
+func (tm *TrackManager) GetTrackImage(w io.Writer, track, layout string) (int64, error) {
+	trackContentPath := filepath.Join(ServerInstallPath, "content", "tracks", track, "ui")
+	trackMapPath := filepath.Join(ServerInstallPath, "content", "tracks", track, "map.png")
+
+	if layout != "" {
+		trackContentPath = filepath.Join(trackContentPath, layout)
+		trackMapPath = filepath.Join(ServerInstallPath, "content", "tracks", track, layout, "map.png")
+	}
+
+	trackImagePath := filepath.Join(trackContentPath, "preview.png")
+	trackOutlinePath := filepath.Join(trackContentPath, "outline.png")
+
+	combinedImageMapPath := filepath.Join(trackContentPath, "server-manager_preview.png")
+	combinedImageMap, err := os.Open(combinedImageMapPath)
+
+	if err == nil {
+		defer combinedImageMap.Close()
+
+		return io.Copy(w, combinedImageMap)
+	} else if !os.IsNotExist(err) {
+		return -1, err
+	}
+
+	trackImage, err := tm.decodeTrackImage(trackImagePath)
+
+	if err != nil {
+		return -1, err
+	}
+
+	trackMap, err := tm.decodeTrackImage(trackMapPath)
+
+	if os.IsNotExist(err) {
+		trackMap, err = tm.decodeTrackImage(trackOutlinePath)
+
+		if err != nil {
+			return -1, err
+		}
+	} else if err != nil {
+		return -1, err
+	}
+
+	trackImageBounds := trackImage.Bounds()
+	trackMapBounds := trackMap.Bounds()
+
+	var resizedMap image.Image
+
+	marginX, marginY := 10, 10
+
+	if trackMapBounds.Dx() > trackMapBounds.Dy() {
+		resizedMap = resize.Resize(uint(float64(trackImageBounds.Dx())/trackMapOverlayScale), 0, trackMap, resize.Bilinear)
+	} else {
+		resizedMap = resize.Resize(0, uint(float64(trackImageBounds.Dy())/trackMapOverlayScale), trackMap, resize.Bilinear)
+		marginX = 20
+		marginY = 20
+	}
+
+	combined := image.NewRGBA(trackImageBounds)
+	draw.Draw(combined, trackImageBounds, trackImage, image.Point{}, draw.Src)
+	draw.Draw(combined, trackImageBounds, resizedMap, image.Pt(-trackImageBounds.Dx()+resizedMap.Bounds().Dx()+marginX, -trackImageBounds.Dy()+resizedMap.Bounds().Dy()+marginY), draw.Over)
+
+	combinedImageMap, err = os.Create(combinedImageMapPath)
+
+	if err != nil {
+		return -1, err
+	}
+
+	defer combinedImageMap.Close()
+
+	if err := png.Encode(combinedImageMap, combined); err != nil {
+		return -1, err
+	}
+
+	if _, err := combinedImageMap.Seek(0, 0); err != nil {
+		return -1, err
+	}
+
+	return io.Copy(w, combinedImageMap)
 }
 
 func (tm *TrackManager) GetTrackFromName(name string) (*Track, error) {
@@ -439,7 +823,39 @@ func (tm *TrackManager) GetTrackFromName(name string) (*Track, error) {
 		}
 	}
 
-	return &Track{Name: name, Layouts: layouts}, nil
+	track := &Track{Name: name, Layouts: layouts}
+
+	var layoutNames []string
+
+	for _, layout := range layouts {
+		info := trackInfo(track.Name, layout)
+
+		if info == nil {
+			continue
+		}
+
+		layoutNames = append(layoutNames, info.Name)
+	}
+
+	if len(layoutNames) > 0 {
+		if len(layoutNames) == 1 {
+			track.CalculatedPrettyName = strings.Title(layoutNames[0])
+		} else {
+			sort.Slice(layoutNames, func(i, j int) bool {
+				return len(layoutNames[i]) < len(layoutNames[j])
+			})
+
+			commonPrefix := strings.TrimRightFunc(longestcommon.Prefix(layoutNames), func(r rune) bool {
+				return !unicode.IsLetter(r) && !unicode.IsNumber(r) && r != ']' && r != ')' && r != '}'
+			})
+
+			if commonPrefix != "" {
+				track.CalculatedPrettyName = strings.Title(commonPrefix)
+			}
+		}
+	}
+
+	return track, nil
 }
 
 func (tm *TrackManager) UpdateTrackMetadata(name string, r *http.Request) error {
@@ -455,14 +871,105 @@ func (tm *TrackManager) UpdateTrackMetadata(name string, r *http.Request) error 
 	return track.MetaData.Save(name)
 }
 
+func (tm *TrackManager) BuildTrackMap(track, layout string) error {
+	trackPath := filepath.Join(ServerInstallPath, "content", "tracks", track)
+
+	if layout != "" {
+		trackPath = filepath.Join(trackPath, layout)
+	}
+
+	fastLaneSpline, err := ai.ReadSpline(filepath.Join(trackPath, "ai", "fast_lane.ai"))
+
+	if os.IsNotExist(err) {
+		logrus.Debugf("Cannot build track map for %s (%s), needs fast_lane.ai", track, layout)
+		return nil
+	} else if err != nil {
+		return err
+	}
+
+	fullPitLane, err := ai.ReadSpline(filepath.Join(trackPath, "ai", "pit_lane.ai"))
+
+	if os.IsNotExist(err) {
+		logrus.Debugf("Cannot build track map for %s (%s), needs pit_lane.ai", track, layout)
+		return nil
+	} else if err != nil {
+		return err
+	}
+
+	if len(fastLaneSpline.Points) == 0 {
+		logrus.Debugf("Cannot build track map for %s (%s), fast_lane.ai exists, but has no points", track, layout)
+		return nil
+	}
+
+	if len(fullPitLane.Points) == 0 {
+		logrus.Debugf("Cannot build track map for %s (%s), pit_lane.ai exists, but has no points", track, layout)
+		return nil
+	}
+
+	drsZones, _ := acserver.LoadDRSZones(filepath.Join(trackPath, "data", drsZonesFilename))
+
+	renderer := ai.NewTrackMapRenderer(fastLaneSpline, fullPitLane, drsZones)
+
+	mapPNG, err := os.Create(filepath.Join(trackPath, "map.png"))
+
+	if err != nil {
+		return err
+	}
+
+	defer mapPNG.Close()
+
+	trackMapData, err := renderer.Render(mapPNG)
+
+	if err != nil {
+		return err
+	}
+
+	return trackMapData.Save(filepath.Join(trackPath, "data", "map.ini"))
+}
+
+var trackMapRebuildMutex sync.Mutex
+
+func (tm *TrackManager) RebuildAllTrackMaps() error {
+	trackMapRebuildMutex.Lock()
+	defer trackMapRebuildMutex.Unlock()
+
+	logrus.Infof("Building Track Maps for all Tracks")
+	started := time.Now()
+
+	tracks, err := tm.ListTracks()
+
+	if err != nil {
+		return err
+	}
+
+	for _, track := range tracks {
+		for _, layout := range track.Layouts {
+			if layout == defaultLayoutName {
+				layout = ""
+			}
+
+			if err := tm.BuildTrackMap(track.Name, layout); err != nil {
+				logrus.WithError(err).Errorf("Could not build track map for: %s (%s)", track.Name, layout)
+				continue
+			} else {
+				logrus.Infof("Rebuilt track map for: %s (%s)", track.Name, layout)
+			}
+		}
+	}
+
+	logrus.Infof("Track Map build is complete (took: %s)", time.Since(started).String())
+
+	return nil
+}
+
 type TrackDataGateway interface {
 	TrackInfo(name, layout string) (*TrackInfo, error)
-	TrackMap(name, layout string) (*TrackMapData, error)
+	TrackMap(name, layout string) (*ai.TrackMapData, error)
 }
 
 type filesystemTrackData struct{}
 
-func (filesystemTrackData) TrackMap(name, layout string) (*TrackMapData, error) {
+func (filesystemTrackData) TrackMap(name, layout string) (*ai.TrackMapData, error) {
 	return LoadTrackMapData(name, layout)
 }
 
@@ -482,17 +989,7 @@ func (filesystemTrackData) TrackInfo(name, layout string) (*TrackInfo, error) {
 	return trackInfo, err
 }
 
-type TrackMapData struct {
-	Width       float64 `ini:"WIDTH" json:"width"`
-	Height      float64 `ini:"HEIGHT" json:"height"`
-	Margin      float64 `ini:"MARGIN" json:"margin"`
-	ScaleFactor float64 `ini:"SCALE_FACTOR" json:"scale_factor"`
-	OffsetX     float64 `ini:"X_OFFSET" json:"offset_x"`
-	OffsetZ     float64 `ini:"Z_OFFSET" json:"offset_y"`
-	DrawingSize float64 `ini:"DRAWING_SIZE" json:"drawing_size"`
-}
-
-func LoadTrackMapData(track, trackLayout string) (*TrackMapData, error) {
+func LoadTrackMapData(track, trackLayout string) (*ai.TrackMapData, error) {
 	p := filepath.Join(ServerInstallPath, "content", "tracks", track)
 
 	if trackLayout != "" {
@@ -521,7 +1018,7 @@ func LoadTrackMapData(track, trackLayout string) (*TrackMapData, error) {
 		return nil, err
 	}
 
-	var mapData TrackMapData
+	var mapData ai.TrackMapData
 
 	if err := s.MapTo(&mapData); err != nil {
 		return nil, err

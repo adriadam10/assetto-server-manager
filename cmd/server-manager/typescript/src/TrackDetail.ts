@@ -1,4 +1,5 @@
 import ClickEvent = JQuery.ClickEvent;
+import {ModalEventHandler} from "bootstrap";
 
 export class TrackDetail {
     public constructor() {
@@ -7,10 +8,12 @@ export class TrackDetail {
         }
 
         $(".track-image").on("click", TrackDetail.onTrackLayoutClick);
+        $(".recalculate-splines-button").on("click", TrackDetail.onRecalculateSplinesClick);
 
         TrackDetail.fixLayoutImageHeights();
         TrackDetail.initSummerNote();
         $(window).on("resize", TrackDetail.fixLayoutImageHeights);
+        TrackDetail.showSplinesImageOnPopupLoad();
     }
 
     private static onTrackLayoutClick(e: ClickEvent) {
@@ -41,5 +44,62 @@ export class TrackDetail {
             tabsize: 2,
             height: 200,
         });
+    }
+
+    private static showSplinesImageOnPopupLoad() {
+        let $pitlaneDetectionModal = $(".pitlane-detection-modal");
+
+        $pitlaneDetectionModal.on("shown.bs.modal", (e: ModalEventHandler<HTMLElement>) => {
+            let $image = $(e.currentTarget).find("img.splines-image");
+
+            // load in images when the modal is shown
+            TrackDetail.lazyLoadImage($image.data("src"));
+        });
+
+        $pitlaneDetectionModal.on("hidden.bs.modal", (e: ModalEventHandler<HTMLElement>) => {
+            let $image = $(e.currentTarget).find("img.splines-image");
+            $image.attr("src", "");
+        });
+    }
+
+    private static lazyLoadImage(url: string) {
+        let img = new Image();
+        let $statusIndicator = $(".status-indicator");
+        $statusIndicator.show();
+
+        img.onload = () => {
+            $(".splines-image").attr("src", url);
+            $statusIndicator.hide();
+        };
+
+        img.src = url;
+    }
+
+    private static onRecalculateSplinesClick(e: ClickEvent) {
+        e.preventDefault();
+
+        const $currentTarget = $(e.currentTarget);
+        let $form = $currentTarget.parent();
+        let $modal = $form.parent();
+
+        let baseURL: string = $modal.children(".splines-image-base-url").text() as string;
+
+        let distance: number = 3.0;
+        let maxSpeed: number = 30.0;
+        let maxDistance: number = 4.0;
+
+        if ($currentTarget.hasClass("defaults")) {
+            $form.children(".distance").val(distance);
+            $form.children(".maxSpeed").val(maxSpeed);
+            $form.children(".maxDistance").val(maxDistance);
+        } else {
+            distance = $form.children(".distance").val() as number;
+            maxSpeed = $form.children(".maxSpeed").val() as number;
+            maxDistance = $form.children(".maxDistance").val() as number;
+        }
+
+        let url = baseURL + "?distance=" + distance + "&maxSpeed=" + maxSpeed + "&maxDistance=" + maxDistance;
+
+        TrackDetail.lazyLoadImage(url);
     }
 }

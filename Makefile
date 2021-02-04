@@ -9,7 +9,7 @@ export GO111MODULE=on
 all: clean vet test assets build
 
 install-linter:
-	which golangci-lint || curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $$(go env GOPATH)/bin v1.27.0
+	which golangci-lint || curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $$(go env GOPATH)/bin v1.31.0
 
 clean:
 	rm -rf changelog_embed.go
@@ -19,14 +19,15 @@ test:
 	mkdir -p cmd/server-manager/assetto/cfg
 	mkdir -p cmd/server-manager/assetto/results
 	cp -R fixtures/results/*.json cmd/server-manager/assetto/results
-	go test -race
+	go test -cover -race ./...
 
 vet: install-linter generate
 	go vet ./...
-	golangci-lint -E bodyclose,misspell,gofmt,golint,unconvert,goimports,depguard,interfacer run --skip-files content_cars_skins.go,plugin_kissmyrank_config.go,plugin_realpenalty_config.go
+	golangci-lint -D structcheck -E bodyclose,misspell,gofmt,golint,unconvert,goimports,depguard,interfacer run --skip-files content_default.go,plugin_kissmyrank_config.go,plugin_realpenalty_config.go,acknowledgements.go
 
 generate:
 	go get -u github.com/mjibson/esc
+	go get golang.org/x/tools/cmd/stringer
 	go generate ./...
 
 assets:

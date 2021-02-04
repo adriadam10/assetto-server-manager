@@ -16,13 +16,13 @@
     <!DOCTYPE html>
     <html lang="en">
     <head>
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>{{ block "title" . }}{{ end }} / {{ $.ServerName }}</title>
 
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
         {{ with $.OGImage }}<meta property="og:image" content="{{ $.OGImage }}">{{ end }}
 
-        <link rel="shortcut icon" href="/static/favicon.ico">
-        <meta charset="UTF-8">
-        <title>{{ block "title" . }}{{ end }} / {{ $.ServerName }}</title>
+        <link rel="shortcut icon" href="{{ with $.Favicon }}{{ . }}{{ else }}/static/favicon.ico{{ end }}">
 
         {{ block "stylesheets" . }}
             {{ if $.User.ShowDarkTheme $.IsDarkTheme }}
@@ -58,6 +58,10 @@
             <script>
                 Raven.config({{ $.SentryDSN }}).install();
             </script>
+        {{ end }}
+
+        {{ with $.CustomAnalyticsTrackingCode }}
+            {{ . }}
         {{ end }}
     </head>
     <body {{ with $.User }}class="user-group-{{ $.User.Group }}"{{ end }}>
@@ -143,12 +147,16 @@
                                 {{ if AdminAccess }}
                                     <a class="dropdown-item" href="/server-options">Options</a>
                                     <a class="dropdown-item" href="/accounts">Accounts</a>
-                                    <a class="dropdown-item" href="/blacklist">Blacklist</a>
+                                    <a class="dropdown-item" href="/required-apps">Required Apps</a>
+                                    <a class="dropdown-item" href="/blocklist">Block List</a>
                                     <a class="dropdown-item" href="/motd">Messages</a>
                                     <a class="dropdown-item" href="/audit-logs">Audit Logs</a>
-                                    <a class="dropdown-item" href="/stracker/options">STracker</a>
-                                    <a class="dropdown-item" href="/kissmyrank/options">KissMyRank</a>
-                                    <a class="dropdown-item" href="/realpenalty/options">Real Penalty</a>
+                                    {{ if $.PluginsEnabled }}
+                                        <a class="dropdown-item" href="/stracker/options">STracker</a>
+                                        <a class="dropdown-item" href="/kissmyrank/options">KissMyRank</a>
+                                        <a class="dropdown-item" href="/realpenalty/options">Real Penalty</a>
+                                    {{ end }}
+                                    <a class="dropdown-item" href="/current-config">Current Config</a>
                                 {{ end }}
                                 {{ if DeleteAccess }}
                                     <a class="dropdown-item" href="/autofill-entrants">AutoFill Entrants</a>
@@ -260,33 +268,22 @@
 
         {{ block "content" . }}{{ end }}
 
-
-        {{ block "showpremium" . }}
-            {{ if and (ne $.Request.URL.Path "/") (ne $.Request.URL.Path "/premium") }}
-                <div class="clearfix"></div>
-
-                <div class="mt-5">
-                    {{ template "premium" dict "IsPremium" $.IsPremium }}
-                </div>
-            {{ end }}
-        {{ end }}
-
         <footer class="pt-4 my-md-5 pt-md-5 border-top">
             <div class="row">
                 <div class="col-sm-7">
                     <a href="https://github.com/JustaPenguin/assetto-server-manager" class="mr-3"><i class="fab fa-github"></i> GitHub</a>
                     <a href="https://github.com/JustaPenguin/assetto-server-manager/issues" class="mr-3"><i class="fas fa-bug"></i> Submit a Bug Report</a>
-                    {{ if not $.IsPremium }}
-                        <a href="/premium" class="mr-3"><i class="fas fa-heart"></i> Go Premium</a>
-                    {{ else }}
-                        <a href="https://paypal.me/JustaPenguinUK" class="mr-3"><i class="fas fa-heart"></i> Donate</a>
-                    {{ end }}
+                    <a href="https://paypal.me/JustaPenguinUK" class="mr-3"><i class="fas fa-heart"></i> Donate</a>
                     <a href="/changelog" class="mr-3"><i class="fas fa-pencil-alt"></i> Changelog</a>
-                    <a href="https://github.com/JustaPenguin/assetto-server-manager/wiki"><i class="fas fa-book"></i> Wiki</a>
+                    <a href="https://github.com/JustaPenguin/assetto-server-manager/wiki" class="mr-3"><i class="fas fa-book"></i> Wiki</a>
+                    <a href="/about"><i class="fas fa-info-circle"></i> About</a>
                 </div>
                 <div class="col-sm-5 text-right">
-                    <img src="/static/img/racer.png" class="img img-footer float-right">
-                    Assetto Corsa Server Manager {{ if $.IsPremium }}Premium {{ end }}{{ Version }}<br> &copy; <a href="https://justapengu.in">Just a Penguin</a> 2010-{{ now.Format "2006" }}
+                    <a href="https://emperorservers.com" class="float-right">
+                        <img src="/static/img/icon.png" alt="Emperor Servers" class="img img-footer">
+                    </a>
+                    Assetto Corsa Server Manager Premium {{ Version }}<br>
+                    &copy; <a href="https://emperorservers.com">Emperor Servers</a> {{ now.Format "2006" }}
                 </div>
             </div>
 
@@ -374,7 +371,7 @@
                                 </li>
                                 <li class="list-group-item">
                                     The best way to contact us directly is by emailing us at our
-                                    <a href="mailto:support@justapengu.in" target="_top">Support Email</a>!
+                                    <a href="mailto:support@emperorservers.com" target="_top">Support Email</a>!
                                 </li>
                             </ol>
                         </div>

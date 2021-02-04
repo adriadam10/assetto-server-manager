@@ -23,7 +23,7 @@
                     {{ if $sessionHasHandicaps }}
                         <th>Handicaps</th>
                     {{ end }}
-                    <th>Crashes</th>
+                    <th>Collisions</th>
                     {{ if WriteAccess }}
                         <th>Penalties</th>
                     {{ end }}
@@ -85,7 +85,9 @@
                                 </td>
                             {{ end }}
 
-                            <td>{{ $sessionResults.GetCrashes $result.DriverGUID $result.CarModel }}</td>
+                            {{ $crashesAfterSessionEnd := $sessionResults.GetCrashesAfterSessionEnd $result.DriverGUID $result.CarModel }}
+
+                            <td>{{ $sessionResults.GetCrashes $result.DriverGUID $result.CarModel }}{{ if ne 0 $crashesAfterSessionEnd }} (+{{ $crashesAfterSessionEnd }} after session){{ end }}</td>
 
                             {{ if WriteAccess }}
                                 <td>

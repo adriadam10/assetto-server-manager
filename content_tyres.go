@@ -1,16 +1,13 @@
-package servermanager
+package acsm
 
 import (
 	"bytes"
-	"errors"
 	"fmt"
-	"io"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
 
-	"github.com/JustaPenguin/assetto-server-manager/pkg/acd"
+	"justapengu.in/acsm/pkg/acd"
 
 	"github.com/cj123/ini"
 	"github.com/sirupsen/logrus"
@@ -51,7 +48,6 @@ func ListTyres() (Tyres, error) {
 		tyres, err := loadTyresFromFile(file)
 
 		if os.IsNotExist(err) {
-			logrus.Debugf("Skipping loading tyre data from %s, file does not exist", file)
 			continue
 		} else if err != nil {
 			return nil, err
@@ -337,105 +333,4 @@ var DefaultTrackSurfacePresets = []TrackSurfacePreset{
 		LapGain:         1,
 		Description:     "Perfect track for hotlapping.",
 	},
-}
-
-var ErrCouldNotFindTyreForCar = errors.New("servermanager: could not find tyres for car")
-
-func findTyreIndex(carModel, tyreName string, raceSetup CurrentRaceConfig) (int, error) {
-	tyreIndexCount := 0
-	legalTyres := raceSetup.Tyres()
-
-	if carModel == IERP13c {
-		// the IER P13c's tyre information is encrypted. Hardcoded values are used in place of the normal tyre information.
-		for _, tyre := range IERP13cTyres {
-			if tyre == tyreName {
-				return tyreIndexCount, nil
-			}
-
-			if _, available := legalTyres[tyre]; available {
-				// if the tyre we just found is in the availableTyres, then increment the tyreIndexCount
-				tyreIndexCount++
-			}
-		}
-
-		return -1, ErrCouldNotFindTyreForCar
-	}
-
-	tyres, err := CarDataFile(carModel, "tyres.ini")
-
-	if err != nil {
-		return -1, err
-	}
-
-	defer tyres.Close()
-
-	f, err := ini.Load(tyres)
-
-	if err != nil {
-		return -1, err
-	}
-
-	for _, section := range f.Sections() {
-		if strings.HasPrefix(section.Name(), "FRONT") {
-			// this is a tyre section for the front tyres
-			key, err := section.GetKey("SHORT_NAME")
-
-			if err != nil {
-				return -1, err
-			}
-
-			// we found our tyre, return the tyreIndexCount
-			if key.Value() == tyreName {
-				return tyreIndexCount, nil
-			}
-
-			if _, available := legalTyres[key.Value()]; available {
-				// if the tyre we just found is in the availableTyres, then increment the tyreIndexCount
-				tyreIndexCount++
-			}
-		}
-	}
-
-	return -1, ErrCouldNotFindTyreForCar
-}
-
-func CarDataFile(carModel, dataFile string) (io.ReadCloser, error) {
-	carDataFile := filepath.Join(ServerInstallPath, "content", "cars", carModel, "data.acd")
-
-	f, err := os.Open(carDataFile)
-
-	if os.IsNotExist(err) {
-		// this is likely an older car with a data folder
-		f, err := os.Open(filepath.Join(ServerInstallPath, "content", "cars", carModel, "data", dataFile))
-
-		if err != nil {
-			return nil, err
-		}
-
-		return f, nil
-	} else if err != nil {
-		return nil, err
-	}
-
-	defer f.Close()
-
-	r, err := acd.NewReader(f, carModel)
-
-	if err != nil {
-		return nil, err
-	}
-
-	for _, file := range r.Files {
-		if file.Name() == dataFile {
-			b, err := file.Bytes()
-
-			if err != nil {
-				return nil, err
-			}
-
-			return ioutil.NopCloser(bytes.NewReader(b)), nil
-		}
-	}
-
-	return nil, os.ErrNotExist
 }

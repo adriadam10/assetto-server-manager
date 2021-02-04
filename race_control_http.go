@@ -1,4 +1,4 @@
-package servermanager
+package acsm
 
 import (
 	"encoding/json"
@@ -10,7 +10,8 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/sirupsen/logrus"
 
-	"github.com/JustaPenguin/assetto-server-manager/pkg/udp"
+	"justapengu.in/acsm/internal/acserver"
+	"justapengu.in/acsm/pkg/udp"
 )
 
 const (
@@ -160,7 +161,7 @@ type liveTimingTemplateVars struct {
 
 	RaceDetails                 *CustomRace
 	FrameLinks                  []string
-	CSSDotSmoothing             int
+	CSSDotSmoothing             int64
 	CMJoinLink                  string
 	UseMPH                      bool
 	IsStrackerEnabled           bool
@@ -228,13 +229,19 @@ func (rch *RaceControlHandler) liveTiming(w http.ResponseWriter, r *http.Request
 		return
 	}
 
+	baseTemplateVars := BaseTemplateVars{
+		WideContainer: true,
+	}
+
+	if customRace != nil {
+		baseTemplateVars.OGImage = config.HTTP.BaseURL + trackLayoutURL(customRace.RaceConfig.Track, customRace.RaceConfig.TrackLayout)
+	}
+
 	rch.viewRenderer.MustLoadTemplate(w, r, "live-timing.html", &liveTimingTemplateVars{
-		BaseTemplateVars: BaseTemplateVars{
-			WideContainer: true,
-		},
+		BaseTemplateVars:            baseTemplateVars,
 		RaceDetails:                 customRace,
 		FrameLinks:                  frameLinks,
-		CSSDotSmoothing:             udp.RealtimePosIntervalMs,
+		CSSDotSmoothing:             RealtimePosInterval.Milliseconds(),
 		CMJoinLink:                  linkString,
 		UseMPH:                      serverOpts.UseMPH == 1,
 		IsStrackerEnabled:           IsStrackerInstalled() && strackerOptions.EnableStracker,
@@ -277,7 +284,7 @@ func (rch *RaceControlHandler) websocket(w http.ResponseWriter, r *http.Request)
 	c, err := upgrader.Upgrade(w, r, nil)
 
 	if err != nil {
-		logrus.Error(err)
+		logrus.WithError(err).Errorf("Could not upgrade request to a websocket")
 		return
 	}
 
@@ -286,10 +293,30 @@ func (rch *RaceControlHandler) websocket(w http.ResponseWriter, r *http.Request)
 
 	go client.writePump()
 
+	rch.raceControl.mutex.Lock()
+	message, err := encodeRaceControlMessage(rch.raceControl)
+	rch.raceControl.mutex.Unlock()
+
+	if err != nil {
+		logrus.WithError(err).Errorf("Could not encode initial race control message")
+		return
+	}
+
 	// new client, send them an initial race control message.
-	rch.raceControl.lastUpdateMessageMutex.Lock()
-	client.receive <- rch.raceControl.lastUpdateMessage
-	rch.raceControl.lastUpdateMessageMutex.Unlock()
+	client.receive <- message
+
+	messages := rch.raceControl.ChatMessages
+
+	// send stored chat messages to new client
+	for _, message := range messages {
+		encoded, err := encodeRaceControlMessage(message)
+
+		if err != nil {
+			continue
+		}
+
+		client.receive <- encoded
+	}
 }
 
 func (rch *RaceControlHandler) broadcastChat(w http.ResponseWriter, r *http.Request) {
@@ -297,7 +324,7 @@ func (rch *RaceControlHandler) broadcastChat(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	err := rch.raceControl.splitAndBroadcastChat(r.FormValue("broadcast-chat"))
+	err := rch.raceControl.splitAndBroadcastChat(r.FormValue("broadcast-chat"), AccountFromRequest(r))
 
 	if err != nil {
 		logrus.WithError(err).Errorf("Unable to broadcast chat message")
@@ -309,16 +336,10 @@ func (rch *RaceControlHandler) adminCommand(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	adminCommand, err := udp.NewAdminCommand(r.FormValue("admin-command"))
+	err := rch.raceControl.server.AdminCommand(r.FormValue("admin-command"))
 
-	if err == nil {
-		err := rch.serverProcess.SendUDPMessage(adminCommand)
-
-		if err != nil {
-			logrus.WithError(err).Errorf("Unable to send admin command")
-		}
-	} else {
-		logrus.WithError(err).Errorf("Unable to build admin command")
+	if err != nil {
+		logrus.WithError(err).Errorf("Unable to send admin command")
 	}
 }
 
@@ -338,13 +359,7 @@ func (rch *RaceControlHandler) kickUser(w http.ResponseWriter, r *http.Request) 
 			return nil
 		}
 
-		command, err := udp.NewAdminCommand("/kick " + driver.CarInfo.DriverName)
-
-		if err != nil {
-			return err
-		}
-
-		return rch.serverProcess.SendUDPMessage(command)
+		return rch.raceControl.server.KickUser(driver.CarInfo.CarID, acserver.KickReasonGeneric)
 	})
 
 	if err != nil {
@@ -371,31 +386,16 @@ func (rch *RaceControlHandler) sendChat(w http.ResponseWriter, r *http.Request) 
 }
 
 func (rch *RaceControlHandler) restartSession(w http.ResponseWriter, r *http.Request) {
-	err := rch.serverProcess.SendUDPMessage(&udp.RestartSession{})
-
-	if err != nil {
-		logrus.WithError(err).Errorf("Unable to restart session")
-
-		AddErrorFlash(w, r, "The server was unable to restart the session!")
-	}
-
+	rch.raceControl.server.RestartSession()
 	http.Redirect(w, r, "/live-timing", http.StatusFound)
 }
 
 func (rch *RaceControlHandler) nextSession(w http.ResponseWriter, r *http.Request) {
-	err := rch.serverProcess.SendUDPMessage(&udp.NextSession{})
-
-	if err != nil {
-		logrus.WithError(err).Errorf("Unable to move to next session")
-
-		AddErrorFlash(w, r, "The server was unable to move to the next session!")
-	}
-
+	rch.raceControl.server.NextSession()
 	http.Redirect(w, r, "/live-timing", http.StatusFound)
 }
 
 func (rch *RaceControlHandler) countdown(w http.ResponseWriter, r *http.Request) {
-
 	// broadcast countdown
 	ticker := time.NewTicker(time.Second * 3)
 	i := 4
@@ -415,10 +415,31 @@ func (rch *RaceControlHandler) countdown(w http.ResponseWriter, r *http.Request)
 			return
 		}
 
-		err := rch.raceControl.splitAndBroadcastChat(countdown)
+		err := rch.raceControl.splitAndBroadcastChat(countdown, nil)
 
 		if err != nil {
 			logrus.WithError(err).Error("Unable to broadcast countdown message")
 		}
 	}
+}
+
+func (rch *RaceControlHandler) deleteLiveTimingsData(w http.ResponseWriter, r *http.Request) {
+	if rch.serverProcess.IsRunning() {
+		if err := rch.serverProcess.Stop(); err != nil {
+			logrus.WithError(err).Errorf("Could not stop server")
+			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+			return
+		}
+	}
+
+	rch.raceControl.clearAllDrivers()
+
+	if err := rch.store.DeleteLiveTimingsData(); err != nil {
+		logrus.WithError(err).Errorf("Could not delete stored live timings")
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		return
+	}
+
+	AddFlash(w, r, "Live Timings cleared successfully!")
+	http.Redirect(w, r, r.Referer(), http.StatusFound)
 }

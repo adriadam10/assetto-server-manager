@@ -1,4 +1,4 @@
-package servermanager
+package acsm
 
 import (
 	"fmt"
@@ -61,10 +61,12 @@ func Router(
 	raceControlHandler *RaceControlHandler,
 	scheduledRacesHandler *ScheduledRacesHandler,
 	raceWeekendHandler *RaceWeekendHandler,
+	customChecksumHandler *CustomChecksumHandler,
 	strackerHandler *StrackerHandler,
 	healthCheck *HealthCheck,
 	kissMyRankHandler *KissMyRankHandler,
 	realPenaltyHandler *RealPenaltyHandler,
+	debugger *Debugger,
 ) http.Handler {
 	r := chi.NewRouter()
 
@@ -107,9 +109,11 @@ func Router(
 		// pages
 		r.Get("/", serverAdministrationHandler.home)
 		r.Get("/changelog", serverAdministrationHandler.changelog)
-		r.Get("/premium", serverAdministrationHandler.premium)
+		r.Get("/about", serverAdministrationHandler.about)
 
-		r.Mount("/stracker/", http.HandlerFunc(strackerHandler.proxy))
+		if !config.Server.DisablePlugins {
+			r.Mount("/stracker/", http.HandlerFunc(strackerHandler.proxy))
+		}
 
 		// content
 		r.Get("/cars", carsHandler.list)
@@ -141,6 +145,7 @@ func Router(
 		r.Get("/championship/{championshipID}/sign-up/steam", championshipsHandler.redirectToSteamLogin(func(r *http.Request) string {
 			return fmt.Sprintf("/championship/%s/sign-up", chi.URLParam(r, "championshipID"))
 		}))
+		r.Post("/championship/{championshipID}/{guid}/acsr-rating", championshipsHandler.acsrRating)
 
 		// race control
 		r.Group(func(r chi.Router) {
@@ -176,6 +181,12 @@ func Router(
 		FileServer(r, "/content", http.Dir(filepath.Join(ServerInstallPath, "content")), true)
 		FileServer(r, "/setups/download", http.Dir(filepath.Join(ServerInstallPath, "setups")), true)
 
+		r.Get("/content/tracks/{track}/ui/preview.png", AssetCacheHeaders(http.HandlerFunc(tracksHandler.trackImage), true))
+		r.Get("/content/tracks/{track}/ui/{layout}/preview.png", AssetCacheHeaders(http.HandlerFunc(tracksHandler.trackImage), true))
+
+		r.Get("/content/tracks/{track}/ui/ui_track.json", AssetCacheHeaders(http.HandlerFunc(tracksHandler.trackInfo), true))
+		r.Get("/content/tracks/{track}/ui/{layout}/ui_track.json", AssetCacheHeaders(http.HandlerFunc(tracksHandler.trackInfo), true))
+
 		// race weekends
 		r.Get("/race-weekends", raceWeekendHandler.list)
 		r.Get("/race-weekend/{raceWeekendID}", raceWeekendHandler.view)
@@ -201,6 +212,8 @@ func Router(
 		r.Post("/track/{name}/metadata", tracksHandler.saveMetadata)
 		r.Post("/results/upload", resultsHandler.uploadHandler)
 		r.HandleFunc("/results/combine", resultsHandler.combineResults)
+		r.HandleFunc("/content/tracks/{track}/ui/splines.png", AssetCacheHeaders(http.HandlerFunc(tracksHandler.trackSplineImage), true))
+		r.HandleFunc("/content/tracks/{track}/ui/{layout}/splines.png", AssetCacheHeaders(http.HandlerFunc(tracksHandler.trackSplineImage), true))
 
 		// races
 		r.Get("/quick", quickRaceHandler.create)
@@ -287,6 +300,8 @@ func Router(
 		r.Post("/race-weekend/import", raceWeekendHandler.importRaceWeekend)
 		r.Post("/race-weekend/{raceWeekendID}/session/{sessionID}/schedule", raceWeekendHandler.scheduleSession)
 		r.Get("/race-weekend/{raceWeekendID}/session/{sessionID}/schedule/remove", raceWeekendHandler.removeSessionSchedule)
+
+		r.Get("/debug/bundle", debugger.ServeHTTP)
 	})
 
 	// deleters
@@ -321,8 +336,9 @@ func Router(
 		}
 
 		r.HandleFunc("/server-options", serverAdministrationHandler.options)
-		r.HandleFunc("/blacklist", serverAdministrationHandler.blacklist)
+		r.HandleFunc("/blocklist", serverAdministrationHandler.blockList)
 		r.HandleFunc("/motd", serverAdministrationHandler.motd)
+		r.HandleFunc("/current-config", serverAdministrationHandler.currentConfig)
 		r.HandleFunc("/audit-logs", auditLogHandler.viewLogs)
 		r.HandleFunc("/accounts/new", accountHandler.createOrEditAccount)
 		r.HandleFunc("/accounts/edit/{id}", accountHandler.createOrEditAccount)
@@ -331,6 +347,9 @@ func Router(
 		r.HandleFunc("/accounts/toggle-open", accountHandler.toggleServerOpenStatus)
 		r.HandleFunc("/accounts", accountHandler.manageAccounts)
 		r.HandleFunc("/search-index", carsHandler.rebuildSearchIndex)
+		r.HandleFunc("/tracks/rebuild-maps", tracksHandler.rebuildTrackMaps)
+		r.HandleFunc("/server/delete-live-timings", raceControlHandler.deleteLiveTimingsData)
+		r.HandleFunc("/required-apps", customChecksumHandler.index)
 
 		r.HandleFunc("/restart-session", raceControlHandler.restartSession)
 		r.HandleFunc("/next-session", raceControlHandler.nextSession)
@@ -340,9 +359,12 @@ func Router(
 		r.HandleFunc("/send-chat", raceControlHandler.sendChat)
 		r.HandleFunc("/countdown", raceControlHandler.countdown)
 
-		r.HandleFunc("/stracker/options", strackerHandler.options)
-		r.HandleFunc("/kissmyrank/options", kissMyRankHandler.options)
-		r.HandleFunc("/realpenalty/options", realPenaltyHandler.options)
+		if !config.Server.DisablePlugins {
+			r.HandleFunc("/stracker/options", strackerHandler.options)
+			r.HandleFunc("/kissmyrank/options", kissMyRankHandler.options)
+			r.HandleFunc("/realpenalty/options", realPenaltyHandler.options)
+			r.HandleFunc("/realpenalty/logs", realPenaltyHandler.downloadLogs)
+		}
 	})
 
 	FileServer(r, "/static", fs, false)

@@ -1,15 +1,19 @@
-package servermanager
+package acsm
 
 import (
 	"fmt"
+	"io/ioutil"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
 
 	"github.com/cj123/ini"
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
+
+	"justapengu.in/acsm/internal/acserver"
 )
 
 const (
@@ -22,6 +26,75 @@ const (
 )
 
 type EntryList map[string]*Entrant
+
+func (e EntryList) ToACServerConfig() acserver.EntryList {
+	var entryList acserver.EntryList
+
+	for carID, entrant := range e.AsSlice() {
+		car := &acserver.Car{
+			CarInfo: acserver.CarInfo{
+				CarID:         acserver.CarID(carID),
+				Model:         entrant.Model,
+				Skin:          entrant.Skin,
+				Ballast:       float32(entrant.Ballast),
+				Restrictor:    float32(entrant.Restrictor),
+				FixedSetup:    entrant.FixedSetup,
+				SpectatorMode: uint8(entrant.SpectatorMode),
+			},
+		}
+
+		guids := strings.Split(entrant.GUID, driverSwapEntrantSeparator)
+		nameSplit := strings.Split(entrant.Name, driverSwapEntrantSeparator)
+
+		if len(guids) <= 1 {
+			// no driver swap
+			car.Driver = acserver.Driver{
+				Name: entrant.Name,
+				GUID: entrant.GUID,
+				Team: entrant.Team,
+			}
+		} else {
+			// driver swaps
+			if len(nameSplit) == len(guids) {
+				// we have names in the format 'name1;name2;name3', matching all guids
+				for i, guid := range guids {
+					driver := acserver.Driver{
+						Name: nameSplit[i],
+						GUID: guid,
+						Team: entrant.Team,
+					}
+
+					if i == 0 {
+						// place the first driver in the main driver slot
+						car.Driver = driver
+					} else {
+						car.Drivers = append(car.Drivers, driver)
+					}
+				}
+			} else {
+				// there is no split driver name, give all drivers the same name
+				for i, guid := range guids {
+					driver := acserver.Driver{
+						Name: entrant.Name,
+						GUID: guid,
+						Team: entrant.Team,
+					}
+
+					if i == 0 {
+						// place the first driver in the main driver slot
+						car.Driver = driver
+					} else {
+						car.Drivers = append(car.Drivers, driver)
+					}
+				}
+			}
+		}
+
+		entryList = append(entryList, car)
+	}
+
+	return entryList
+}
 
 // Write the EntryList to the server location
 func (e EntryList) Write() error {
@@ -66,6 +139,15 @@ func (e EntryList) Write() error {
 	}
 
 	return f.SaveTo(filepath.Join(ServerInstallPath, ServerConfigPath, entryListFilename))
+}
+
+func (e EntryList) ReadString() (string, error) {
+	content, err := ioutil.ReadFile(filepath.Join(ServerInstallPath, ServerConfigPath, entryListFilename))
+	if err != nil {
+		return "", err
+	}
+
+	return string(content), nil
 }
 
 // Add an Entrant to the EntryList
@@ -309,18 +391,57 @@ func (e *Entrant) AsSessionResult() *SessionResult {
 	}
 }
 
+var guidCleanupRegex = regexp.MustCompile(`[^0-9]+`)
+
+func CleanGUIDs(guids []string) []string {
+	var cleaned []string
+
+	for _, guid := range guids {
+		g := CleanGUID(guid)
+
+		if len(g) > 0 {
+			cleaned = append(cleaned, g)
+		}
+	}
+
+	return cleaned
+}
+
+func CleanGUID(guid string) string {
+	return guidCleanupRegex.ReplaceAllLiteralString(guid, "")
+}
+
 // NormaliseEntrantGUID takes a guid which may have driverSwapEntrantSeparators in it,
 // sorts all GUIDs in the string and then rejoins them by driverSwapEntrantSeparator
-func NormaliseEntrantGUID(guid string) string {
-	split := strings.Split(guid, driverSwapEntrantSeparator)
+func NormaliseEntrantGUIDsNames(guid, name string) (guids string, names string) {
+	guidSplit := CleanGUIDs(strings.Split(guid, driverSwapEntrantSeparator))
+	nameSplit := strings.Split(name, driverSwapEntrantSeparator)
 
-	sort.Strings(split)
+	if len(nameSplit) != len(guidSplit) {
+		sort.Strings(guidSplit)
+		return strings.Join(guidSplit, driverSwapEntrantSeparator), name
+	}
 
-	return strings.Join(split, driverSwapEntrantSeparator)
+	// entrant names need to be matched to the correct GUID.
+	guidToName := make(map[string]string)
+
+	for i, guid := range guidSplit {
+		guidToName[guid] = nameSplit[i]
+	}
+
+	sort.Strings(guidSplit)
+
+	for i, guid := range guidSplit {
+		nameSplit[i] = guidToName[guid]
+	}
+
+	return strings.Join(guidSplit, driverSwapEntrantSeparator), strings.Join(nameSplit, driverSwapEntrantSeparator)
 }
 
 // NormaliseEntrantGUIDs takes a list of guids, sorts them and joins them by driverSwapEntrantSeparator
 func NormaliseEntrantGUIDs(guids []string) string {
+	guids = CleanGUIDs(guids)
+
 	sort.Strings(guids)
 
 	return strings.Join(guids, driverSwapEntrantSeparator)

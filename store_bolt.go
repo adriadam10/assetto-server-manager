@@ -1,11 +1,11 @@
-package servermanager
+package acsm
 
 import (
 	"encoding/json"
 	"errors"
 	"time"
 
-	"github.com/etcd-io/bbolt"
+	"go.etcd.io/bbolt"
 )
 
 type BoltStore struct {
@@ -19,16 +19,18 @@ func NewBoltStore(db *bbolt.DB) Store {
 }
 
 var (
-	customRaceBucketName    = []byte("customRaces")
-	serverOptionsBucketName = []byte("serverOptions")
-	entrantsBucketName      = []byte("entrants")
-	championshipsBucketName = []byte("championships")
-	accountsBucketName      = []byte("accounts")
-	frameLinksBucketName    = []byte("frameLinks")
-	raceWeekendsBucketName  = []byte("raceWeekends")
-	liveTimingsBucketName   = []byte("liveTimings")
+	customRaceBucketName     = []byte("customRaces")
+	serverOptionsBucketName  = []byte("serverOptions")
+	customChecksumBucketName = []byte("customChecksums")
+	entrantsBucketName       = []byte("entrants")
+	championshipsBucketName  = []byte("championships")
+	accountsBucketName       = []byte("accounts")
+	frameLinksBucketName     = []byte("frameLinks")
+	raceWeekendsBucketName   = []byte("raceWeekends")
+	liveTimingsBucketName    = []byte("liveTimings")
 
 	serverOptionsKey      = []byte("serverOptions")
+	customChecksumsKey    = []byte("customChecksums")
 	strackerOptionsKey    = []byte("strackerOptions")
 	kissMyRankOptionsKey  = []byte("kissMyRankOptions")
 	realPenaltyOptionsKey = []byte("realPenaltyOptions")
@@ -312,7 +314,7 @@ func (rs *BoltStore) UpsertServerOptions(so *GlobalServerConfig) error {
 
 func (rs *BoltStore) LoadServerOptions() (*GlobalServerConfig, error) {
 	// start with defaults
-	defaultConfig := ConfigIniDefault()
+	defaultConfig := ConfigDefault()
 
 	so := &defaultConfig.GlobalServerConfig
 
@@ -817,6 +819,60 @@ func (rs *BoltStore) DeleteRaceWeekend(id string) error {
 	return rs.UpsertRaceWeekend(raceWeekend)
 }
 
+func (rs *BoltStore) customCheckumBucket(tx *bbolt.Tx) (*bbolt.Bucket, error) {
+	if !tx.Writable() {
+		bkt := tx.Bucket(customChecksumBucketName)
+
+		if bkt == nil {
+			return nil, bbolt.ErrBucketNotFound
+		}
+
+		return bkt, nil
+	}
+
+	return tx.CreateBucketIfNotExists(customChecksumBucketName)
+}
+
+func (rs *BoltStore) UpsertCustomChecksums(customChecksums *CustomChecksums) error {
+	return rs.db.Update(func(tx *bbolt.Tx) error {
+		bkt, err := rs.customCheckumBucket(tx)
+
+		if err != nil {
+			return err
+		}
+
+		encoded, err := rs.encode(customChecksums)
+
+		if err != nil {
+			return err
+		}
+
+		return bkt.Put(customChecksumsKey, encoded)
+	})
+}
+
+func (rs *BoltStore) LoadCustomChecksums() (*CustomChecksums, error) {
+	sto := DefaultCustomChecksums()
+
+	err := rs.db.View(func(tx *bbolt.Tx) error {
+		bkt, err := rs.customCheckumBucket(tx)
+
+		if err != nil {
+			return err
+		}
+
+		data := bkt.Get(customChecksumsKey)
+
+		if data == nil {
+			return nil
+		}
+
+		return rs.decode(data, &sto)
+	})
+
+	return sto, err
+}
+
 func (rs *BoltStore) UpsertStrackerOptions(sto *StrackerConfiguration) error {
 	return rs.db.Update(func(tx *bbolt.Tx) error {
 		bkt, err := rs.serverOptionsBucket(tx)
@@ -992,6 +1048,18 @@ func (rs *BoltStore) LoadLiveTimingsData() (*LiveTimingsPersistedData, error) {
 	})
 
 	return lt, err
+}
+
+func (rs *BoltStore) DeleteLiveTimingsData() error {
+	return rs.db.Update(func(tx *bbolt.Tx) error {
+		bkt, err := rs.liveTimingsDataBucket(tx)
+
+		if err != nil {
+			return err
+		}
+
+		return bkt.Put(liveTimingsKey, nil)
+	})
 }
 
 func (rs *BoltStore) UpsertLastRaceEvent(r RaceEvent) error {

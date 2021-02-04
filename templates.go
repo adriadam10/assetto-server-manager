@@ -1,7 +1,8 @@
-package servermanager
+package acsm
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -9,6 +10,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"os"
 	"path"
 	"path/filepath"
 	"reflect"
@@ -23,6 +25,7 @@ import (
 	"github.com/go-chi/chi"
 	"github.com/mattn/go-zglob"
 	"github.com/sirupsen/logrus"
+	"golang.org/x/sync/errgroup"
 )
 
 // BuildVersion is the time Server Manager was built at
@@ -64,21 +67,36 @@ func (fs *filesystemTemplateLoader) Init() error {
 }
 
 func (fs *filesystemTemplateLoader) Templates(funcs template.FuncMap) (map[string]*template.Template, error) {
+	var mutex sync.Mutex
 	templates := make(map[string]*template.Template)
 
+	errGroup, _ := errgroup.WithContext(context.Background())
+
 	for _, page := range fs.pages {
-		var templateList []string
-		templateList = append(templateList, filepath.Join(fs.dir, "layout", "base.html"))
-		templateList = append(templateList, fs.partials...)
-		templateList = append(templateList, page)
+		page := page
 
-		t, err := template.New(page).Funcs(funcs).ParseFiles(templateList...)
+		errGroup.Go(func() error {
+			var templateList []string
+			templateList = append(templateList, filepath.Join(fs.dir, "layout", "base.html"))
+			templateList = append(templateList, fs.partials...)
+			templateList = append(templateList, page)
 
-		if err != nil {
-			return nil, err
-		}
+			t, err := template.New(page).Funcs(funcs).ParseFiles(templateList...)
 
-		templates[strings.TrimPrefix(filepath.ToSlash(page), filepath.ToSlash(fs.dir)+"/pages/")] = t
+			if err != nil {
+				return err
+			}
+
+			mutex.Lock()
+			templates[strings.TrimPrefix(filepath.ToSlash(page), filepath.ToSlash(fs.dir)+"/pages/")] = t
+			mutex.Unlock()
+
+			return nil
+		})
+	}
+
+	if err := errGroup.Wait(); err != nil {
+		return nil, err
 	}
 
 	return templates, nil
@@ -102,7 +120,7 @@ func shortenDriverName(name string) string {
 	nameParts := strings.Split(name, " ")
 
 	if len(nameParts) > 1 && len(nameParts[len(nameParts)-1]) > 1 {
-		nameParts[len(nameParts)-1] = nameParts[len(nameParts)-1][:1] + "."
+		nameParts[len(nameParts)-1] = string([]rune(nameParts[len(nameParts)-1])[:1]) + "."
 	}
 
 	return strings.Join(nameParts, " ")
@@ -117,7 +135,6 @@ func driverName(name string) string {
 }
 
 func driverInitials(name string) string {
-
 	name = strings.TrimSpace(name)
 
 	if UseShortenedDriverNames {
@@ -129,7 +146,7 @@ func driverInitials(name string) string {
 
 		for i := range nameParts {
 			if len(nameParts[i]) > 0 {
-				nameParts[i] = nameParts[i][:1]
+				nameParts[i] = string([]rune(nameParts[i])[:1])
 			}
 		}
 
@@ -138,11 +155,13 @@ func driverInitials(name string) string {
 
 	nameParts := strings.Split(name, " ")
 
-	if len(nameParts) > 0 && len(nameParts[len(nameParts)-1]) >= 3 {
-		return strings.ToUpper(nameParts[len(nameParts)-1][:3])
+	lastName := nameParts[len(nameParts)-1]
+
+	if len(nameParts) > 0 && len(lastName) >= 3 {
+		return strings.ToUpper(string([]rune(lastName)[:3]))
 	}
 
-	return strings.ToUpper(name)
+	return strings.ToUpper(lastName)
 }
 
 // Renderer is the template engine.
@@ -198,6 +217,7 @@ func (tr *Renderer) init() error {
 	}
 	funcs["ordinal"] = ordinal
 	funcs["prettify"] = prettifyName
+	funcs["safeLayoutName"] = safeLayoutName
 	funcs["weatherName"] = weatherName
 	funcs["carList"] = carList
 	funcs["jsonEncode"] = jsonEncode
@@ -211,6 +231,7 @@ func (tr *Renderer) init() error {
 	funcs["isBefore"] = isBefore
 	funcs["trackInfo"] = trackInfo
 	funcs["multiplyFloats"] = multiplyFloats
+	funcs["percentage"] = percentage
 	funcs["stripGeotagCrap"] = stripGeotagCrap
 	funcs["ReadAccess"] = dummyAccessFunc
 	funcs["WriteAccess"] = dummyAccessFunc
@@ -220,6 +241,7 @@ func (tr *Renderer) init() error {
 	funcs["classColor"] = ChampionshipClassColor
 	funcs["carSkinURL"] = carSkinURL
 	funcs["trackLayoutURL"] = trackLayoutURL
+	funcs["trackSplineURL"] = trackSplineURL
 	funcs["stringArrayToCSV"] = stringArrayToCSV
 	funcs["dict"] = templateDict
 	funcs["asset"] = NewAssetHelper("/", "", "", map[string]string{"cb": BuildVersion}).GetURL
@@ -227,6 +249,7 @@ func (tr *Renderer) init() error {
 	funcs["Config"] = func() *Configuration { return config }
 	funcs["Version"] = func() string { return BuildVersion }
 	funcs["fullTimeFormat"] = fullTimeFormat
+	funcs["solTimeFormat"] = solTimeFormat
 	funcs["localFormat"] = localFormatHelper
 	funcs["driverName"] = driverName
 	funcs["driverInitials"] = driverInitials
@@ -246,6 +269,7 @@ func (tr *Renderer) init() error {
 	}
 	funcs["trackMapURL"] = TrackMapImageURL
 	funcs["sunAngleToTimeOfDay"] = sunAngleToTimeOfDay
+	funcs["anonymiseDriverGUID"] = AnonymiseDriverGUID
 
 	tr.templates, err = tr.loader.Templates(funcs)
 
@@ -335,6 +359,10 @@ func fullTimeFormat(t time.Time) string {
 	return t.Format("Monday, January 2, 2006 3:04 PM (MST)")
 }
 
+func solTimeFormat(t time.Time) string {
+	return t.Format("Monday, January 2, 2006 3:04 PM")
+}
+
 func isBefore(t time.Time) bool {
 	return time.Now().Before(t)
 }
@@ -397,9 +425,15 @@ func varSplit(str string) []string {
 	return strings.Split(str, ";")
 }
 
-var trackInfoCache = make(map[string]*TrackInfo)
+var (
+	trackInfoCache      = make(map[string]*TrackInfo)
+	trackInfoCacheMutex sync.Mutex
+)
 
 func trackInfo(track, layout string) *TrackInfo {
+	trackInfoCacheMutex.Lock()
+	defer trackInfoCacheMutex.Unlock()
+
 	if t, ok := trackInfoCache[track+layout]; ok {
 		return t
 	}
@@ -407,7 +441,9 @@ func trackInfo(track, layout string) *TrackInfo {
 	t, err := GetTrackInfo(track, layout)
 
 	if err != nil {
-		logrus.WithError(err).Errorf("Could not get track info for %s (%s)", track, layout)
+		if !os.IsNotExist(err) {
+			logrus.WithError(err).Errorf("Could not get track info for %s (%s)", track, layout)
+		}
 		return nil
 	}
 
@@ -416,8 +452,19 @@ func trackInfo(track, layout string) *TrackInfo {
 	return t
 }
 
+func clearFromTrackInfoCache(track, layout string) {
+	trackInfoCacheMutex.Lock()
+	defer trackInfoCacheMutex.Unlock()
+
+	delete(trackInfoCache, track+layout)
+}
+
 func multiplyFloats(a, b float64) float64 {
 	return a * b
+}
+
+func percentage(a, b int) int {
+	return int(100 * (float64(a) / float64(b)))
 }
 
 func stripGeotagCrap(tag string, north bool) string {
@@ -454,6 +501,10 @@ func prettifyName(s string, acronyms bool) string {
 		return "Any Car Model"
 	}
 
+	if s == defaultLayoutName {
+		return "Default"
+	}
+
 	if carName, ok := carNameCache.get(s); ok {
 		return carName
 	}
@@ -473,6 +524,14 @@ func prettifyName(s string, acronyms bool) string {
 	}
 
 	return strings.Join(parts, " ")
+}
+
+func safeLayoutName(s string) string {
+	if s == defaultLayoutName {
+		return "Default"
+	}
+
+	return strings.TrimSpace(s)
 }
 
 func weatherName(key string) string {
@@ -508,29 +567,31 @@ type TemplateVars interface {
 }
 
 type BaseTemplateVars struct {
-	Messages              []interface{}
-	Errors                []interface{}
-	ServerStatus          bool
-	ServerEvent           RaceEvent
-	ServerName            string
-	CustomCSS             template.CSS
-	User                  *Account
-	IsHosted              bool
-	IsPremium             bool
-	MaxClientsOverride    int
-	IsDarkTheme           bool
-	Request               *http.Request
-	Debug                 bool
-	MonitoringEnabled     bool
-	SentryDSN             template.JSStr
-	RecaptchaSiteKey      string
-	WideContainer         bool
-	OGImage               string
-	ACSREnabled           bool
-	BaseURLIsSet          bool
-	BaseURLIsValid        bool
-	ServerID              ServerID
-	ShowEventDetailsPopup bool
+	Messages                    []interface{}
+	Errors                      []interface{}
+	ServerStatus                bool
+	ServerEvent                 RaceEvent
+	ServerName                  string
+	CustomCSS                   template.CSS
+	User                        *Account
+	IsHosted                    bool
+	MaxClientsOverride          int
+	IsDarkTheme                 bool
+	Request                     *http.Request
+	Debug                       bool
+	MonitoringEnabled           bool
+	SentryDSN                   template.JSStr
+	RecaptchaSiteKey            string
+	WideContainer               bool
+	OGImage                     string
+	Favicon                     string
+	ACSREnabled                 bool
+	BaseURLIsSet                bool
+	BaseURLIsValid              bool
+	ServerID                    ServerID
+	ShowEventDetailsPopup       bool
+	PluginsEnabled              bool
+	CustomAnalyticsTrackingCode template.HTML
 }
 
 func (b *BaseTemplateVars) Get() *BaseTemplateVars {
@@ -567,7 +628,6 @@ func (tr *Renderer) addData(w http.ResponseWriter, r *http.Request, vars Templat
 	data.CustomCSS = template.CSS(opts.CustomCSS)
 	data.User = AccountFromRequest(r)
 	data.IsHosted = IsHosted
-	data.IsPremium = Premium()
 	data.MaxClientsOverride = MaxClientsOverride
 	data.IsDarkTheme = opts.DarkTheme == 1
 	data.Request = r
@@ -580,23 +640,34 @@ func (tr *Renderer) addData(w http.ResponseWriter, r *http.Request, vars Templat
 	data.ACSREnabled = opts.EnableACSR
 	data.ServerID = serverID
 	data.ShowEventDetailsPopup = opts.ShowEventDetailsPopup
+	data.PluginsEnabled = !config.Server.DisablePlugins
+	data.Favicon = opts.Favicon
+	data.CustomAnalyticsTrackingCode = template.HTML(opts.CustomAnalyticsTrackingCode)
 
-	if Premium() {
+	if opts.OGImage != "" {
 		data.OGImage = opts.OGImage
+	}
 
-		id := chi.URLParam(r, "championshipID")
+	id := chi.URLParam(r, "championshipID")
 
-		if id != "" {
-			championship, err := tr.store.LoadChampionship(id)
+	if id != "" {
+		championship, err := tr.store.LoadChampionship(id)
 
-			if err == nil && championship.OGImage != "" {
-				data.OGImage = championship.OGImage
-			}
+		if err == nil && championship.OGImage != "" {
+			data.OGImage = championship.OGImage
+		}
+	}
+
+	if baseURLIsValid() {
+		if data.OGImage == "" {
+			data.OGImage = config.HTTP.BaseURL + fallBackOGImage
 		}
 	}
 
 	return nil
 }
+
+const fallBackOGImage = "/static/img/og-image.png"
 
 // LoadTemplate reads a template from templates and renders it with data to the given io.Writer
 func (tr *Renderer) LoadTemplate(w http.ResponseWriter, r *http.Request, view string, vars TemplateVars) error {

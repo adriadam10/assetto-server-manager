@@ -1,4 +1,4 @@
-{{/* gotype: github.com/JustaPenguin/assetto-server-manager.RaceTemplateVars */}}
+{{/* gotype: justapengu.in/acsm.RaceTemplateVars */}}
 
 {{ define "title" }}
     {{ if .IsChampionship }}
@@ -7,6 +7,19 @@
         Race Weekend Session
     {{ else }}
         Custom Race
+    {{ end }}
+{{ end }}
+
+{{ define "track-options" }}
+    {{ $tracks := .Tracks }}
+    {{ $selectedTrack := .SelectedTrack }}
+
+    {{ range $index, $track := $tracks }}
+        <option value="{{ $track.Name }}" {{ if eq $track.Name $selectedTrack }}selected="selected" {{ end }}
+                data-track-name="{{ $track.Name }}"
+        >
+            {{ $track.PrettyName }}
+        </option>
     {{ end }}
 {{ end }}
 
@@ -68,18 +81,27 @@
 
                             <div class="col-sm-9">
                                 <select class="form-control" name="Track" id="Track">
-                                    {{ range $index, $track := .TrackOpts }}
-                                        <option value="{{ $track.Name }}" {{ if eq $track.Name $f.Track }}selected="selected" {{ end }}
-                                                class="{{ if $track.IsPaidDLC }}bg-dlc{{ end }}{{ if $track.IsMod }}bg-mod{{ end }}">
-                                            {{ prettify $track.Name false }}
-                                        </option>
+                                    {{ $split := .TrackOpts.Split }}
+
+
+                                    {{ with $split.Stock }}
+                                        <optgroup label="Stock">
+                                            {{ template "track-options" dict "Tracks" . "SelectedTrack" $f.Track }}
+                                        </optgroup>
+                                    {{ end }}
+
+                                    {{ with $split.DLC }}
+                                        <optgroup label="DLC">
+                                            {{ template "track-options" dict "Tracks" . "SelectedTrack" $f.Track }}
+                                        </optgroup>
+                                    {{ end }}
+
+                                    {{ with $split.Mod }}
+                                        <optgroup label="Mod">
+                                            {{ template "track-options" dict "Tracks" . "SelectedTrack" $f.Track }}
+                                        </optgroup>
                                     {{ end }}
                                 </select>
-
-                                <small style="cursor: default;">
-                                    <span class="badge bg-dlc">DLC</span>
-                                    <span class="badge bg-mod">Mod</span>
-                                </small>
                             </div>
                         </div>
 
@@ -93,10 +115,17 @@
                                 <select class="form-control" name="TrackLayout" id="TrackLayout">
                                     {{ range $index, $track := .TrackOpts }}
                                         {{ range $layoutIndex, $layout := $track.Layouts }}
+                                            {{ $name := $layout }}
+                                            {{ $trackInfo := trackInfo $track.Name $layout }}
+
+                                            {{ with $trackInfo }}
+                                                {{ $name = $trackInfo.Name }}
+                                            {{ end }}
+
                                             {{ if and (eq $track.Name $f.Track) (eq $layout $f.TrackLayout) }}
-                                                <option value="{{ $track.Name }}:{{ $layout }}:current">{{ $layout }}</option>
+                                                <option value="{{ $track.Name }}:{{ $layout }}:current" data-track-name="{{ $layout }}">{{ $name }}</option>
                                             {{ else }}
-                                                <option value="{{ $track.Name }}:{{ $layout }}">{{ $layout }}</option>
+                                                <option value="{{ $track.Name }}:{{ $layout }}" data-track-name="{{ $layout }}">{{ $name }}</option>
                                             {{ end }}
                                         {{ end }}
                                     {{ end }}
@@ -202,29 +231,50 @@
 
             <div class="card-body">
 
-                {{ if $.IsPremium }}
-                    <div class="form-group row" {{ if or $.IsRaceWeekend .IsChampionship }} style="display: none" {{ end }}>
-                        <label class="col-sm-3 col-form-label">Time Attack</label>
+                <div class="form-group row" {{ if or $.IsRaceWeekend .IsChampionship }} style="display: none" {{ end }}>
+                    <label class="col-sm-3 col-form-label">Time Attack</label>
 
-                        <div class="col-sm-9">
-                            <input
-                                    type="checkbox"
-                                    class="session-enabler"
-                                    name="TimeAttack"
-                                    id="TimeAttack"
+                    <div class="col-sm-9">
+                        <input
+                                type="checkbox"
+                                class="session-enabler"
+                                name="TimeAttack"
+                                id="TimeAttack"
 
-                                    {{ if $f.TimeAttack }}
-                                        checked="checked"
-                                    {{ end }}
-                            >
+                                {{ if $f.TimeAttack }}
+                                    checked="checked"
+                                {{ end }}
+                        >
 
-                            <br><br>
-                            <small>Time Attack events will run a looping Practice session and combine all of the results files.
-                            Forces loop mode on and disables all sessions other than Practice. <strong>We strongly recommend
-                            that you run a locked entry list for a stable experience with Time Attack events.</strong></small>
-                        </div>
+                        <br>
+                        <small>Time Attack events will run a looping Practice session and combine all of the results files.
+                        Forces loop mode on and disables all sessions other than Practice. <strong>We strongly recommend
+                        that you run a locked entry list for a stable experience with Time Attack events.</strong></small>
                     </div>
-                {{ end }}
+                </div>
+
+                <div class="form-group row" {{ if or $.IsRaceWeekend .IsChampionship }} style="display: none" {{ end }}>
+                    <label class="col-sm-3 col-form-label">Drift Scoring</label>
+
+                    <div class="col-sm-9">
+                        <input
+                                type="checkbox"
+                                class="session-enabler"
+                                name="DriftModeEnabled"
+                                id="DriftModeEnabled"
+
+                                {{ if $f.DriftModeEnabled }}
+                                    checked="checked"
+                                {{ end }}
+                        >
+
+                        <br>
+                        <small>If enabled the server will keep track of drift scores over a lap. Score is based on drift
+                        length, angle and speed. Currently points are broadcast to everyone in chat at the end of a lap,
+                        and sent to the driver after each drift. If you'd like to see this feature built upon and added
+                        to live timings please let us know!</small>
+                    </div>
+                </div>
 
                 {{ if $.IsRaceWeekend }}
                     <div class="form-group row">
@@ -374,6 +424,31 @@
 
                                 {{ end }}
 
+                                {{ if eq $sessionType "QUALIFY" }}
+                                    <div class="form-group row">
+                                        <label for="{{ $sessionType }}.IsSolo" class="col-sm-3 col-form-label">
+                                            Solo Qualifying
+                                        </label>
+
+                                        <div class="col-sm-9">
+                                            <input
+                                                    type="checkbox"
+                                                    id="{{ $sessionType }}.IsSolo"
+                                                    name="{{ $sessionType }}.IsSolo"
+                                                    {{ if $session.IsSolo }}
+                                                        checked="checked"
+                                                    {{ end }}
+                                            ><br>
+
+                                            <small>
+                                                Solo Qualifying means drivers cannot see other drivers on track for the
+                                                duration of the qualifying session. Other drivers will appear in their pitbox
+                                                and will not move. Drivers will be able to see lap times for all drivers in the session.
+                                            </small>
+                                        </div>
+                                    </div>
+                                {{ end }}
+
                                 {{ if and (ne $sessionType "BOOK") (not $.IsRaceWeekend) }}
 
                                     <div class="form-group row">
@@ -426,10 +501,6 @@
                                         </div>
                                     </div>
 
-                                {{ end }}
-
-
-                                {{ if eq $sessionType "RACE" }}
                                     <hr>
 
                                     <div class="row">
@@ -527,7 +598,7 @@
                                     <hr>
 
                                     {{ if not $.IsRaceWeekend }}
-                                        <div class="form-group row col-md-12">
+                                        <div class="form-group row">
                                             <label for="ReversedGridRacePositions" class="col-sm-3 col-form-label" data-toggle="tooltip" title="The race session will be restarted in reversed grid order based on the standings of the previous race. Players disqualified in the first race will start from the back of the grid in the second race, regardless of their position being within the reversed grid range.">
                                                 Reversed Grid Race Positions
                                             </label>
@@ -552,11 +623,10 @@
                                             </div>
                                         </div>
 
-                                        {{ with  $.Championship }}
+                                        {{ with $.Championship }}
                                             {{ if and $.IsChampionship $.Championship.ACSR }}
-                                                <div class="form-group row col-md-12">
+                                                <div class="form-group row">
                                                     <label for="ExportSecondRaceToACSR" class="col-sm-3 col-form-label">Export 2nd Race to ACSR</label>
-
 
                                                     <div class="col-sm-9">
                                                         <input type="checkbox"
@@ -578,7 +648,7 @@
                                         {{ end }}
                                     {{ end }}
 
-                                    <div class="form-group row col-md-12 race-extra-lap" {{ if and (eq $session.Time 0) (ne $session.Laps 0) }} style="display: none;" {{ end }}>
+                                    <div class="form-group row race-extra-lap" {{ if and (eq $session.Time 0) (ne $session.Laps 0) }} style="display: none;" {{ end }}>
                                         <label for="RaceExtraLap" class="col-sm-3 col-form-label">Extra Lap</label>
 
 
@@ -598,6 +668,28 @@
                                             </small>
                                         </div>
                                     </div>
+
+                                    {{ if $.IsRaceWeekend }}
+                                        <div class="form-group row">
+                                            <label for="RaceWeekendWarmUpSessionTime" class="col-sm-3 col-form-label">Warm Up Session Time</label>
+
+                                            <div class="col-sm-9">
+                                                <input
+                                                        type="number"
+                                                        id="RaceWeekendWarmUpSessionTime"
+                                                        name="RaceWeekendWarmUpSessionTime"
+                                                        class="form-control"
+                                                        value="{{ $.RaceWeekendSession.WarmUpSessionTime }}"
+                                                        step="1"
+                                                >
+
+                                                <small>
+                                                    Warm up practice session length in minutes. If greater than 0, this option adds a 'Warm Up' Session to the beginning of the Race.
+                                                    This is a Practice session, but its results do not impact the already configured grid for the Race.
+                                                </small>
+                                            </div>
+                                        </div>
+                                    {{ end }}
                                 {{ else if eq $sessionType "QUALIFY" }}
                                     <hr>
 
@@ -735,141 +827,139 @@
                         </div>
                     {{ end }}
 
-                    {{ if and $.IsPremium (not $.IsChampionship) }}
+                    {{ if not $.IsChampionship }}
                         <hr>
                     {{ end }}
                 {{ end }}
 
-                {{ if $.IsPremium }}
-                    <div class="form-group row">
-                        <label for="DriverSwapEnabled" class="col-sm-3 col-form-label">Driver Swaps</label>
+                <div class="form-group row">
+                    <label for="DriverSwapEnabled" class="col-sm-3 col-form-label">Driver Swaps</label>
 
+
+                    <div class="col-sm-9">
+                        <input type="checkbox"
+                               id="DriverSwapEnabled"
+                               name="DriverSwapEnabled"
+                               value="{{ $f.DriverSwapEnabled }}"
+
+                                {{ if eq $f.DriverSwapEnabled 1 }}
+                                    checked="checked"
+                                {{ end }}
+                        >
+
+                        <br>
+                        <small>
+                            Server Manager Driver Swaps will allow multiple drivers in one entrant who can perform driver swaps. Add multiple GUIDs separated by ;'s to an entrant to allow this.
+                            <strong>
+                                Note: Driver Swaps will only yield valid results files if the timing line for a track is before or after all of the pitboxes.
+                            </strong>
+
+                            Follow this <a href="https://github.com/JustaPenguin/assetto-server-manager/wiki/Driver-swap-track-editing">guide on how to edit tracks to work with Driver Swaps</a>.
+                        </small>
+                    </div>
+                </div>
+
+
+                <div class="visible-driver-swap-enabled">
+                    <div class="form-group row">
+                        <label for="DriverSwapMinTime" class="col-sm-3 col-form-label">Minimum Driver Swap Time (seconds)</label>
 
                         <div class="col-sm-9">
-                            <input type="checkbox"
-                                   id="DriverSwapEnabled"
-                                   name="DriverSwapEnabled"
-                                   value="{{ $f.DriverSwapEnabled }}"
-
-                                    {{ if eq $f.DriverSwapEnabled 1 }}
-                                        checked="checked"
-                                    {{ end }}
+                            <input
+                                    type="number"
+                                    id="DriverSwapMinTime"
+                                    name="DriverSwapMinTime"
+                                    class="form-control"
+                                    value="{{ $f.DriverSwapMinTime }}"
+                                    step="1"
                             >
 
-                            <br>
                             <small>
-                                Server Manager Driver Swaps will allow multiple drivers in one entrant who can perform driver swaps. Add multiple GUIDs separated by ;'s to an entrant to allow this.
-                                <strong>
-                                    Note: Driver Swaps will only yield valid results files if the timing line for a track is before or after all of the pitboxes.
-                                </strong>
-
-                                Follow this <a href="https://github.com/JustaPenguin/assetto-server-manager/wiki/Driver-swap-track-editing">guide on how to edit tracks to work with Driver Swaps</a>.
+                                Minimum time for a driver swap, used to avoid giving users with faster computers an advantage. If the second driver sets off before this time they will be disqualified/given a penalty based on configuration.
                             </small>
                         </div>
                     </div>
 
+                    <div class="form-group row">
+                        <label for="DriverSwapDisqualifyTime" class="col-sm-3 col-form-label">Driver Swap Disqualification Window (seconds)</label>
 
-                    <div class="visible-driver-swap-enabled">
-                        <div class="form-group row">
-                            <label for="DriverSwapMinTime" class="col-sm-3 col-form-label">Minimum Driver Swap Time (seconds)</label>
+                        <div class="col-sm-9">
+                            <input
+                                    type="number"
+                                    id="DriverSwapDisqualifyTime"
+                                    name="DriverSwapDisqualifyTime"
+                                    class="form-control"
+                                    value="{{ $f.DriverSwapDisqualifyTime }}"
+                                    step="1"
+                            >
 
-                            <div class="col-sm-9">
-                                <input
-                                        type="number"
-                                        id="DriverSwapMinTime"
-                                        name="DriverSwapMinTime"
-                                        class="form-control"
-                                        value="{{ $f.DriverSwapMinTime }}"
-                                        step="1"
-                                >
-
-                                <small>
-                                    Minimum time for a driver swap, used to avoid giving users with faster computers an advantage. If the second driver sets off before this time they will be disqualified/given a penalty based on configuration.
-                                </small>
-                            </div>
+                            <small>
+                                Driver will be kicked from the race and disqualified if they set off this many seconds or more before the minimum time during a Driver Swap.
+                            </small>
                         </div>
-
-                        <div class="form-group row">
-                            <label for="DriverSwapDisqualifyTime" class="col-sm-3 col-form-label">Driver Swap Disqualification Window (seconds)</label>
-
-                            <div class="col-sm-9">
-                                <input
-                                        type="number"
-                                        id="DriverSwapDisqualifyTime"
-                                        name="DriverSwapDisqualifyTime"
-                                        class="form-control"
-                                        value="{{ $f.DriverSwapDisqualifyTime }}"
-                                        step="1"
-                                >
-
-                                <small>
-                                    Driver will be kicked from the race and disqualified if they set off this many seconds or more before the minimum time during a Driver Swap.
-                                </small>
-                            </div>
-                        </div>
-
-                        <div class="form-group row">
-                            <label for="DriverSwapPenaltyTime" class="col-sm-3 col-form-label">Driver Swap Penalty Window (seconds)</label>
-
-                            <div class="col-sm-9">
-                                <input
-                                        type="number"
-                                        id="DriverSwapPenaltyTime"
-                                        name="DriverSwapPenaltyTime"
-                                        class="form-control"
-                                        value="{{ $f.DriverSwapPenaltyTime }}"
-                                        step="1"
-                                >
-
-                                <small>
-                                    If a driver sets off this many seconds or more before the minimum time during a Driver Swap,
-                                    they will be given a penalty equal to the number of seconds left in the countdown plus 5 seconds.
-                                </small>
-                            </div>
-                        </div>
-
-                        <div class="form-group row">
-                            <label for="DriverSwapMinimumNumberOfSwaps" class="col-sm-3 col-form-label">Minimum Number Of Driver Swaps</label>
-
-                            <div class="col-sm-9">
-                                <input
-                                        type="number"
-                                        id="DriverSwapMinimumNumberOfSwaps"
-                                        name="DriverSwapMinimumNumberOfSwaps"
-                                        class="form-control"
-                                        value="{{ $f.DriverSwapMinimumNumberOfSwaps }}"
-                                        step="1"
-                                >
-
-                                <small>
-                                    The number of swaps that a driver must complete. If they do not complete the required number of stops, they are penalised (see below).
-                                </small>
-                            </div>
-                        </div>
-
-                        <div class="form-group row">
-                            <label for="DriverSwapNotEnoughSwapsPenalty" class="col-sm-3 col-form-label">Not Enough Driver Swaps Penalty (seconds)</label>
-
-                            <div class="col-sm-9">
-                                <input
-                                        type="number"
-                                        id="DriverSwapNotEnoughSwapsPenalty"
-                                        name="DriverSwapNotEnoughSwapsPenalty"
-                                        class="form-control"
-                                        value="{{ $f.DriverSwapNotEnoughSwapsPenalty }}"
-                                        step="1"
-                                >
-
-                                <small>
-                                    The penalty in seconds that is applied to a driver for each Driver Swap under the required minimum that they missed. If set to 0, the driver is disqualified.
-                                </small>
-                            </div>
-                        </div>
-
                     </div>
 
-                    <br>
-                {{ end }}
+                    <div class="form-group row">
+                        <label for="DriverSwapPenaltyTime" class="col-sm-3 col-form-label">Driver Swap Penalty Window (seconds)</label>
+
+                        <div class="col-sm-9">
+                            <input
+                                    type="number"
+                                    id="DriverSwapPenaltyTime"
+                                    name="DriverSwapPenaltyTime"
+                                    class="form-control"
+                                    value="{{ $f.DriverSwapPenaltyTime }}"
+                                    step="1"
+                            >
+
+                            <small>
+                                If a driver sets off this many seconds or more before the minimum time during a Driver Swap,
+                                they will be given a penalty equal to the number of seconds left in the countdown plus 5 seconds.
+                            </small>
+                        </div>
+                    </div>
+
+                    <div class="form-group row">
+                        <label for="DriverSwapMinimumNumberOfSwaps" class="col-sm-3 col-form-label">Minimum Number Of Driver Swaps</label>
+
+                        <div class="col-sm-9">
+                            <input
+                                    type="number"
+                                    id="DriverSwapMinimumNumberOfSwaps"
+                                    name="DriverSwapMinimumNumberOfSwaps"
+                                    class="form-control"
+                                    value="{{ $f.DriverSwapMinimumNumberOfSwaps }}"
+                                    step="1"
+                            >
+
+                            <small>
+                                The number of swaps that a driver must complete. If they do not complete the required number of stops, they are penalised (see below).
+                            </small>
+                        </div>
+                    </div>
+
+                    <div class="form-group row">
+                        <label for="DriverSwapNotEnoughSwapsPenalty" class="col-sm-3 col-form-label">Not Enough Driver Swaps Penalty (seconds)</label>
+
+                        <div class="col-sm-9">
+                            <input
+                                    type="number"
+                                    id="DriverSwapNotEnoughSwapsPenalty"
+                                    name="DriverSwapNotEnoughSwapsPenalty"
+                                    class="form-control"
+                                    value="{{ $f.DriverSwapNotEnoughSwapsPenalty }}"
+                                    step="1"
+                            >
+
+                            <small>
+                                The penalty in seconds that is applied to a driver for each Driver Swap under the required minimum that they missed. If set to 0, the driver is disqualified.
+                            </small>
+                        </div>
+                    </div>
+
+                </div>
+
+                <br>
 
                 {{ if not $.IsRaceWeekend }}
                     <div class="hidden-booking-enabled">
@@ -890,7 +980,10 @@
                         {{ if not .IsChampionship }}
                             <div class="row">
                                 <div class="col-md-8 pt-2">
-                                    <p>Car, Skin, Ballast, Restrictor and Fixed Setup from the last Entrant will be cloned into new Entrants.</p>
+                                    <p>
+                                        Car, Skin, Ballast, Restrictor and Fixed Setup from the last Entrant will be cloned into new Entrants.
+                                        <a href="#" data-toggle="modal" data-target=".fixed-setup-help">Help on adding Fixed Setups.</a>
+                                    </p>
                                 </div>
                                 <div class="col-md-4 text-right">
                                     <input class="form-control numEntrantsToAdd" type="number" name="NumEntrantsToAdd" value="1" min="0">
@@ -898,7 +991,33 @@
                                     <button class="btn btn-warning addEntrant">Add Entrant(s)</button>
                                 </div>
                             </div>
+                        {{ else }}
+                            <div class="row">
+                                <div class="col-md-12 pt-2">
+                                    <p>
+                                        <a href="#" data-toggle="modal" data-target=".fixed-setup-help">Help on adding Fixed Setups.</a>
+                                    </p>
+                                </div>
+                            </div>
                         {{ end }}
+
+                        <div class="modal fade fixed-setup-help" tabindex="-1" role="dialog" aria-labelledby="fixedSetupHelpLabel" aria-hidden="true">
+                            <div class="modal-dialog modal-lg">
+                                <div class="modal-content">
+                                    <div class="modal-header">
+                                        <h5 class="modal-title" id="exampleModalLabel">Fixed Setup Help</h5>
+
+                                        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                                            <span aria-hidden="true">&times;</span>
+                                        </button>
+                                    </div>
+
+                                    <div class="modal-body">
+                                        {{ template "fixed-setup-help" }}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
 
                     </div>
 
@@ -1007,6 +1126,21 @@
             </div>
         </div>
 
+        {{ if not $.IsRaceWeekend }}
+            <select multiple class="form-control WeatherSessions-template">
+                {{ range $index, $sessionType := $.AvailableSessions }}
+                    {{ if ne $sessionType "BOOK"}}
+                        {{ if $f.HasSession $sessionType }}
+                            <option value="{{ $sessionType }}" class="weather-session-{{ $sessionType }}">{{ $sessionType }}</option>
+                        {{ end }}
+                    {{ end }}
+                {{ end }}
+
+                {{ if $.IsChampionship }}
+                    <option value="Looping Championship Practice" class="weather-session-championship-practice">Looping Championship Practice</option>
+                {{ end }}
+            </select>
+        {{ end }}
 
         <div class="card mt-3 border-secondary">
             <div class="card-header">
@@ -1088,7 +1222,7 @@
                                     class="form-control"
                                     value="{{ $f.TimeOfDayMultiplier }}"
                                     min="0"
-                                    step="1"
+                                    step="any"
                             >
 
                             <small>Multiplier for the time of day</small>
@@ -1098,9 +1232,11 @@
 
                 <hr>
 
-                <p>Each new session will <strong>randomly select</strong> its weather configuration from the below options.</p>
+                <p>If multiple weathers are applied to the same session one of them will be <strong>randomly selected</strong> for the entire event duration
+                if duration is 0 or they will all be <strong>cycled through in page order</strong> if duration is set. You can change
+                the weather order by dragging and dropping or editing the position input.</p>
 
-                <div class="row">
+                <div class="row weather-container">
 
                     {{ $weatherIndex := 0 }}
                     {{ $weatherOptions := .Weather }}
@@ -1108,9 +1244,11 @@
                     {{ range $index, $weather := $f.Weather }}
 
                         <div class="col-sm-12 weather">
-                            <div class="card mb-5 border-primary">
+                            <div class="card mb-3 border-primary">
                                 <div class="card-header">
                                     <strong class="weather-num">{{ $weatherIndex }}</strong>
+                                     - <span class="header-weather-graphics">{{ prettify $weather.Graphics false }}</span>
+                                    {{ if not $.IsRaceWeekend }}- <span class="header-weather-sessions">{{ $weather.SessionsCSV }}</span>{{ end }}
 
                                     <a href="#"
                                        class="float-right text-danger weather-delete"
@@ -1121,9 +1259,19 @@
                                     >
                                         <i class="fa fa-trash"></i>
                                     </a>
+
+                                    <a class="float-right mr-2 collapser"
+                                       data-toggle="collapse"
+                                       href="#collapse-weather-{{ $weatherIndex }}"
+                                       role="button"
+                                       aria-expanded="true" aria-controls="collapse-weather-{{ $weatherIndex }}"
+                                       title="Collapse/Show this weather"
+                                    >
+                                        <i class="fa fa-arrow-down"></i>
+                                    </a>
                                 </div>
 
-                                <div class="card-body row">
+                                <div class="card-body row collapse show" id="collapse-weather-{{ $weatherIndex }}">
 
                                     <div class="col-sm-7">
 
@@ -1178,27 +1326,21 @@
                                             </select>
                                         </div>
 
-                                        <div class="form-group row {{ if not $.IsChampionship }}d-none{{ end }}">
-                                            <label class="col-sm-3 col-form-label" for="ChampionshipPracticeWeather">Championship Weather Context</label>
+                                        <div class="form-group row">
+                                            <label class="col-sm-3 col-form-label">Duration</label>
 
                                             <div class="col-sm-9 p-0">
-                                                <select name="ChampionshipPracticeWeather" id="ChampionshipPracticeWeather"
+                                                <input
+                                                        type="number"
+                                                        min="0"
+                                                        id="Duration"
+                                                        name="Duration"
                                                         class="form-control"
-                                                        {{ if not $.IsChampionship }}readonly="readonly"{{ end }}>
+                                                        value="{{ $weather.Duration }}"
+                                                        step="1"
+                                                >
 
-                                                    <option value="weatherAny" {{ if and $.IsChampionship (eq $weather.ChampionshipPracticeWeather "weatherAny") }} selected="selected" {{ end }}>
-                                                        Any Session
-                                                    </option>
-                                                    <option value="weatherPractice" {{ if and $.IsChampionship (eq $weather.ChampionshipPracticeWeather "weatherPractice") }} selected="selected" {{ end }}>
-                                                        Championship Practice Only
-                                                    </option>
-                                                    <option value="weatherEvent" {{ if and $.IsChampionship (eq $weather.ChampionshipPracticeWeather "weatherEvent") }} selected="selected" {{ end }}>
-                                                        Championship Event Only
-                                                    </option>
-                                                </select>
-
-                                                <small>Select whether weather will be used for only Championship practice sessions (started from the Championship overview page),
-                                                only actual championship events, or any session</small>
+                                                <small>How many minutes the weather should last before moving to the next mid-session. Set to 0 to disable.</small>
                                             </div>
                                         </div>
 
@@ -1207,6 +1349,15 @@
                                     <div class="col-sm-5">
                                         <img class="img img-fluid weather-preview mb-3" src="/content/weather/{{ $weather.TrimName $weather.Graphics }}/preview.jpg" alt="{{ $weather.TrimName $weather.Graphics }}">
                                     </div>
+
+                                    {{ if not $.IsRaceWeekend }}
+                                        <div class="form-group col-sm-12 sessionsWrapper sessionsWrapper-{{ $index }}">
+                                            <span class="d-none SessionsForWeather">{{ $weather.SessionsCSV }}</span>
+                                            <label>Sessions</label>
+
+                                            <!-- select appended by js -->
+                                        </div>
+                                    {{ end }}
 
                                     <div class="form-group col-sm-6">
                                         <label>Base Temperature Ambient</label>
@@ -1473,7 +1624,23 @@
                     </div>
                 </div>
 
+                <div class="form-group row">
+                    <label for="ForceOpponentHeadlights" class="col-sm-3 col-form-label">Force Opponent Headlights</label>
 
+
+                    <div class="col-sm-9">
+                        <input type="checkbox"
+                               id="ForceOpponentHeadlights"
+                               name="ForceOpponentHeadlights"
+                                {{ if $f.ForceOpponentHeadlights }}
+                                    checked="checked"
+                                {{ end }}
+                        >
+                        <br>
+
+                        <small>Force the headlights of all other cars (not your own, you control those) to on, all the time. Useful for night sessions!</small>
+                    </div>
+                </div>
 
                 <h4>Dynamic Track</h4>
 
@@ -1703,6 +1870,26 @@
                 </div>
 
                 <div class="form-group row">
+                    <label for="ForcedApps" class="col-sm-3 col-form-label">Required Apps</label>
+
+                    <div class="col-sm-9">
+                        <select multiple class="form-control" id="ForcedApps" name="ForcedApps">
+                            {{ range $index, $app := .ForcedApps.Entries }}
+                                {{ $selected := false }}
+
+                                {{ range $i, $appID := $f.ForcedApps }}
+                                    {{ if eq $appID $app.ID.String }}
+                                        {{ $selected = true }}
+                                    {{ end }}
+                                {{ end }}
+
+                                <option value="{{ $app.ID.String }}" {{ if $selected }}selected="selected"{{ end }}>{{ $app.Name }}</option>
+                            {{ end }}
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-group row">
                     <label for="DisableDRSZones" class="col-sm-3 col-form-label">Disable DRS Zones</label>
 
                     <div class="col-sm-9">
@@ -1726,6 +1913,704 @@
                                 this may cause problems if you're running races at the same track simultaneously.
                             </strong>
                         </small>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card mt-3 border-secondary">
+            <div class="card-header">
+                <strong>Custom Penalties</strong>
+            </div>
+
+            <div class="card-body">
+                <ul class="nav nav-tabs" id="myTab" role="tablist">
+                    <li class="nav-item">
+                        <a class="nav-link active {{ if $f.CustomCutsEnabled }}text-success{{ end }}" id="cuts-tab" data-toggle="tab" href="#cuts" role="tab" aria-controls="cuts" aria-selected="true">Cuts</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {{ if $f.CollisionPenaltiesEnabled }}text-success{{ end }}" id="collisions-tab" data-toggle="tab" href="#collisions" role="tab" aria-controls="collisions" aria-selected="false">Collisions</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {{ if $f.DRSPenaltiesEnabled }}text-success{{ end }}" id="drs-tab" data-toggle="tab" href="#drs" role="tab" aria-controls="drs" aria-selected="false">DRS</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {{ if $f.TyrePenaltiesEnabled }}text-success{{ end }}" id="tyres-tab" data-toggle="tab" href="#tyres" role="tab" aria-controls="tyres" aria-selected="false">Tyres</a>
+                    </li>
+                </ul>
+
+                <div class="tab-content pt-3" id="myTabContent">
+                    <div class="tab-pane fade show active" id="cuts" role="tabpanel" aria-labelledby="cuts-tab">
+                        <div class="mt-2">
+
+                            <div class="form-group row">
+                                <label for="CustomCutsEnabled" class="col-sm-3 col-form-label">Enable Custom Cut Penalties</label>
+
+                                <div class="col-sm-9">
+
+                                    <input
+                                            class="penalty-type-enabler"
+                                            type="checkbox"
+                                            id="CustomCutsEnabled"
+                                            name="CustomCutsEnabled"
+                                            {{ if $f.CustomCutsEnabled }}
+                                                checked="checked"
+                                            {{ end }}
+                                    ><br/>
+
+                                    <small>
+                                        Custom cut penalties are controlled entirely by the server to prevent driver intervention.
+                                        If a driver finishes a lap faster than their current average that has one or more cuts then
+                                        they will be given a warning. If their number of warnings exceeds the number of warnings set
+                                        they will be given the configured penalty and their warning counter will reset.
+
+                                        <br><br>
+
+                                        <strong>
+                                            These penalties only apply in race sessions. Please note that some tracks may not correctly report cuts in race sessions.
+                                            You can read more about this and follow a guide to fix them <a target="_blank" href="https://github.com/JustaPenguin/assetto-server-manager/wiki/Fixing-Track-Cut-Detection-in-Race-Sessions">here</a>.
+                                        </strong>
+                                    </small>
+                                </div>
+                            </div>
+
+                            <div class="form-group row">
+                                <label for="CustomCutsNumWarnings" class="col-sm-3 col-form-label">Number of Warnings</label>
+
+                                <div class="col-sm-9">
+                                    <input
+                                            type="number"
+                                            id="CustomCutsNumWarnings"
+                                            name="CustomCutsNumWarnings"
+                                            class="form-control"
+                                            value="{{ $f.CustomCutsNumWarnings }}"
+                                            min="0"
+                                            step="1"
+                                    >
+
+                                    <small>The number of cut warnings to give before applying the configured penalty.</small>
+                                </div>
+                            </div>
+
+                            <div class="form-group row">
+                                <label for="CustomCutsPenaltyType" class="col-sm-3 col-form-label">Penalty Type</label>
+
+                                <div class="col-sm-9">
+
+                                    <select class="form-control" id="CustomCutsPenaltyType" name="CustomCutsPenaltyType">
+                                        {{ range $val, $name := .PenaltyOptions }}
+                                            <option value="{{ $val }}" {{ if eq $f.CustomCutsPenaltyType $val }} selected="selected" {{ end }}>{{ $name }}</option>
+                                        {{ end }}
+                                    </select>
+
+                                    <small>The type of penalty to apply when the number of warnings is exceeded.</small>
+                                </div>
+                            </div>
+
+                            {{ $hideBoPOptions := and (ne $f.CustomCutsPenaltyType 1) (ne $f.CustomCutsPenaltyType 2) }}
+
+                            <div class="form-group row" style="{{ if $hideBoPOptions }}display: none;{{ end }}" id="CustomCutsBoPAmountWrapper">
+                                <label for="CustomCutsBoPAmount" class="col-sm-3 col-form-label">Ballast(kg)/Restrictor(%) to Apply</label>
+
+                                <div class="col-sm-9">
+                                    <input
+                                            type="number"
+                                            id="CustomCutsBoPAmount"
+                                            name="CustomCutsBoPAmount"
+                                            class="form-control"
+                                            value="{{ $f.CustomCutsBoPAmount }}"
+                                            {{ if not $hideBoPOptions }}
+                                                min="0"
+                                            {{ end }}
+                                            step="0.01"
+                                    >
+
+                                    <small>The amount of ballast/restrictor to apply when the penalty is applied.</small>
+                                </div>
+                            </div>
+
+                            <div class="form-group row" style="{{ if $hideBoPOptions }}display: none;{{ end }}" id="CustomCutsBoPNumLapsWrapper">
+                                <label for="CustomCutsBoPNumLaps" class="col-sm-3 col-form-label">Number of Laps of Penalty Ballast/Restrictor</label>
+
+                                <div class="col-sm-9">
+                                    <input
+                                            type="number"
+                                            id="CustomCutsBoPNumLaps"
+                                            name="CustomCutsBoPNumLaps"
+                                            class="form-control"
+                                            value="{{ $f.CustomCutsBoPNumLaps }}"
+                                            {{ if not $hideBoPOptions }}
+                                                min="1"
+                                            {{ end }}
+                                            step="1"
+                                    >
+
+                                    <small>After this number of laps the ballast/restrictor penalty will be removed.</small>
+                                </div>
+                            </div>
+
+                            <div class="form-group row" style="{{ if (ne $f.CustomCutsPenaltyType 4) }}display: none;{{ end }}" id="CustomCutsDriveThroughNumLapsWrapper">
+                                <label for="CustomCutsDriveThroughNumLaps" class="col-sm-3 col-form-label">Number of Laps to Serve Drive Through</label>
+
+                                <div class="col-sm-9">
+                                    <input
+                                            type="number"
+                                            id="CustomCutsDriveThroughNumLaps"
+                                            name="CustomCutsDriveThroughNumLaps"
+                                            class="form-control"
+                                            value="{{ $f.CustomCutsDriveThroughNumLaps }}"
+                                            min="1"
+                                            step="1"
+                                    >
+
+                                    <small>If a driver does not complete their drive through within this number of laps they will be kicked.
+                                        If a driver completes the race with a pending drive through penalty they will be given an automatic time penalty.</small>
+                                </div>
+                            </div>
+
+                            <div class="form-group row">
+                                <label for="CustomCutsOnlyIfCleanSet" class="col-sm-3 col-form-label">Only Penalise with Clean Lap</label>
+
+                                <div class="col-sm-9">
+
+                                    <input
+                                            class="form-control"
+                                            type="checkbox"
+                                            id="CustomCutsOnlyIfCleanSet"
+                                            name="CustomCutsOnlyIfCleanSet"
+                                            {{ if $f.CustomCutsOnlyIfCleanSet }}
+                                                checked="checked"
+                                            {{ end }}
+                                    ><br/>
+
+                                    <small>
+                                        If this is enabled a driver will only be given warnings/penalties after they have completed a clean lap.
+                                    </small>
+                                </div>
+                            </div>
+
+                            <div class="form-group row">
+                                <label for="CustomCutsIgnoreFirstLap" class="col-sm-3 col-form-label">Ignore First Lap</label>
+
+                                <div class="col-sm-9">
+
+                                    <input
+                                            class="form-control"
+                                            type="checkbox"
+                                            id="CustomCutsIgnoreFirstLap"
+                                            name="CustomCutsIgnoreFirstLap"
+                                            {{ if $f.CustomCutsIgnoreFirstLap }}
+                                                checked="checked"
+                                            {{ end }}
+                                    ><br/>
+
+                                    <small>
+                                        If this is enabled cuts in the first lap of a race will be completely ignored.
+                                    </small>
+                                </div>
+                            </div>
+
+                        </div>
+                    </div>
+
+                    <div class="tab-pane fade" id="collisions" role="tabpanel" aria-labelledby="collisions-tab">
+                        <div class="mt-2">
+
+                            <div class="form-group row">
+                                <label for="CollisionPenaltiesEnabled" class="col-sm-3 col-form-label">Enable Custom Collision Penalties</label>
+
+                                <div class="col-sm-9">
+
+                                    <input
+                                            class="penalty-type-enabler"
+                                            type="checkbox"
+                                            id="CollisionPenaltiesEnabled"
+                                            name="CollisionPenaltiesEnabled"
+                                            {{ if $f.CollisionPenaltiesEnabled }}
+                                                checked="checked"
+                                            {{ end }}
+                                    ><br/>
+
+                                    <small>
+                                        Custom collision penalties are controlled entirely by the server to prevent driver intervention.
+                                        If a driver collides with another driver above the configured minimum speed
+                                        they will be given a warning. If their number of warnings exceeds the number of warnings set
+                                        they will be given the configured penalty and their warning counter will reset.
+
+                                        <strong>These penalties only apply in race sessions.</strong>
+                                    </small>
+                                </div>
+                            </div>
+
+                            <div class="form-group row">
+                                <label for="CollisionPenaltiesNumWarnings" class="col-sm-3 col-form-label">Number of Warnings</label>
+
+                                <div class="col-sm-9">
+                                    <input
+                                            type="number"
+                                            id="CollisionPenaltiesNumWarnings"
+                                            name="CollisionPenaltiesNumWarnings"
+                                            class="form-control"
+                                            value="{{ $f.CollisionPenaltiesNumWarnings }}"
+                                            min="0"
+                                            step="1"
+                                    >
+
+                                    <small>The number of collision warnings to give before applying the configured penalty.</small>
+                                </div>
+                            </div>
+
+                            <div class="form-group row">
+                                <label for="CollisionPenaltiesOnlyOverSpeed" class="col-sm-3 col-form-label">Minimum Speed</label>
+
+                                <div class="col-sm-9">
+                                    <input
+                                            type="number"
+                                            id="CollisionPenaltiesOnlyOverSpeed"
+                                            name="CollisionPenaltiesOnlyOverSpeed"
+                                            class="form-control"
+                                            value="{{ $f.CollisionPenaltiesOnlyOverSpeed }}"
+                                            min="0"
+                                            step="1"
+                                    >
+
+                                    <small>The collision speed (km/h) must be at least this value for the driver to receive a warning.</small>
+                                </div>
+                            </div>
+
+                            <div class="form-group row">
+                                <label for="CollisionPenaltiesPenaltyType" class="col-sm-3 col-form-label">Penalty Type</label>
+
+                                <div class="col-sm-9">
+
+                                    <select class="form-control" id="CollisionPenaltiesPenaltyType" name="CollisionPenaltiesPenaltyType">
+                                        {{ range $val, $name := .PenaltyOptions }}
+                                            <option value="{{ $val }}" {{ if eq $f.CollisionPenaltiesPenaltyType $val }} selected="selected" {{ end }}>{{ $name }}</option>
+                                        {{ end }}
+                                    </select>
+
+                                    <small>The type of penalty to apply when the number of warnings is exceeded.</small>
+                                </div>
+                            </div>
+
+                            {{ $hideBoPOptionsCollision := and (ne $f.CollisionPenaltiesPenaltyType 1) (ne $f.CollisionPenaltiesPenaltyType 2) }}
+
+                            <div class="form-group row" style="{{ if $hideBoPOptionsCollision }}display: none;{{ end }}" id="CollisionPenaltiesBoPAmountWrapper">
+                                <label for="CollisionPenaltiesBoPAmount" class="col-sm-3 col-form-label">Ballast(kg)/Restrictor(%) to Apply</label>
+
+                                <div class="col-sm-9">
+                                    <input
+                                            type="number"
+                                            id="CollisionPenaltiesBoPAmount"
+                                            name="CollisionPenaltiesBoPAmount"
+                                            class="form-control"
+                                            value="{{ $f.CollisionPenaltiesBoPAmount }}"
+                                            {{ if not $hideBoPOptionsCollision }}
+                                                min="0"
+                                            {{ end }}
+                                            step="0.01"
+                                    >
+
+                                    <small>The amount of ballast/restrictor to apply when the penalty is applied.</small>
+                                </div>
+                            </div>
+
+                            <div class="form-group row" style="{{ if $hideBoPOptionsCollision }}display: none;{{ end }}" id="CollisionPenaltiesBoPNumLapsWrapper">
+                                <label for="CollisionPenaltiesBoPNumLaps" class="col-sm-3 col-form-label">Number of Laps of Penalty Ballast/Restrictor</label>
+
+                                <div class="col-sm-9">
+                                    <input
+                                            type="number"
+                                            id="CollisionPenaltiesBoPNumLaps"
+                                            name="CollisionPenaltiesBoPNumLaps"
+                                            class="form-control"
+                                            value="{{ $f.CollisionPenaltiesBoPNumLaps }}"
+                                            {{ if not $hideBoPOptionsCollision }}
+                                                min="1"
+                                            {{ end }}
+                                            step="1"
+                                    >
+
+                                    <small>After this number of laps the ballast/restrictor penalty will be removed.</small>
+                                </div>
+                            </div>
+
+                            <div class="form-group row" style="{{ if (ne $f.CollisionPenaltiesPenaltyType 4) }}display: none;{{ end }}" id="CollisionPenaltiesDriveThroughNumLapsWrapper">
+                                <label for="CollisionPenaltiesDriveThroughNumLaps" class="col-sm-3 col-form-label">Number of Laps to Serve Drive Through</label>
+
+                                <div class="col-sm-9">
+                                    <input
+                                            type="number"
+                                            id="CollisionPenaltiesDriveThroughNumLaps"
+                                            name="CollisionPenaltiesDriveThroughNumLaps"
+                                            class="form-control"
+                                            value="{{ $f.CollisionPenaltiesDriveThroughNumLaps }}"
+                                            min="1"
+                                            step="1"
+                                    >
+
+                                    <small>If a driver does not complete their drive through within this number of laps they will be kicked.
+                                        If a driver completes the race with a pending drive through penalty they will be given an automatic time penalty.</small>
+                                </div>
+                            </div>
+
+                            <div class="form-group row">
+                                <label for="CollisionPenaltiesIgnoreFirstLap" class="col-sm-3 col-form-label">Ignore First Lap</label>
+
+                                <div class="col-sm-9">
+
+                                    <input
+                                            class="form-control"
+                                            type="checkbox"
+                                            id="CollisionPenaltiesIgnoreFirstLap"
+                                            name="CollisionPenaltiesIgnoreFirstLap"
+                                            {{ if $f.CollisionPenaltiesIgnoreFirstLap }}
+                                                checked="checked"
+                                            {{ end }}
+                                    ><br/>
+
+                                    <small>
+                                        If this is enabled collisions in the first lap of a race will be completely ignored.
+                                    </small>
+                                </div>
+                            </div>
+
+                        </div>
+                    </div>
+
+                    <div class="tab-pane fade" id="drs" role="tabpanel" aria-labelledby="drs-tab">
+                        <div class="mt-2">
+
+                            <div class="form-group row">
+                                <label for="DRSPenaltiesEnabled" class="col-sm-3 col-form-label">Enable Custom DRS Penalties</label>
+
+                                <div class="col-sm-9">
+
+                                    <input
+                                            class="penalty-type-enabler"
+                                            type="checkbox"
+                                            id="DRSPenaltiesEnabled"
+                                            name="DRSPenaltiesEnabled"
+                                            {{ if $f.DRSPenaltiesEnabled }}
+                                                checked="checked"
+                                            {{ end }}
+                                    ><br/>
+
+                                    <small>
+                                        Custom DRS penalties are controlled entirely by the server to prevent driver intervention.
+                                        If a driver uses DRS inside a DRS zone whilst not within the DRS window of another driver
+                                        they will be given a warning. If their number of warnings exceeds the number of warnings set
+                                        they will be given the configured penalty and their warning counter will reset.
+
+                                        <strong>These penalties only apply in race sessions.</strong>
+                                    </small>
+                                </div>
+                            </div>
+
+                            <div class="form-group row">
+                                <label for="DRSPenaltiesWindow" class="col-sm-3 col-form-label">DRS Window</label>
+
+                                <div class="col-sm-9">
+                                    <input
+                                            type="number"
+                                            id="DRSPenaltiesWindow"
+                                            name="DRSPenaltiesWindow"
+                                            class="form-control"
+                                            value="{{ $f.DRSPenaltiesWindow }}"
+                                            min="0"
+                                            step="0.1"
+                                    >
+
+                                    <small>The DRS Window in seconds. Following driver must be within this many of seconds of the driver in front to be able to use DRS.</small>
+                                </div>
+                            </div>
+
+                            <div class="form-group row">
+                                <label for="DRSPenaltiesEnableOnLap" class="col-sm-3 col-form-label">Enable DRS On Lap</label>
+
+                                <div class="col-sm-9">
+                                    <input
+                                            type="number"
+                                            id="DRSPenaltiesEnableOnLap"
+                                            name="DRSPenaltiesEnableOnLap"
+                                            class="form-control"
+                                            value="{{ $f.DRSPenaltiesEnableOnLap }}"
+                                            min="0"
+                                            step="1"
+                                    >
+
+                                    <small>DRS will be enabled on this lap. Any DRS usage before this lap will be penalised.</small>
+                                </div>
+                            </div>
+
+                            <div class="form-group row">
+                                <label for="DRSPenaltiesNumWarnings" class="col-sm-3 col-form-label">Number of Warnings</label>
+
+                                <div class="col-sm-9">
+                                    <input
+                                            type="number"
+                                            id="DRSPenaltiesNumWarnings"
+                                            name="DRSPenaltiesNumWarnings"
+                                            class="form-control"
+                                            value="{{ $f.DRSPenaltiesNumWarnings }}"
+                                            min="0"
+                                            step="1"
+                                    >
+
+                                    <small>The number of incorrect DRS usage warnings to give before applying the configured penalty.</small>
+                                </div>
+                            </div>
+
+                            <div class="form-group row">
+                                <label for="DRSPenaltiesPenaltyType" class="col-sm-3 col-form-label">Penalty Type</label>
+
+                                <div class="col-sm-9">
+
+                                    <select class="form-control" id="DRSPenaltiesPenaltyType" name="DRSPenaltiesPenaltyType">
+                                        {{ range $val, $name := .PenaltyOptions }}
+                                            <option value="{{ $val }}" {{ if eq $f.DRSPenaltiesPenaltyType $val }} selected="selected" {{ end }}>{{ $name }}</option>
+                                        {{ end }}
+                                    </select>
+
+                                    <small>The type of penalty to apply when the number of warnings is exceeded.</small>
+                                </div>
+                            </div>
+
+                            {{ $hideBoPOptionsDRS := and (ne $f.DRSPenaltiesPenaltyType 1) (ne $f.DRSPenaltiesPenaltyType 2) }}
+
+                            <div class="form-group row" style="{{ if $hideBoPOptionsDRS }}display: none;{{ end }}" id="DRSPenaltiesBoPAmountWrapper">
+                                <label for="DRSPenaltiesBoPAmount" class="col-sm-3 col-form-label">Ballast(kg)/Restrictor(%) to Apply</label>
+
+                                <div class="col-sm-9">
+                                    <input
+                                            type="number"
+                                            id="DRSPenaltiesBoPAmount"
+                                            name="DRSPenaltiesBoPAmount"
+                                            class="form-control"
+                                            value="{{ $f.DRSPenaltiesBoPAmount }}"
+                                            {{ if not $hideBoPOptionsDRS }}
+                                                min="0"
+                                            {{ end }}
+                                            step="0.01"
+                                    >
+
+                                    <small>The amount of ballast/restrictor to apply when the penalty is applied.</small>
+                                </div>
+                            </div>
+
+                            <div class="form-group row" style="{{ if $hideBoPOptionsDRS }}display: none;{{ end }}" id="DRSPenaltiesBoPNumLapsWrapper">
+                                <label for="DRSPenaltiesBoPNumLaps" class="col-sm-3 col-form-label">Number of Laps of Penalty Ballast/Restrictor</label>
+
+                                <div class="col-sm-9">
+                                    <input
+                                            type="number"
+                                            id="DRSPenaltiesBoPNumLaps"
+                                            name="DRSPenaltiesBoPNumLaps"
+                                            class="form-control"
+                                            value="{{ $f.DRSPenaltiesBoPNumLaps }}"
+                                            {{ if not $hideBoPOptionsDRS }}
+                                                min="1"
+                                            {{ end }}
+                                            step="1"
+                                    >
+
+                                    <small>After this number of laps the ballast/restrictor penalty will be removed.</small>
+                                </div>
+                            </div>
+
+                            <div class="form-group row" style="{{ if (ne $f.DRSPenaltiesPenaltyType 4) }}display: none;{{ end }}" id="DRSPenaltiesDriveThroughNumLapsWrapper">
+                                <label for="DRSPenaltiesDriveThroughNumLaps" class="col-sm-3 col-form-label">Number of Laps to Serve Drive Through</label>
+
+                                <div class="col-sm-9">
+                                    <input
+                                            type="number"
+                                            id="DRSPenaltiesDriveThroughNumLaps"
+                                            name="DRSPenaltiesDriveThroughNumLaps"
+                                            class="form-control"
+                                            value="{{ $f.DRSPenaltiesDriveThroughNumLaps }}"
+                                            min="1"
+                                            step="1"
+                                    >
+
+                                    <small>If a driver does not complete their drive through within this number of laps they will be kicked.
+                                        If a driver completes the race with a pending drive through penalty they will be given an automatic time penalty.</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="tab-pane fade" id="tyres" role="tabpanel" aria-labelledby="tyres-tab">
+                        <div class="mt-2">
+
+                            <div class="form-group row">
+                                <label for="TyrePenaltiesEnabled" class="col-sm-3 col-form-label">Enable Custom Tyre Penalties</label>
+
+                                <div class="col-sm-9">
+
+                                    <input
+                                            class="penalty-type-enabler"
+                                            type="checkbox"
+                                            id="TyrePenaltiesEnabled"
+                                            name="TyrePenaltiesEnabled"
+                                            {{ if $f.TyrePenaltiesEnabled }}
+                                                checked="checked"
+                                            {{ end }}
+                                    ><br/>
+
+                                    <small>
+                                        Custom tyre penalties are controlled entirely by the server to prevent driver intervention.
+                                        If a driver uses less than the minimum required number of compounds in a race session they
+                                        will be given the configured minimum tyre penalty. If a driver does not start on the tyre
+                                        used to achieve their best qualifying time (in the specified qualifying session) they will be
+                                        given the configured best qualifying compound penalty.
+
+                                        <strong>These penalties only apply in race sessions.</strong>
+                                    </small>
+                                </div>
+                            </div>
+
+                            <div class="form-group row">
+                                <label for="TyrePenaltiesMinimumCompounds" class="col-sm-3 col-form-label">Minimum Tyre Compounds</label>
+
+                                <div class="col-sm-9">
+                                    <input
+                                            type="number"
+                                            id="TyrePenaltiesMinimumCompounds"
+                                            name="TyrePenaltiesMinimumCompounds"
+                                            class="form-control"
+                                            value="{{ $f.TyrePenaltiesMinimumCompounds }}"
+                                            min="0"
+                                            step="1"
+                                    >
+
+                                    <small>Each driver must use at least this many tyre compounds during the race. If they do not they
+                                        will be given the configured minimum tyre penalty.</small>
+                                </div>
+                            </div>
+
+                            <div class="form-group row">
+                                <label for="TyrePenaltiesMinimumCompoundsPenalty" class="col-sm-3 col-form-label">Minimum Tyre Compounds Penalty</label>
+
+                                <div class="col-sm-9">
+                                    <input
+                                            type="number"
+                                            id="TyrePenaltiesMinimumCompoundsPenalty"
+                                            name="TyrePenaltiesMinimumCompoundsPenalty"
+                                            class="form-control"
+                                            value="{{ $f.TyrePenaltiesMinimumCompoundsPenalty }}"
+                                            min="0"
+                                            step="1"
+                                    >
+
+                                    <small>If a driver does not use the configured minimum number of tyre compounds in a race they will be
+                                        given this time penalty (seconds) in the results file. If 0 they will be disqualified.</small>
+                                </div>
+                            </div>
+
+                            {{ if not $.IsRaceWeekend }}
+
+                                <div class="form-group row">
+                                    <label for="TyrePenaltiesMustStartOnBestQualifying" class="col-sm-3 col-form-label">Start on Best Qualifying Compound</label>
+
+                                    <div class="col-sm-9">
+
+                                        <input
+                                                class="form-control"
+                                                type="checkbox"
+                                                id="TyrePenaltiesMustStartOnBestQualifying"
+                                                name="TyrePenaltiesMustStartOnBestQualifying"
+                                                {{ if $f.TyrePenaltiesMustStartOnBestQualifying }}
+                                                    checked="checked"
+                                                {{ end }}
+                                        ><br/>
+
+                                        <small>
+                                            If enabled each driver must start the race on the tyre compound used to complete their fastest
+                                            qualifying time in the specified qualifying session. If they do not they will be given the configured
+                                            penalty at the end of lap one.
+                                        </small>
+                                    </div>
+                                </div>
+
+                                <div class="form-group row">
+                                    <label for="TyrePenaltiesPenaltyType" class="col-sm-3 col-form-label">Qualifying Compound Penalty Type</label>
+
+                                    <div class="col-sm-9">
+
+                                        <select class="form-control" id="TyrePenaltiesPenaltyType" name="TyrePenaltiesPenaltyType">
+                                            {{ range $val, $name := .PenaltyOptions }}
+                                                <option value="{{ $val }}" {{ if eq $f.TyrePenaltiesPenaltyType $val }} selected="selected" {{ end }}>{{ $name }}</option>
+                                            {{ end }}
+                                        </select>
+
+                                        <small>The type of penalty to apply if a driver starts the race on the wrong tyre compound.</small>
+                                    </div>
+                                </div>
+
+                                {{ $hideBoPOptionsTyres := and (ne $f.TyrePenaltiesPenaltyType 1) (ne $f.TyrePenaltiesPenaltyType 2) }}
+
+                                <div class="form-group row" style="{{ if $hideBoPOptionsTyres }}display: none;{{ end }}" id="TyrePenaltiesBoPAmountWrapper">
+                                    <label for="TyrePenaltiesBoPAmount" class="col-sm-3 col-form-label">Ballast(kg)/Restrictor(%) to Apply</label>
+
+                                    <div class="col-sm-9">
+                                        <input
+                                                type="number"
+                                                id="TyrePenaltiesBoPAmount"
+                                                name="TyrePenaltiesBoPAmount"
+                                                class="form-control"
+                                                value="{{ $f.TyrePenaltiesBoPAmount }}"
+                                                {{ if not $hideBoPOptionsTyres }}
+                                                    min="0"
+                                                {{ end }}
+                                                step="0.01"
+                                        >
+
+                                        <small>The amount of ballast/restrictor to apply when the penalty is applied.</small>
+                                    </div>
+                                </div>
+
+                                <div class="form-group row" style="{{ if $hideBoPOptionsTyres }}display: none;{{ end }}" id="TyrePenaltiesBoPNumLapsWrapper">
+                                    <label for="TyrePenaltiesBoPNumLaps" class="col-sm-3 col-form-label">Number of Laps of Penalty Ballast/Restrictor</label>
+
+                                    <div class="col-sm-9">
+                                        <input
+                                                type="number"
+                                                id="TyrePenaltiesBoPNumLaps"
+                                                name="TyrePenaltiesBoPNumLaps"
+                                                class="form-control"
+                                                value="{{ $f.TyrePenaltiesBoPNumLaps }}"
+                                                {{ if not $hideBoPOptionsTyres }}
+                                                    min="1"
+                                                {{ end }}
+                                                step="1"
+                                        >
+
+                                        <small>After this number of laps the ballast/restrictor penalty will be removed.</small>
+                                    </div>
+                                </div>
+
+                                <div class="form-group row" style="{{ if (ne $f.TyrePenaltiesPenaltyType 4) }}display: none;{{ end }}" id="TyrePenaltiesDriveThroughNumLapsWrapper">
+                                    <label for="TyrePenaltiesDriveThroughNumLaps" class="col-sm-3 col-form-label">Number of Laps to Serve Drive Through</label>
+
+                                    <div class="col-sm-9">
+                                        <input
+                                                type="number"
+                                                id="TyrePenaltiesDriveThroughNumLaps"
+                                                name="TyrePenaltiesDriveThroughNumLaps"
+                                                class="form-control"
+                                                value="{{ $f.TyrePenaltiesDriveThroughNumLaps }}"
+                                                min="1"
+                                                step="1"
+                                        >
+
+                                        <small>If a driver does not complete their drive through within this number of laps they will be kicked.
+                                            If a driver completes the race with a pending drive through penalty they will be given an automatic time penalty.</small>
+                                    </div>
+                                </div>
+
+                            {{ end }}
+
+                        </div>
                     </div>
                 </div>
             </div>

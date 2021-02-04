@@ -1,6 +1,7 @@
-package servermanager
+package acsm
 
 import (
+	"html/template"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -43,6 +44,10 @@ func KissMyRankConfigPath() string {
 
 // IsKissMyRankInstalled looks in the ServerInstallPath for a "kissmyrank" directory with the correct kissmyrank executable for the given platform
 func IsKissMyRankInstalled() bool {
+	if config.Server.DisablePlugins {
+		return false
+	}
+
 	if _, err := os.Stat(KissMyRankExecutablePath()); os.IsNotExist(err) {
 		return false
 	} else if err != nil {
@@ -56,7 +61,7 @@ func IsKissMyRankInstalled() bool {
 type kissMyRankConfigurationTemplateVars struct {
 	BaseTemplateVars
 
-	Form           *Form
+	Form           template.HTML
 	IsKMRInstalled bool
 }
 
@@ -81,10 +86,8 @@ func (kmrh *KissMyRankHandler) options(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	form := NewForm(opts, nil, "", AccountFromRequest(r).Name == "admin")
-
 	if r.Method == http.MethodPost {
-		err := form.Submit(r)
+		err := DecodeFormData(opts, r)
 
 		if err != nil {
 			logrus.WithError(err).Errorf("couldn't submit form")
@@ -100,6 +103,14 @@ func (kmrh *KissMyRankHandler) options(w http.ResponseWriter, r *http.Request) {
 		} else {
 			AddFlash(w, r, "KissMyRank options successfully saved!")
 		}
+	}
+
+	form, err := EncodeFormData(opts, r)
+
+	if err != nil {
+		logrus.WithError(err).Errorf("Couldn't encode form data")
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		return
 	}
 
 	kmrh.viewRenderer.MustLoadTemplate(w, r, "server/kissmyrank-options.html", &kissMyRankConfigurationTemplateVars{

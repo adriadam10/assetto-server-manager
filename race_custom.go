@@ -1,11 +1,10 @@
-package servermanager
+package acsm
 
 import (
 	"fmt"
 	"net/http"
 	"time"
 
-	"4d63.com/tz"
 	"github.com/go-chi/chi"
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
@@ -92,6 +91,10 @@ func (cr *CustomRace) HasSignUpForm() bool {
 
 func (cr *CustomRace) GetID() uuid.UUID {
 	return cr.UUID
+}
+
+func (cr *CustomRace) GetScheduledServerID() ServerID {
+	return cr.ScheduledServerID
 }
 
 func (cr *CustomRace) GetRaceSetup() CurrentRaceConfig {
@@ -307,7 +310,7 @@ func (crh *CustomRaceHandler) schedule(w http.ResponseWriter, r *http.Request) {
 	timeString := r.FormValue("event-schedule-time")
 	timezone := r.FormValue("event-schedule-timezone")
 
-	location, err := tz.LoadLocation(timezone)
+	location, err := time.LoadLocation(timezone)
 
 	if err != nil {
 		logrus.WithError(err).Errorf("could not find location: %s", location)
@@ -387,16 +390,23 @@ func (crh *CustomRaceHandler) star(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	AddFlash(w, r, "Custom race starred")
 	http.Redirect(w, r, r.Referer(), http.StatusFound)
 }
 
 func (crh *CustomRaceHandler) loop(w http.ResponseWriter, r *http.Request) {
-	err := crh.raceManager.ToggleLoopCustomRace(chi.URLParam(r, "uuid"))
+	loopStatus, err := crh.raceManager.ToggleLoopCustomRace(chi.URLParam(r, "uuid"))
 
 	if err != nil {
 		logrus.WithError(err).Errorf("couldn't add custom race to loop")
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
+	}
+
+	if loopStatus {
+		AddFlash(w, r, "Custom race added to loop")
+	} else {
+		AddFlash(w, r, "Custom race removed from loop")
 	}
 
 	http.Redirect(w, r, r.Referer(), http.StatusFound)
