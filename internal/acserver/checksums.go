@@ -79,7 +79,21 @@ func (cm *ChecksumManager) init() error {
 		trackModelsPath,
 	}
 
-	for _, car := range cm.state.raceConfig.Cars {
+	cars := make(map[string]bool)
+
+	if cm.state.raceConfig.PickupModeEnabled {
+		// if we're in pickup mode, only checksum cars that users can connect in
+		for _, entrant := range cm.state.entryList {
+			cars[entrant.Model] = true
+		}
+	} else {
+		// otherwise checksum all cars
+		for _, car := range cm.state.raceConfig.Cars {
+			cars[car] = true
+		}
+	}
+
+	for car := range cars {
 		acdFilepath := filepath.Join(cm.baseDirectory, "content", "cars", car, "data.acd")
 
 		if _, err := os.Stat(acdFilepath); os.IsNotExist(err) {
